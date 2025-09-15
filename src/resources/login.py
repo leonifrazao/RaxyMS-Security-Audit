@@ -23,6 +23,9 @@ def login(driver: Driver, data: Mapping[str, Any] | None = None) -> None:
     driver.google_get("https://rewards.bing.com")
     # driver.click("a[id='mectrl_main_trigger']", wait=Wait.VERY_LONG)
     driver.short_random_sleep()
+    # Já esta logado
+    if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']"):
+        return
 
     if not email or not password:
         # Fail fast with a clear message; botasaursus will capture logs
