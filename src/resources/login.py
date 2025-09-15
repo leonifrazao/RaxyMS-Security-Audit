@@ -19,7 +19,7 @@ def login(driver: Driver, data: Mapping[str, Any] | None = None) -> None:
     password = (data.get("password") or os.getenv("MS_PASSWORD") or "").strip()
 
     driver.enable_human_mode()
-    driver.google_get("https://www.microsoft.com/pt-br/rewards/about")
+    driver.google_get("https://www.microsoft.com/en-us/")
     driver.click("a[id='mectrl_main_trigger']", wait=Wait.VERY_LONG)
     driver.short_random_sleep()
 
@@ -28,13 +28,14 @@ def login(driver: Driver, data: Mapping[str, Any] | None = None) -> None:
         raise ValueError("Credenciais ausentes: defina MS_EMAIL/MS_PASSWORD ou passe em data={}")
 
     driver.type("input[type='email']", email, wait=Wait.VERY_LONG)
-    driver.click("input[type='submit']")
+    driver.click("button[type='submit']")
     driver.short_random_sleep()
     driver.type("input[type='password']", password, wait=Wait.VERY_LONG)
     driver.click("button[type='submit']")
     driver.short_random_sleep()
     try:
-        driver.click("button[type='submit']", wait=Wait.SHORT)
+        # driver.wait_for_element("button[type='submit', aria-label='Yes']", wait=Wait.VERY_LONG)
+        driver.click("button[type='submit', aria-label='Yes']", wait=Wait.SHORT)
     except Exception:
         # Optional confirm prompt may not appear
         pass
