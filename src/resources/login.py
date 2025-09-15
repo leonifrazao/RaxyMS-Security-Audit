@@ -37,9 +37,11 @@ def login(driver: Driver, data: Mapping[str, Any] | None = None) -> None:
     driver.type("input[type='password']", password, wait=Wait.VERY_LONG)
     driver.click("button[type='submit']")
     driver.short_random_sleep()
+    driver.prompt()
     try:
         # driver.wait_for_element("button[type='submit', aria-label='Yes']", wait=Wait.VERY_LONG)
-        driver.click("button[type='submit', aria-label='Yes']", wait=Wait.SHORT)
+        # Selector correto para salvar login
+        driver.click("button[aria-label='Yes']", wait=Wait.SHORT)
     except Exception:
         # Optional confirm prompt may not appear
         pass
