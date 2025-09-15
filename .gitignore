@@ -1,5 +1,25 @@
-/*
+# Bytecode e artefatos python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
 
-!src
-!shell.nix
-!.gitignore
+# Ambientes virtuais
+.env
+.venv
+env/
+venv/
+
+# Logs e arquivos gerados em execucoes
+error_logs/
+profiles/
+profiles.json
+*.log
+
+# Arquivos locais de configuracao/credenciais
+users.txt
+dados.db
+
+# Arquivos do sistema
+.DS_Store
