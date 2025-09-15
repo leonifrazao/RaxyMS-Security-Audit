@@ -19,8 +19,9 @@ def login(driver: Driver, data: Mapping[str, Any] | None = None) -> None:
     password = (data.get("password") or os.getenv("MS_PASSWORD") or "").strip()
 
     driver.enable_human_mode()
-    driver.google_get("https://www.microsoft.com/en-us/")
-    driver.click("a[id='mectrl_main_trigger']", wait=Wait.VERY_LONG)
+    # Bypass Acess Denied
+    driver.google_get("https://rewards.bing.com")
+    # driver.click("a[id='mectrl_main_trigger']", wait=Wait.VERY_LONG)
     driver.short_random_sleep()
 
     if not email or not password:
