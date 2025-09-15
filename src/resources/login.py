@@ -24,7 +24,7 @@ def login(driver: Driver, data: Mapping[str, Any] | None = None) -> None:
     # driver.click("a[id='mectrl_main_trigger']", wait=Wait.VERY_LONG)
     driver.short_random_sleep()
     # Já esta logado
-    if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']"):
+    if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
         return
 
     if not email or not password:
