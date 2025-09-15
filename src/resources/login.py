@@ -1,38 +1,40 @@
-from botasaurus.browser import browser, Driver
-from botasaurus.profiles import Profiles
-from botasaurus.browser import Wait
+import os
+from typing import Mapping, Any
 
-from .utils import set_profile
+from botasaurus.browser import browser, Driver, Wait
 
-@browser(
-    remove_default_browser_check_argument=True,
-    wait_for_complete_page_load=True,
-    block_images=True,
-    output=None,
-    tiny_profile=True
-)
-def login(driver: Driver, data):
-    # Visit the website via Google Referrer
+from .config import BROWSER_KWARGS
+
+
+@browser(**BROWSER_KWARGS)
+def login(driver: Driver, data: Mapping[str, Any] | None = None) -> None:
+    """Perform Microsoft Rewards login flow.
+
+    Credentials are read from `data` (keys: `email`, `password`) or
+    environment variables `MS_EMAIL` and `MS_PASSWORD`.
+    """
+    # Read credentials
+    data = data or {}
+    email = (data.get("email") or os.getenv("MS_EMAIL") or "").strip()
+    password = (data.get("password") or os.getenv("MS_PASSWORD") or "").strip()
+
     driver.enable_human_mode()
     driver.google_get("https://www.microsoft.com/pt-br/rewards/about")
     driver.click("a[id='mectrl_main_trigger']", wait=Wait.VERY_LONG)
     driver.short_random_sleep()
-    driver.type("input[type='email']", "fodasekakakaka1@outlook.com", wait=Wait.VERY_LONG)
-    driver.click("input[type='submit']")  # Click an element
+
+    if not email or not password:
+        # Fail fast with a clear message; botasaursus will capture logs
+        raise ValueError("Credenciais ausentes: defina MS_EMAIL/MS_PASSWORD ou passe em data={}")
+
+    driver.type("input[type='email']", email, wait=Wait.VERY_LONG)
+    driver.click("input[type='submit']")
     driver.short_random_sleep()
-    driver.type("input[type='password']", "aksjdashdasdddddd1111", wait=Wait.VERY_LONG)
-    driver.click("button[type='submit']")  # Click an element
+    driver.type("input[type='password']", password, wait=Wait.VERY_LONG)
+    driver.click("button[type='submit']")
     driver.short_random_sleep()
     try:
-        driver.click("button[type='submit']", wait=Wait.SHORT)  # Click an element
-    except:
+        driver.click("button[type='submit']", wait=Wait.SHORT)
+    except Exception:
+        # Optional confirm prompt may not appear
         pass
-
-if __name__ == "__main__":
-    set_profile("jhasdjhkashjk")
-    login(
-        profile="jhasdjhkashjk",
-        tiny_profile=True, 
-        remove_default_browser_check_argument=True,
-        add_arguments=[f'--user-agent={Profiles.get_profile("jhasdjhkashjk")["UA"]}'],
-    )
