@@ -65,23 +65,31 @@ pkgs.mkShell {
     
   ]);
 
-  postVenvCreation = ''
-    set -e
-    echo ">> Configurando ambiente Python com suporte X11..."
-    "$venvDir/bin/pip" install --upgrade pip
-    "$venvDir/bin/pip" install --upgrade botasaurus
-    # "$venvDir/bin/pip" install torch torchvision \
-    #   --index-url https://download.pytorch.org/whl/rocm6.0
-    # "$venvDir/bin/pip" uninstall -y opencv-python opencv-contrib-python opencv-python-headless || true
-    # "$venvDir/bin/pip" install opencv-python-headless ultralytics mss
-    # "$venvDir/bin/pip" install numpy==1.26
-    # "$venvDir/bin/pip" install python-xlib || true
-  '';
-
   shellHook = ''
     export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeLibs}:''${LD_LIBRARY_PATH:-}"
-    source $venvDir/bin/activate
+
+    primeiro_setup=false
+    if [ ! -d "$venvDir" ]; then
+      echo "[Raxy] Criando ambiente virtual em $venvDir"
+      python -m venv "$venvDir"
+      primeiro_setup=true
+    fi
+
+    source "$venvDir/bin/activate"
+
+    if [ "$primeiro_setup" = true ] || [ ! -f "$venvDir/.deps-instaladas" ]; then
+      echo "[Raxy] Instalando dependências do requirements.txt"
+      if [ -f requirements.txt ]; then
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      else
+          echo "[Raxy] Aviso: requirements.txt não encontrado, nenhuma dependência instalada"
+      fi
+      touch "$venvDir/.deps-instaladas"
+      echo "[Raxy] Ambiente pronto!"
+    fi
   '';
+
 
   postShellHook = ''
     # export QT_QPA_PLATFORM="xcb"
