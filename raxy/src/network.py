@@ -79,25 +79,6 @@ class NetWork:
         
         return None
     
-    def verificar_erro_login(self) -> bool:
-        """
-        Verifica se houve erro de login (status 400, 401, 403).
-        """
-        # Procura por respostas de login com erro
-        patterns_login = [
-            "login", "signin", "auth", "authenticate",
-            "microsoft.com/common/oauth2", "login.live.com"
-        ]
-        
-        for resp in reversed(self.respostas):
-            url_lower = resp["url"].lower()
-            for pattern in patterns_login:
-                if pattern in url_lower:
-                    if resp["status"] in [400, 401, 403]:
-                        return True
-        
-        return False
-    
     def limpar_respostas(self):
         """Limpa o histórico de respostas capturadas."""
         self.respostas = []
