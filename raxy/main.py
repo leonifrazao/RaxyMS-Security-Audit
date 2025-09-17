@@ -10,6 +10,8 @@ Linhas em branco ou iniciadas por ``#`` sao ignoradas.
 from __future__ import annotations
 
 import os
+import time
+
 from typing import Iterable, List
 
 from src import AutenticadorRewards, NavegadorRecompensas, GerenciadorPerfil
@@ -71,35 +73,65 @@ class ExecutorEmLote:
 
         if "rewards" in self.acoes:
             self._abrir_recompensas(perfil, argumentos_navegador, registro_conta)
+            
+    def _abrir_recompensas(self, perfil: str, argumentos_navegador: List[str], registro_conta) -> None:
+        registro_conta.info("Abrindo pagina de rewards")
+        
+        try:
+            # Executa a navegação
+            NavegadorRecompensas.abrir_pagina(
+                profile=perfil,
+                add_arguments=argumentos_navegador,
+            )
+            
+            # Se não lançou exceção, considera sucesso
+            registro_conta.sucesso("Rewards acessado com sucesso")
+            
+        except Exception as exc:
+            # Registra o erro com detalhes
+            registro_conta.erro(
+                "Falha ao acessar página de rewards",
+                detalhe=f"Perfil: {perfil}, Erro: {exc}"
+            )
+            
+            # Interrompe completamente a execução
+            raise SystemExit(f"Execução interrompida: não foi possível acessar rewards para {perfil}")
 
     def _executar_login(self, conta: Conta, argumentos_navegador: List[str], registro_conta) -> None:
-        try:
-            with registro_conta.etapa(
-                "Login",
-                mensagem_inicial="Iniciando login",
-                mensagem_sucesso="Login concluido",
-            ):
-                AutenticadorRewards.executar(
+        
+        MAX_TENTATIVAS = 2
+        
+        registro_conta.info("Iniciando login")
+        
+        for tentativa in range(1, MAX_TENTATIVAS + 1):
+            try:
+                if tentativa > 1:
+                    # Aumenta o tempo de espera a cada tentativa (backoff exponencial)
+                    delay = 2 ** (tentativa - 1)  # 2, 4, 8 segundos...
+                    registro_conta.info(f"Aguardando {delay}s antes da tentativa {tentativa}/{MAX_TENTATIVAS}")
+                    time.sleep(delay)
+                
+                resultado = AutenticadorRewards.executar(
                     profile=conta.id_perfil,
                     add_arguments=argumentos_navegador,
                     data={"email": conta.email, "senha": conta.senha},
                 )
-        except Exception as exc:
-            registro_conta.erro("Erro durante login", detalhe=str(exc))
-
-    def _abrir_recompensas(self, perfil: str, argumentos_navegador: List[str], registro_conta) -> None:
-        try:
-            with registro_conta.etapa(
-                "Rewards",
-                mensagem_inicial="Abrindo pagina de rewards",
-                mensagem_sucesso="Rewards acessado",
-            ):
-                NavegadorRecompensas.abrir_pagina(
-                    profile=perfil,
-                    add_arguments=argumentos_navegador,
-                )
-        except Exception as exc:
-            registro_conta.erro("Erro durante rewards", detalhe=str(exc))
+                
+                if resultado:
+                    if tentativa > 1:
+                        registro_conta.sucesso(f"Login concluido após {tentativa} tentativas")
+                    else:
+                        registro_conta.sucesso("Login concluido")
+                    return
+                else:
+                    raise RuntimeError("Login falhou sem retornar resultado")
+                    
+            except Exception as exc:
+                if tentativa == MAX_TENTATIVAS:
+                    registro_conta.erro(f"Login falhou definitivamente após {MAX_TENTATIVAS} tentativas: {exc}")
+                    raise SystemExit(f"Login impossível para {conta.email}: {exc}")
+                else:
+                    registro_conta.aviso(f"Tentativa {tentativa} falhou: {exc}")
 
 
 def main() -> None:
