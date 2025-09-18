@@ -16,7 +16,11 @@ from botasaurus.request import Request, request
 from botasaurus_requests.response import Response
 
 from .config import REWARDS_BASE_URL
-from .helpers import get_env_bool
+from .helpers import (
+    extract_request_verification_token,
+    get_env_bool,
+    inject_request_verification_token,
+)
 from .logging import log
 from .utilitarios import GerenciadorPerfil
 
@@ -29,6 +33,7 @@ class SessaoSolicitacoes:
     cookies: Dict[str, str]
     user_agent: str
     url_base: str = REWARDS_BASE_URL
+    request_verification_token: Optional[str] = None
 
 
 class GerenciadorSolicitacoesRewards:
@@ -57,19 +62,59 @@ class GerenciadorSolicitacoesRewards:
         user_agent = getattr(self.driver, "user_agent", None) or GerenciadorPerfil.garantir_agente_usuario(
             self.perfil
         )
+        token = self._capturar_token_verificacao()
 
         log.debug(
             "Cookies capturados para sessao HTTP",
             perfil=self.perfil,
             total_cookies=len(cookies),
         )
+        if token:
+            log.debug("Token antifalsificacao capturado", tamanho=len(token))
 
         self._dados_sessao = SessaoSolicitacoes(
             perfil=self.perfil,
             cookies=cookies,
             user_agent=user_agent,
+            request_verification_token=token,
         )
         return self._dados_sessao
+
+    def _capturar_token_verificacao(self) -> Optional[str]:
+        """Tenta capturar o ``__RequestVerificationToken`` da página atual."""
+
+        html_atual = self._obter_html_atual()
+        token = extract_request_verification_token(html_atual)
+        if token:
+            return token
+
+        html_fresco = self._obter_html_via_request()
+        return extract_request_verification_token(html_fresco)
+
+    def _obter_html_atual(self) -> Optional[str]:
+        """Obtém o HTML corrente exibido pelo navegador controlado."""
+
+        try:
+            return getattr(self.driver, "page_source", None)
+        except Exception as exc:  # pragma: no cover - depende do driver
+            log.debug("Nao foi possivel ler page_source", detalhe=str(exc))
+            return None
+
+    def _obter_html_via_request(self) -> Optional[str]:
+        """Requisita o HTML diretamente via ``driver.requests`` como fallback."""
+
+        requisicoes = getattr(self.driver, "requests", None)
+        if requisicoes is None:
+            return None
+
+        try:
+            url_atual = getattr(self.driver, "current_url", None) or REWARDS_BASE_URL
+            retorno = requisicoes.get(url_atual)
+        except Exception as exc:  # pragma: no cover - depende do ambiente
+            log.debug("Falha ao requisitar HTML para token", detalhe=str(exc))
+            return None
+
+        return getattr(retorno, "text", None)
 
     @property
     def dados_sessao(self) -> Optional[SessaoSolicitacoes]:
@@ -107,6 +152,7 @@ class GerenciadorSolicitacoesRewards:
             cookies=sessao.cookies,
             user_agent=sessao.user_agent,
             url_base=url_base or sessao.url_base,
+            verification_token=sessao.request_verification_token,
             palavras_erro=palavras_erro,
             interativo=interativo,
         )
@@ -133,6 +179,7 @@ class ClienteSolicitacoesRewards:
         cookies: Mapping[str, str],
         user_agent: str,
         url_base: str,
+        verification_token: Optional[str] = None,
         palavras_erro: Optional[Iterable[str]] = None,
         interativo: Optional[bool] = None,
     ) -> None:
@@ -150,6 +197,7 @@ class ClienteSolicitacoesRewards:
         self.perfil = perfil
         self.url_base = url_base.rstrip("/") or REWARDS_BASE_URL
         self._cookies = dict(cookies)
+        self._verification_token = verification_token
         cabecalho_personalizado = dict(self._CABECALHO_PADRAO)
         cabecalho_personalizado["User-Agent"] = user_agent
         cabecalho_personalizado.setdefault("Referer", self.url_base)
@@ -383,6 +431,12 @@ class ClienteSolicitacoesRewards:
         metodo_upper = metodo.upper()
         cookies_personalizados = kwargs.pop("cookies", None)
         headers_personalizados = kwargs.pop("headers", None)
+        kwargs, headers_personalizados = inject_request_verification_token(
+            metodo,
+            kwargs,
+            headers_personalizados,
+            self._verification_token,
+        )
         pacote = {
             "metodo": metodo,
             "url": url,

@@ -41,6 +41,12 @@ class NavegadorRecompensas:
 
             driver.enable_human_mode()
             driver.google_get(REWARDS_BASE_URL)
+            html = getattr(driver, "page_source", "") or ""
+            if "Sign in" in html or "Entrar" in html:
+                log.aviso(
+                    "Parece que voce nao esta logado no Rewards",
+                    detalhe="Acesse https://rewards.microsoft.com/ e entre com sua conta Microsoft",
+                )
             driver.prompt()
 
         return _abrir(**kwargs)

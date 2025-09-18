@@ -12,6 +12,8 @@ from __future__ import annotations
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+import json
+from pathlib import Path
 
 from typing import Any, Callable, Iterable, List, Mapping, Optional
 
@@ -338,6 +340,7 @@ class ExecutorEmLote:
         except Exception as exc:
             contexto.registro.erro("Falha ao obter pontos do Rewards", detalhe=str(exc))
         else:
+            self._salvar_resposta_debug(contexto, "pontos", pontos)
             valor_pontos = (
                 APIRecompensas.extrair_pontos_disponiveis(pontos)
                 if isinstance(pontos, Mapping)
@@ -362,6 +365,42 @@ class ExecutorEmLote:
                 "Recompensas consultadas",
                 chave="total",
                 quantidade=quantidade,
+            )
+
+    def _salvar_resposta_debug(self, contexto: ContextoConta, nome: str, dados: Any) -> None:
+        """Persiste o payload retornado pela API para facilitar o debug."""
+
+        destino = Path.cwd() / "debug_respostas"
+        identificador = contexto.perfil or contexto.conta.id_perfil
+        arquivo = destino / f"{identificador}_{nome}.json"
+
+        try:
+            destino.mkdir(parents=True, exist_ok=True)
+            if isinstance(dados, bytes):
+                conteudo = dados.decode("utf-8", errors="replace")
+            elif isinstance(dados, str):
+                conteudo = dados
+            else:
+                conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            contexto.registro.aviso(
+                "Nao foi possivel serializar resposta para debug",
+                detalhe=str(exc),
+            )
+            conteudo = str(dados)
+
+        try:
+            arquivo.write_text(conteudo, encoding="utf-8")
+        except Exception as exc:  # pragma: no cover - depende do FS
+            contexto.registro.aviso(
+                "Falha ao gravar arquivo de debug",
+                caminho=str(arquivo),
+                detalhe=str(exc),
+            )
+        else:
+            contexto.registro.debug(
+                "Resposta salva para analise",
+                arquivo=str(arquivo),
             )
 
     def _modo_interativo_api(self) -> Optional[bool]:
