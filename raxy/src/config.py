@@ -12,7 +12,7 @@ from .helpers import get_env_bool, get_env_int, get_env_list
 # Bases compartilhadas
 # ---------------------------------------------------------------------------
 
-REWARDS_BASE_URL = os.getenv("REWARDS_BASE_URL", "https://rewards.bing.com")
+REWARDS_BASE_URL = os.getenv("REWARDS_BASE_URL", "https://login.live.com")
 
 # Configuracao padrao aplicada ao decorator ``@browser`` do Botasaurus
 BROWSER_KWARGS: dict = {
