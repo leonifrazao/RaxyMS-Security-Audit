@@ -1,5 +1,8 @@
 """Fluxos relacionados a navegacao e interacoes com o Rewards."""
 
+from __future__ import annotations
+
+from collections import deque
 from typing import Any, Iterable, Mapping, Optional
 
 from botasaurus.browser import browser, Driver
@@ -216,24 +219,23 @@ class APIRecompensas:
             Valor inteiro quando encontrado; ``None`` caso ausente.
         """
 
-        def _procurar(val: Any) -> Optional[int]:
-            """Explora estruturas aninhadas em busca de ``availablePoints``."""
+        fila = deque([dados])
+        visitados: set[int] = set()
+        while fila:
+            atual = fila.popleft()
+            identificador = id(atual)
+            if identificador in visitados:
+                continue
+            visitados.add(identificador)
 
-            if isinstance(val, Mapping):
-                if "availablePoints" in val:
-                    return APIRecompensas._converter_para_int(val.get("availablePoints"))
-                for sub in val.values():
-                    encontrado = _procurar(sub)
-                    if encontrado is not None:
-                        return encontrado
-            elif isinstance(val, list):
-                for item in val:
-                    encontrado = _procurar(item)
-                    if encontrado is not None:
-                        return encontrado
-            return None
+            if isinstance(atual, Mapping):
+                if "availablePoints" in atual:
+                    return APIRecompensas._converter_para_int(atual.get("availablePoints"))
+                fila.extend(atual.values())
+            elif isinstance(atual, list):
+                fila.extend(atual)
 
-        return _procurar(dados)
+        return None
 
     @staticmethod
     def contar_recompensas(dados: Any) -> Optional[int]:
@@ -247,26 +249,38 @@ class APIRecompensas:
             quando nenhuma lista válida é encontrada.
         """
 
-        def _contar(val: Any) -> int:
-            """Conta itens considerados recompensas dentro da estrutura."""
+        fila = deque([dados])
+        visitados: set[int] = set()
+        total = 0
 
-            if isinstance(val, list):
-                if val and all(isinstance(item, Mapping) for item in val):
-                    relevantes = [item for item in val if APIRecompensas._parece_recompensa(item)]
+        while fila:
+            atual = fila.popleft()
+            identificador = id(atual)
+            if identificador in visitados:
+                continue
+            visitados.add(identificador)
+
+            if isinstance(atual, list):
+                if atual and all(isinstance(item, Mapping) for item in atual):
+                    relevantes = [
+                        item for item in atual if APIRecompensas._parece_recompensa(item)
+                    ]
                     if relevantes:
-                        return len(relevantes)
-                return sum(_contar(item) for item in val)
-            if isinstance(val, Mapping):
-                candidatos = val.get("catalogItems") or val.get("items")
+                        total += len(relevantes)
+                fila.extend(atual)
+                continue
+
+            if isinstance(atual, Mapping):
+                candidatos = atual.get("catalogItems") or atual.get("items")
                 if isinstance(candidatos, list):
-                    relevantes = [item for item in candidatos if APIRecompensas._parece_recompensa(item)]
+                    relevantes = [
+                        item for item in candidatos if APIRecompensas._parece_recompensa(item)
+                    ]
                     if relevantes:
-                        return len(relevantes)
-                return sum(_contar(sub) for sub in val.values())
-            return 0
+                        total += len(relevantes)
+                fila.extend(atual.values())
 
-        total = _contar(dados)
-        return total if total > 0 else None
+        return total or None
 
     @staticmethod
     def _converter_para_int(valor: Any) -> Optional[int]:

@@ -98,12 +98,15 @@ class GerenciadorSolicitacoesRewards:
         if self._dados_sessao is None:
             self.capturar()
 
-        assert self._dados_sessao is not None  # Para satisfazer o type checker
+        if self._dados_sessao is None:
+            raise RuntimeError("Sessao HTTP indisponivel; execute 'capturar' antes de criar o cliente")
+
+        sessao = self._dados_sessao
         return ClienteSolicitacoesRewards(
-            perfil=self._dados_sessao.perfil,
-            cookies=self._dados_sessao.cookies,
-            user_agent=self._dados_sessao.user_agent,
-            url_base=url_base or self._dados_sessao.url_base,
+            perfil=sessao.perfil,
+            cookies=sessao.cookies,
+            user_agent=sessao.user_agent,
+            url_base=url_base or sessao.url_base,
             palavras_erro=palavras_erro,
             interativo=interativo,
         )
@@ -157,6 +160,12 @@ class ClienteSolicitacoesRewards:
             if isinstance(palavra, str) and palavra.strip()
         }
         self._interativo = self._resolver_interatividade(interativo)
+        self._metadata_base = {
+            "cookies": self._cookies,
+            "headers": self._headers,
+            "perfil": self.perfil,
+        }
+        self._url_base_join = f"{self.url_base}/"
 
         log.debug(
             "Cliente HTTP inicializado",
@@ -215,29 +224,35 @@ class ClienteSolicitacoesRewards:
 
     @staticmethod
     @request(**_OPCOES_REQUEST)
-    def _executar_rota(req: Request, pacote: Mapping[str, Any], metadados: Mapping[str, Any]) -> Response:
+    def _executar_rota(
+        req: Request,
+        pacote: Mapping[str, Any],
+        metadata: Mapping[str, Any],
+    ) -> Response:
         """Executa a rota solicitada utilizando configurações dinâmicas.
 
         Args:
             req: Objeto de requisição injetado pelo decorator ``@request``.
             pacote: Dicionário com método HTTP, URL final e parâmetros extras.
-            metadados: Informações persistidas entre execuções (cookies, headers, perfil).
+            metadata: Informações persistidas entre execuções (cookies, headers, perfil).
 
         Returns:
             Objeto :class:`Response` retornado pelo botasaurus requests.
         """
 
-        cookies_base = dict(metadados.get("cookies") or {})
-        headers_base = dict(metadados.get("headers") or {})
-        perfil = metadados.get("perfil")
+        cookies_base = dict(metadata.get("cookies") or {})
+        headers_base = dict(metadata.get("headers") or {})
+        perfil = metadata.get("perfil")
         cookies_extra = pacote.get("cookies") or {}
         headers_extra = pacote.get("headers") or {}
         cookies = {**cookies_base, **cookies_extra} if cookies_base or cookies_extra else {}
         headers = {**headers_base, **headers_extra} if headers_base or headers_extra else {}
 
         metodo = pacote["metodo"]
+        metodo_upper = metodo.upper()
         url = pacote["url"]
-        parametros = dict(pacote.get("kwargs", {}))
+        parametros_base = pacote.get("kwargs")
+        parametros = dict(parametros_base) if parametros_base else {}
 
         if headers:
             parametros["headers"] = headers
@@ -247,7 +262,7 @@ class ClienteSolicitacoesRewards:
         log.debug(
             "Executando request",
             perfil=perfil,
-            metodo=metodo.upper(),
+            metodo=metodo_upper,
             url=url,
         )
 
@@ -341,16 +356,12 @@ class ClienteSolicitacoesRewards:
 
         if destino.startswith("http://") or destino.startswith("https://"):
             return destino
-        return urljoin(f"{self.url_base}/", destino.lstrip("/"))
+        return urljoin(self._url_base_join, destino.lstrip("/"))
 
-    def _metadados(self) -> Dict[str, Any]:
-        """Gera metadados base utilizados pelo decorator ``@request``."""
+    def _metadata(self) -> Dict[str, Any]:
+        """Gera o dicionário de ``metadata`` utilizado pelo decorator ``@request``."""
 
-        return {
-            "cookies": self._cookies,
-            "headers": self._headers,
-            "perfil": self.perfil,
-        }
+        return self._metadata_base
 
     def _executar(self, metodo: str, destino: str, **kwargs) -> Response:
         """Empacota argumentos e executa o método HTTP solicitado.
@@ -369,6 +380,7 @@ class ClienteSolicitacoesRewards:
         """
 
         url = self._resolver_url(destino)
+        metodo_upper = metodo.upper()
         cookies_personalizados = kwargs.pop("cookies", None)
         headers_personalizados = kwargs.pop("headers", None)
         pacote = {
@@ -381,7 +393,7 @@ class ClienteSolicitacoesRewards:
         try:
             resposta = self._executar_rota(
                 pacote,
-                metadata=self._metadados(),
+                metadata=self._metadata(),
                 user_agent=self._headers.get("User-Agent"),
             )
         except Exception as erro:
@@ -389,7 +401,7 @@ class ClienteSolicitacoesRewards:
             log.erro(
                 "Erro ao executar request",
                 perfil=self.perfil,
-                metodo=metodo.upper(),
+                metodo=metodo_upper,
                 url=url,
                 pasta=str(pasta),
                 detalhe=str(erro),
@@ -404,7 +416,7 @@ class ClienteSolicitacoesRewards:
             log.erro(
                 "Response nao OK",
                 perfil=self.perfil,
-                metodo=metodo.upper(),
+                metodo=metodo_upper,
                 url=url,
                 status=resposta.status_code,
                 pasta=str(pasta),
@@ -425,7 +437,7 @@ class ClienteSolicitacoesRewards:
             log.erro(
                 "Palavras de erro detectadas na resposta",
                 perfil=self.perfil,
-                metodo=metodo.upper(),
+                metodo=metodo_upper,
                 url=url,
                 palavras=palavras_detectadas,
                 pasta=str(pasta),

@@ -158,12 +158,13 @@ class ExecutorEmLote:
         if not self._carregar_contas():
             return
 
-        if self._max_workers == 1 or len(self.contas) == 1:
+        if self._max_workers <= 1 or len(self.contas) <= 1:
             for conta in self.contas:
                 self._processar_conta(conta)
             return
 
-        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+        workers = max(1, min(self._max_workers, len(self.contas)))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
             futuros = {executor.submit(self._processar_conta, conta): conta for conta in self.contas}
             for futuro in as_completed(futuros):
                 conta = futuros[futuro]
@@ -259,6 +260,7 @@ class ExecutorEmLote:
         """
 
         max_tentativas = 2
+        interatividade_api = self._modo_interativo_api()
         contexto.registro.info("Iniciando login")
         for tentativa in range(1, max_tentativas + 1):
             try:
@@ -280,7 +282,7 @@ class ExecutorEmLote:
                 contexto.registrar_solicitacoes(
                     gerenciador,
                     self._palavras_erro_api,
-                    interativo=self._modo_interativo_api(),
+                    interativo=interatividade_api,
                 )
 
                 sessao = gerenciador.dados_sessao
@@ -299,8 +301,14 @@ class ExecutorEmLote:
 
             except Exception as exc:
                 if tentativa == max_tentativas:
-                    raise RuntimeError(f"Login impossivel para {contexto.conta.email}: {exc}")
-                contexto.registro.aviso("Tentativa de login falhou", tentativa=tentativa, detalhe=str(exc))
+                    raise RuntimeError(
+                        f"Login impossivel para {contexto.conta.email}: {exc}"
+                    ) from exc
+                contexto.registro.aviso(
+                    "Tentativa de login falhou",
+                    tentativa=tentativa,
+                    detalhe=str(exc),
+                )
 
     def _acao_solicitacoes(self, contexto: ContextoConta) -> None:
         """Consulta pontos e recompensas reaproveitando a sessão autenticada.
@@ -320,10 +328,12 @@ class ExecutorEmLote:
 
         api = contexto.api
 
+        interatividade_api = self._modo_interativo_api()
+
         try:
             pontos = api.obter_pontos(
                 palavras_erro=self._palavras_erro_api,
-                interativo=self._modo_interativo_api(),
+                interativo=interatividade_api,
             )
         except Exception as exc:
             contexto.registro.erro("Falha ao obter pontos do Rewards", detalhe=str(exc))
@@ -342,7 +352,7 @@ class ExecutorEmLote:
         try:
             recompensas = api.obter_recompensas(
                 palavras_erro=self._palavras_erro_api,
-                interativo=self._modo_interativo_api(),
+                interativo=interatividade_api,
             )
         except Exception as exc:
             contexto.registro.erro("Falha ao obter recompensas", detalhe=str(exc))

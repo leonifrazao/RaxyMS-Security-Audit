@@ -1,6 +1,8 @@
 """Utilitarios orientados a objeto para perfis e user-agent."""
 
-from typing import List
+from __future__ import annotations
+
+from typing import ClassVar, List
 from botasaurus.profiles import Profiles
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
@@ -16,6 +18,19 @@ class GerenciadorPerfil:
         OperatingSystem.CHROMEOS.value,
         OperatingSystem.MACOS.value,
     ]
+    _PROVEDOR_USER_AGENT: ClassVar[UserAgent | None] = None
+
+    @classmethod
+    def _provedor(cls) -> UserAgent:
+        """Retorna um provedor de user-agent reutilizável para evitar recriacoes."""
+
+        if cls._PROVEDOR_USER_AGENT is None:
+            cls._PROVEDOR_USER_AGENT = UserAgent(
+                limit=100,
+                operating_systems=cls._SISTEMAS_OPERACIONAIS,
+                software_names=cls._NOMES_SOFTWARE,
+            )
+        return cls._PROVEDOR_USER_AGENT
 
     @classmethod
     def garantir_agente_usuario(cls, perfil: str) -> str:
@@ -32,11 +47,7 @@ class GerenciadorPerfil:
         if perfil_existente:
             return perfil_existente["UA"]
 
-        agente_usuario = UserAgent(
-            limit=100,
-            operating_systems=cls._SISTEMAS_OPERACIONAIS,
-            software_names=cls._NOMES_SOFTWARE,
-        ).get_random_user_agent()
+        agente_usuario = cls._provedor().get_random_user_agent()
 
         Profiles.set_profile(perfil, {"UA": agente_usuario})
         return agente_usuario

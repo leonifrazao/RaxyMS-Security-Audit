@@ -1,6 +1,9 @@
-from botasaurus.browser import browser, Driver, cdp
-from typing import Dict, List, Optional
+from __future__ import annotations
+
 import re
+from typing import Any, Dict, List, Optional, Pattern
+
+from botasaurus.browser import Driver, cdp
 
 class NetWork:
     """Utilitário para inspecionar respostas de rede emitidas pelo botasaurus."""
@@ -8,9 +11,10 @@ class NetWork:
     def __init__(self, driver: Optional[Driver] = None):
         """Inicializa estrutura vazia para capturar respostas de rede."""
 
-        self.respostas: List[Dict] = []
+        self.respostas: List[Dict[str, Any]] = []
         self.driver: Optional[Driver] = None
         self._handler_registrado = False
+        self._regex_cache: Dict[str, Pattern[str]] = {}
 
         if driver is not None:
             self.inicializar(driver)
@@ -31,7 +35,7 @@ class NetWork:
         if not self._handler_registrado:
             self.driver.after_response_received(self._response_handler)
             self._handler_registrado = True
-    
+
     def _response_handler(
         self,
         request_id: str,
@@ -39,15 +43,17 @@ class NetWork:
         event: cdp.network.ResponseReceived,
     ):
         """Handler interno registrado no CDP para capturar respostas."""
-        self.respostas.append({
-            "url": response.url,
-            "status": response.status,
-            "timestamp": event.timestamp,
-            "type": event.type_,
-            "headers": response.headers
-        })
-    
-    def get_status(self, url_pattern: str = None) -> Optional[int]:
+        self.respostas.append(
+            {
+                "url": response.url,
+                "status": response.status,
+                "timestamp": event.timestamp,
+                "type": event.type_,
+                "headers": response.headers,
+            }
+        )
+
+    def get_status(self, url_pattern: str | Pattern[str] | None = None) -> Optional[int]:
         """Obtém o status HTTP mais recente cuja URL combina com ``url_pattern``.
 
         Args:
@@ -58,24 +64,19 @@ class NetWork:
         """
         if not self.respostas:
             return None
-        
+
         if url_pattern is None:
-            # Retorna o status da última resposta
             return self.respostas[-1]["status"]
-        
-        # Filtra respostas que correspondem ao padrão
-        respostas_filtradas = []
-        for resp in self.respostas:
-            if url_pattern in resp["url"] or re.search(url_pattern, resp["url"]):
-                respostas_filtradas.append(resp)
-        
-        if respostas_filtradas:
-            # Retorna o status da resposta mais recente que corresponde
-            return respostas_filtradas[-1]["status"]
-        
+
+        for resp in reversed(self.respostas):
+            if self._combina(resp["url"], url_pattern):
+                return resp["status"]
         return None
-    
-    def get_ultima_resposta(self, url_pattern: str = None) -> Optional[Dict]:
+
+    def get_ultima_resposta(
+        self,
+        url_pattern: str | Pattern[str] | None = None,
+    ) -> Optional[Dict[str, Any]]:
         """Retorna o dicionário da última resposta cuja URL corresponde ao padrão.
 
         Args:
@@ -86,27 +87,41 @@ class NetWork:
         """
         if not self.respostas:
             return None
-        
+
         if url_pattern is None:
-            return {
-                "url": self.respostas[-1]["url"],
-                "status": self.respostas[-1]["status"]
-            }
-        
-        # Filtra respostas que correspondem ao padrão
+            ultima = self.respostas[-1]
+            return {"url": ultima["url"], "status": ultima["status"]}
+
         for resp in reversed(self.respostas):
-            if url_pattern in resp["url"] or re.search(url_pattern, resp["url"]):
-                return {
-                    "url": resp["url"],
-                    "status": resp["status"]
-                }
-        
+            if self._combina(resp["url"], url_pattern):
+                return {"url": resp["url"], "status": resp["status"]}
         return None
-    
+
     def limpar_respostas(self):
         """Limpa o histórico de respostas capturadas."""
-        self.respostas = []
-    
-    def get_todas_respostas(self) -> List[Dict]:
+        self.respostas.clear()
+
+    def get_todas_respostas(self) -> List[Dict[str, Any]]:
         """Retorna todas as respostas capturadas."""
         return self.respostas
+
+    def _combina(self, url: str, padrao: str | Pattern[str]) -> bool:
+        """Verifica se ``url`` satisfaz o padrão informado (substring ou regex)."""
+
+        if isinstance(padrao, re.Pattern):
+            try:
+                return bool(padrao.search(url))
+            except re.error:
+                return False
+
+        if padrao in url:
+            return True
+
+        try:
+            regex = self._regex_cache.get(padrao)
+            if regex is None:
+                regex = re.compile(padrao)
+                self._regex_cache[padrao] = regex
+            return bool(regex.search(url))
+        except re.error:
+            return False
