@@ -9,6 +9,7 @@ from botasaurus.browser import browser, Driver, Wait
 from .config import BROWSER_KWARGS, REWARDS_BASE_URL
 from .logging import log
 from .solicitacoes import GerenciadorSolicitacoesRewards
+from .network import NetWork
 
 
 class CredenciaisInvalidas(ValueError):
@@ -158,7 +159,7 @@ class AutenticadorRewards:
             pass
         else:
             registro.debug("Confirmacao de sessao aceita")
-        
+        network = NetWork(driver)
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
             registro.sucesso("Login finalizado")
             
