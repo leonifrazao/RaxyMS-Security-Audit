@@ -1,8 +1,9 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import <nixpkgs> { config.allowUnfree = true; } }:
 let
   version = "311";
   python = pkgs."python${pkgs.lib.versions.majorMinor version}";
   qt = pkgs.libsForQt5; # garante consistência Qt + PyQt
+  burpsuite = pkgs.callPackage ./burp.nix {};
   runtimeLibs = with pkgs; [
     stdenv.cc.cc.lib   # <-- provides libstdc++.so.6
     glibc              # libc.so.6, ld-linux, etc.
@@ -62,11 +63,16 @@ pkgs.mkShell {
 
     nodejs
     nodePackages.npm
-    
-  ]);
+
+    jdk
+
+  ]) ++ [
+    burpsuite
+  ];
 
   shellHook = ''
     export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeLibs}:''${LD_LIBRARY_PATH:-}"
+    alias burp_crack='java -jar loader.jar & burpsuitepro &'
 
     primeiro_setup=false
     if [ ! -d "$venvDir" ]; then
