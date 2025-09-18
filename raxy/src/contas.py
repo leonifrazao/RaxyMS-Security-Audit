@@ -55,16 +55,19 @@ def carregar_contas(caminho_arquivo: str | Path) -> List[Conta]:
         raise FileNotFoundError(f"Arquivo nao encontrado: {caminho}")
 
     contas: List[Conta] = []
-    for linha_bruta in caminho.read_text(encoding="utf-8").splitlines():
-        linha = linha_bruta.strip()
-        if not linha or linha.startswith("#"):
-            continue
-        if ":" not in linha:
-            continue
-        email, senha = [parte.strip() for parte in linha.split(":", 1)]
-        if not email or not senha:
-            continue
-        contas.append(Conta(email=email, senha=senha, id_perfil=_derivar_id_perfil(email)))
+    with caminho.open("r", encoding="utf-8") as handle:
+        for linha_bruta in handle:
+            linha = linha_bruta.strip()
+            if not linha or linha.startswith("#"):
+                continue
+            if ":" not in linha:
+                continue
+            email, senha = (parte.strip() for parte in linha.split(":", 1))
+            if not email or not senha:
+                continue
+            contas.append(
+                Conta(email=email, senha=senha, id_perfil=_derivar_id_perfil(email))
+            )
 
     return contas
 
