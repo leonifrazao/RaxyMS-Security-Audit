@@ -106,7 +106,7 @@ class AutenticadorRewards:
         perfil = outros.get("profile")
         registro = AutenticadorRewards._criar_registro(perfil=perfil)
         registro.debug("Coletando credenciais")
-
+        
         entrada_email = dados.get("email") or os.getenv("MS_EMAIL") or ""
         entrada_senha = (
             dados.get("senha")
@@ -114,17 +114,17 @@ class AutenticadorRewards:
             or os.getenv("MS_PASSWORD")
             or ""
         )
-
+        
         try:
             email_validado, senha_validada = AutenticadorRewards.validar_credenciais(entrada_email, entrada_senha)
         except CredenciaisInvalidas as exc:
             registro.erro("Credenciais invalidas", detalhe=str(exc))
             raise
-
+        
         driver.enable_human_mode()
         driver.google_get(REWARDS_BASE_URL)
         driver.short_random_sleep()
-
+        
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
             registro.sucesso("Conta ja autenticada")
             return AutenticadorRewards._registrar_solicitacoes(
@@ -158,10 +158,23 @@ class AutenticadorRewards:
             pass
         else:
             registro.debug("Confirmacao de sessao aceita")
-
+        
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
             registro.sucesso("Login finalizado")
+            
+            # Verifica o status final
+            status_final = network.get_status()
+            if status_final == 200:
+                registro.sucesso(f"Login bem-sucedido - Status: {status_final}")
+            else:
+                registro.aviso(f"Login concluído mas com status inesperado: {status_final}")
         else:
+            # Verifica se houve erro HTTP
+            status = network.get_status()
+            if status and status >= 400:
+                registro.erro(f"Erro HTTP detectado: {status}")
+                raise RuntimeError(f"Erro HTTP durante login: {status}")
+            
             registro.aviso("Nao foi possivel confirmar o login automaticamente")
 
         return AutenticadorRewards._registrar_solicitacoes(
