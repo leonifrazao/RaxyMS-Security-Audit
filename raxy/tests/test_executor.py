@@ -19,10 +19,14 @@ class TestExecutorEmLote(unittest.TestCase):
     """Cobertura dos metodos puros de normalizacao e carregamento."""
 
     def test_normalizar_acoes_remove_espacos_e_minusculas(self) -> None:
+        """Verifica se `_normalizar_acoes` remove espaços e converte para minúsculo."""
+
         resultado = ExecutorEmLote._normalizar_acoes([" Login ", "REWARDS", " "])
         self.assertEqual(resultado, ["login", "rewards"])
 
     def test_carregar_contas_lida_com_linhas_invalidas(self) -> None:
+        """Garante que `carregar_contas` ignore linhas inválidas e comentários."""
+
         conteudo = """
             # comentario
             user1@example.com:senha1

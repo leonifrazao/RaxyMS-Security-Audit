@@ -19,7 +19,14 @@ class GerenciadorPerfil:
 
     @classmethod
     def garantir_agente_usuario(cls, perfil: str) -> str:
-        """Garante a existencia de um perfil com user-agent e o retorna."""
+        """Garante a existência de um perfil com user-agent e o retorna.
+
+        Args:
+            perfil: Nome do perfil botasaurus que deve ser consultado/criado.
+
+        Returns:
+            ``str`` com o user-agent associado ao perfil fornecido.
+        """
 
         perfil_existente = Profiles.get_profile(perfil)
         if perfil_existente:
@@ -36,7 +43,14 @@ class GerenciadorPerfil:
 
     @classmethod
     def argumentos_agente_usuario(cls, perfil: str) -> List[str]:
-        """Retorna a lista de argumentos `add_arguments` para o navegador."""
+        """Retorna a lista de argumentos ``add_arguments`` para o navegador.
+
+        Args:
+            perfil: Nome do perfil associado ao user-agent.
+
+        Returns:
+            Lista contendo a flag ``--user-agent=...``.
+        """
 
         agente_usuario = cls.garantir_agente_usuario(perfil)
         return [f"--user-agent={agente_usuario}"]

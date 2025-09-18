@@ -1,25 +1,313 @@
-"""Fluxos relacionados a navegacao e coleta de pontos do Rewards."""
+"""Fluxos relacionados a navegacao e interacoes com o Rewards."""
+
+from typing import Any, Iterable, Mapping, Optional
 
 from botasaurus.browser import browser, Driver
 
-from .config import BROWSER_KWARGS
+from .config import BROWSER_KWARGS, REWARDS_BASE_URL
+from .solicitacoes import GerenciadorSolicitacoesRewards
+from .logging import log
 
 
 class NavegadorRecompensas:
     """Encapsula operacoes de navegacao na pagina do Bing Rewards."""
 
-    @staticmethod
-    @browser(**{**BROWSER_KWARGS, "reuse_driver": True})
-    def abrir_pagina(driver: Driver, dados=None):
-        """Abre a pagina principal do Bing Rewards e aguarda interacao humana."""
+    _CONFIG_PADRAO = {**BROWSER_KWARGS, "reuse_driver": False}
 
-        driver.enable_human_mode()
-        driver.google_get("https://rewards.bing.com")
-        driver.prompt()
+    @classmethod
+    def abrir_pagina(
+        cls,
+        *,
+        reuse_driver: Optional[bool] = None,
+        **kwargs,
+    ):
+        """Abre a pagina principal do Microsoft Rewards com configuracao flexivel.
+
+        A flag ``reuse_driver`` pode ser sobrescrita por chamada, permitindo que
+        fluxos paralelos usem instancias isoladas do navegador sem compartilhar
+        estado global.
+        """
+
+        configuracao = dict(cls._CONFIG_PADRAO)
+        if reuse_driver is not None:
+            configuracao["reuse_driver"] = reuse_driver
+
+        @browser(**configuracao)
+        def _abrir(driver: Driver, dados=None):
+            """Função interna executada pelo botasaurus para abrir a página."""
+
+            driver.enable_human_mode()
+            driver.google_get(REWARDS_BASE_URL)
+            driver.prompt()
+
+        return _abrir(**kwargs)
 
 
 # Alias para retrocompatibilidade, caso algum cliente ainda use a funcao
-goto_rewards_page = NavegadorRecompensas.abrir_pagina
+def goto_rewards_page(**kwargs):
+    """Atalho compatível para abrir a página de rewards com kwargs diretos."""
+
+    return NavegadorRecompensas.abrir_pagina(**kwargs)
 
 
-__all__ = ["NavegadorRecompensas", "goto_rewards_page"]
+class APIRecompensas:
+    """Agrupa chamadas de API do Rewards reutilizando um gerenciador existente."""
+
+    _CABECALHO_AJAX: Mapping[str, str] = {
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    }
+
+    def __init__(
+        self,
+        gerenciador: GerenciadorSolicitacoesRewards,
+        *,
+        palavras_erro: Optional[Iterable[str]] = None,
+        interativo: Optional[bool] = None,
+    ) -> None:
+        """Inicializa o wrapper reutilizando um gerenciador de solicitações.
+
+        Args:
+            gerenciador: Instância capturada após o login contendo cookies e
+                cabeçalhos autenticados.
+            palavras_erro: Coleção de palavras que sinalizam falhas nas
+                respostas HTTP.
+            interativo: Define se prompts do botasaurus devem ser emitidos.
+        """
+
+        self._gerenciador = gerenciador
+        self._palavras_erro = list(palavras_erro or [])
+        self._interativo = interativo
+        self._cliente_cache = None
+
+    def atualizar_palavras_erro(self, palavras: Optional[Iterable[str]]) -> None:
+        """Atualiza a lista de gatilhos de erro e reinicia o cliente.
+
+        Args:
+            palavras: Coleção com as novas palavras-chave (``None`` limpa a
+                configuração).
+        """
+
+        self._palavras_erro = list(palavras or [])
+        self._cliente_cache = None
+
+    def configurar_interatividade(self, interativo: Optional[bool]) -> None:
+        """Altera o modo interativo do cliente reutilizado.
+
+        Args:
+            interativo: ``True`` habilita prompts auditivos/visuais, ``False``
+                silencia, ``None`` restabelece o comportamento padrão.
+        """
+
+        if interativo == self._interativo:
+            return
+        self._interativo = interativo
+        self._cliente_cache = None
+
+    def _cliente(
+        self,
+        palavras_erro: Optional[Iterable[str]] = None,
+        interativo: Optional[bool] = None,
+    ):
+        """Retorna um cliente HTTP autenticado reutilizando caches internos.
+
+        Args:
+            palavras_erro: Lista a ser aplicada antes da criação do cliente.
+            interativo: Override temporário para o modo interativo.
+
+        Returns:
+            Cliente retornado por ``GerenciadorSolicitacoesRewards.criar_cliente``.
+        """
+
+        if palavras_erro is not None:
+            self.atualizar_palavras_erro(palavras_erro)
+        if interativo is not None:
+            self.configurar_interatividade(interativo)
+        if self._cliente_cache is None:
+            self._cliente_cache = self._gerenciador.criar_cliente(
+                palavras_erro=self._palavras_erro,
+                interativo=self._interativo,
+            )
+        return self._cliente_cache
+
+    def obter_pontos(
+        self,
+        *,
+        parametros: Optional[Mapping[str, str]] = None,
+        palavras_erro: Optional[Iterable[str]] = None,
+        interativo: Optional[bool] = None,
+    ) -> Mapping:
+        """Consulta o consolidado de pontos do Rewards.
+
+        Args:
+            parametros: Query string adicional para a rota.
+            palavras_erro: Lista temporária de palavras de erro.
+            interativo: Ajuste temporário de interatividade.
+
+        Returns:
+            Mapeamento com o corpo JSON retornado pela API.
+
+        Raises:
+            Exception: Propaga qualquer erro de conversão JSON.
+        """
+
+        cliente = self._cliente(palavras_erro, interativo)
+        resposta = cliente.get(
+            "/api/getuserinfo?type=1",
+            headers=dict(self._CABECALHO_AJAX),
+            params=parametros or {"type": "pc"},
+        )
+        try:
+            dados = resposta.json()
+        except Exception as exc:
+            log.aviso(
+                "Nao foi possivel interpretar JSON de pontos",
+                detalhe=str(exc),
+            )
+            raise
+        return dados
+
+    def obter_recompensas(
+        self,
+        *,
+        parametros: Optional[Mapping[str, str]] = None,
+        palavras_erro: Optional[Iterable[str]] = None,
+        interativo: Optional[bool] = None,
+    ) -> Mapping:
+        """Recupera a lista de recompensas disponíveis.
+
+        Args:
+            parametros: Query string adicional para a rota.
+            palavras_erro: Lista temporária de palavras de erro.
+            interativo: Ajuste temporário de interatividade.
+
+        Returns:
+            Mapeamento com o corpo JSON de recompensas.
+
+        Raises:
+            Exception: Propaga erros de conversão JSON.
+        """
+
+        cliente = self._cliente(palavras_erro, interativo)
+        resposta = cliente.get(
+            "/api/redeem/getallrewards",
+            headers={"Accept": "application/json, text/plain, */*"},
+            params=parametros or {},
+        )
+        try:
+            dados = resposta.json()
+        except Exception as exc:
+            log.aviso(
+                "Nao foi possivel interpretar JSON de recompensas",
+                detalhe=str(exc),
+            )
+            raise
+        return dados
+
+    @staticmethod
+    def extrair_pontos_disponiveis(dados: Mapping[str, Any]) -> Optional[int]:
+        """Busca o valor de ``availablePoints`` em qualquer nível do JSON.
+
+        Args:
+            dados: Corpo JSON retornado pela API de pontos.
+
+        Returns:
+            Valor inteiro quando encontrado; ``None`` caso ausente.
+        """
+
+        def _procurar(val: Any) -> Optional[int]:
+            """Explora estruturas aninhadas em busca de ``availablePoints``."""
+
+            if isinstance(val, Mapping):
+                if "availablePoints" in val:
+                    return APIRecompensas._converter_para_int(val.get("availablePoints"))
+                for sub in val.values():
+                    encontrado = _procurar(sub)
+                    if encontrado is not None:
+                        return encontrado
+            elif isinstance(val, list):
+                for item in val:
+                    encontrado = _procurar(item)
+                    if encontrado is not None:
+                        return encontrado
+            return None
+
+        return _procurar(dados)
+
+    @staticmethod
+    def contar_recompensas(dados: Any) -> Optional[int]:
+        """Conta recompensas detectando listas relevantes em estruturas aninhadas.
+
+        Args:
+            dados: Estrutura JSON retornada pela API de recompensas.
+
+        Returns:
+            Quantidade total de itens identificados como recompensas ou ``None``
+            quando nenhuma lista válida é encontrada.
+        """
+
+        def _contar(val: Any) -> int:
+            """Conta itens considerados recompensas dentro da estrutura."""
+
+            if isinstance(val, list):
+                if val and all(isinstance(item, Mapping) for item in val):
+                    relevantes = [item for item in val if APIRecompensas._parece_recompensa(item)]
+                    if relevantes:
+                        return len(relevantes)
+                return sum(_contar(item) for item in val)
+            if isinstance(val, Mapping):
+                candidatos = val.get("catalogItems") or val.get("items")
+                if isinstance(candidatos, list):
+                    relevantes = [item for item in candidatos if APIRecompensas._parece_recompensa(item)]
+                    if relevantes:
+                        return len(relevantes)
+                return sum(_contar(sub) for sub in val.values())
+            return 0
+
+        total = _contar(dados)
+        return total if total > 0 else None
+
+    @staticmethod
+    def _converter_para_int(valor: Any) -> Optional[int]:
+        """Converte valores numéricos ou strings numéricas para inteiro.
+
+        Args:
+            valor: Objeto retornado pelo JSON (int, float, str, etc.).
+
+        Returns:
+            Inteiro absoluto quando possível; ``None`` quando a conversão falha.
+        """
+
+        if isinstance(valor, (int, float)):
+            return int(valor)
+        if isinstance(valor, str) and valor.strip():
+            try:
+                return int(float(valor))
+            except ValueError:
+                return None
+        return None
+
+    @staticmethod
+    def _parece_recompensa(item: Mapping[str, Any]) -> bool:
+        """Verifica heurísticamente se um item do JSON representa recompensa.
+
+        Args:
+            item: Dicionário potencialmente descrevendo uma recompensa.
+
+        Returns:
+            ``True`` quando um campo ``price`` numérico é encontrado; caso
+            contrário ``False``.
+        """
+
+        if not isinstance(item, Mapping):
+            return False
+        valor = item.get("price")
+        if isinstance(valor, (int, float)):
+            return True
+        if isinstance(valor, str) and valor.replace(".", "", 1).isdigit():
+            return True
+        return False
+
+
+__all__ = ["NavegadorRecompensas", "goto_rewards_page", "APIRecompensas"]

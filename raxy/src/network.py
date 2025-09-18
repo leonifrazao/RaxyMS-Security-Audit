@@ -3,13 +3,21 @@ from typing import Dict, List, Optional
 import re
 
 class NetWork:
+    """Utilitário para inspecionar respostas de rede emitidas pelo botasaurus."""
+
     def __init__(self):
+        """Inicializa estrutura vazia para capturar respostas de rede."""
+
         self.respostas: List[Dict] = []
         self.driver: Optional[Driver] = None
         self._handler_registrado = False
-    
+
     def inicializar(self, driver: Driver):
-        """Inicializa o monitoramento de rede para um driver específico."""
+        """Inicializa o monitoramento de rede para um driver específico.
+
+        Args:
+            driver: Instância do botasaurus monitorada.
+        """
         self.driver = driver
         self.respostas = []
         
@@ -23,7 +31,7 @@ class NetWork:
         response: cdp.network.Response,
         event: cdp.network.ResponseReceived,
     ):
-        """Handler para capturar todas as respostas de rede."""
+        """Handler interno registrado no CDP para capturar respostas."""
         self.respostas.append({
             "url": response.url,
             "status": response.status,
@@ -33,9 +41,13 @@ class NetWork:
         })
     
     def get_status(self, url_pattern: str = None) -> Optional[int]:
-        """
-        Retorna o status code da URL mais recente que corresponde ao padrão.
-        Se url_pattern for None, retorna o status da última resposta.
+        """Obtém o status HTTP mais recente cuja URL combina com ``url_pattern``.
+
+        Args:
+            url_pattern: Texto ou regex a ser testada contra as URLs capturadas.
+
+        Returns:
+            Código de status ou ``None`` quando não há correspondências.
         """
         if not self.respostas:
             return None
@@ -57,8 +69,13 @@ class NetWork:
         return None
     
     def get_ultima_resposta(self, url_pattern: str = None) -> Optional[Dict]:
-        """
-        Retorna a última resposta completa (url e status) que corresponde ao padrão.
+        """Retorna o dicionário da última resposta cuja URL corresponde ao padrão.
+
+        Args:
+            url_pattern: Texto ou regex para filtragem.
+
+        Returns:
+            Dicionário com ``url`` e ``status`` ou ``None`` se não encontrar.
         """
         if not self.respostas:
             return None

@@ -26,6 +26,8 @@ class TestGerenciadorPerfil(unittest.TestCase):
         mock_user_agent,
         mock_set,
     ) -> None:
+        """Garante que um novo user-agent é criado e persistido quando ausente."""
+
         mock_get.return_value = None
         instancia_user_agent = mock_user_agent.return_value
         instancia_user_agent.get_random_user_agent.return_value = "UA-TESTE"
@@ -37,12 +39,16 @@ class TestGerenciadorPerfil(unittest.TestCase):
 
     @patch("src.utilitarios.Profiles.get_profile")
     def test_garantir_agente_usuario_retorna_existente(self, mock_get) -> None:
+        """Valida que o user-agent existente é reutilizado sem recriação."""
+
         mock_get.return_value = {"UA": "EXISTENTE"}
         resultado = GerenciadorPerfil.garantir_agente_usuario("perfil")
         self.assertEqual(resultado, "EXISTENTE")
 
     @patch("src.utilitarios.GerenciadorPerfil.garantir_agente_usuario", return_value="UA-ARGS")
     def test_argumentos_agente_usuario_encapsula_flag(self, mock_garantir) -> None:
+        """Confirma que ``argumentos_agente_usuario`` monta a flag corretamente."""
+
         argumentos = GerenciadorPerfil.argumentos_agente_usuario("perfil")
         self.assertEqual(argumentos, ["--user-agent=UA-ARGS"])
         mock_garantir.assert_called_once_with("perfil")

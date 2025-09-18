@@ -6,9 +6,9 @@ from typing import Any, Mapping
 
 from botasaurus.browser import browser, Driver, Wait
 
-from .config import BROWSER_KWARGS
+from .config import BROWSER_KWARGS, REWARDS_BASE_URL
 from .logging import log
-from .network import NetWork
+from .solicitacoes import GerenciadorSolicitacoesRewards
 
 
 class CredenciaisInvalidas(ValueError):
@@ -19,6 +19,7 @@ class AutenticadorRewards:
     """Responsavel por realizar o login no Microsoft Rewards."""
 
     _PADRAO_EMAIL = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+    _ultimo_gerenciador: GerenciadorSolicitacoesRewards | None = None
 
     @classmethod
     def validar_credenciais(cls, email: str, senha: str) -> tuple[str, str]:
@@ -44,55 +45,63 @@ class AutenticadorRewards:
 
     @staticmethod
     def _criar_registro(**contexto: Any):
+        """Cria um logger contextualizado para o fluxo de autenticação."""
+
         return log.com_contexto(fluxo="login", **{chave: valor for chave, valor in contexto.items() if valor})
-    
-    @staticmethod
-    def _inserir_senha(driver: Driver, senha: str) -> None:
-        """Insere a senha no campo apropriado, com tratamento de erros."""
-        if not driver.is_element_present("input[type='password']", wait=Wait.VERY_LONG):
-            raise RuntimeError("Campo de senha nao encontrado apos informar email")
-        driver.type("input[type='password']", senha, wait=Wait.VERY_LONG)
-        driver.click("button[type='submit']")
-        driver.short_random_sleep()
-        
-    @staticmethod
-    def _inserir_email(driver: Driver, email: str) -> None:
-        """Insere o email no campo apropriado, com tratamento de erros."""
-        if not driver.is_element_present("input[type='email']", wait=Wait.VERY_LONG):
-            raise RuntimeError("Campo de email nao encontrado na pagina")
-        driver.type("input[type='email']", email, wait=Wait.VERY_LONG)
-        driver.click("button[type='submit']")
-        driver.short_random_sleep()
-        
-    @staticmethod 
-    def _verificar_erro_login(network) -> bool:
+
+    @classmethod
+    def _registrar_solicitacoes(
+        cls,
+        driver: Driver,
+        perfil_sessao: str,
+        registro,
+    ) -> GerenciadorSolicitacoesRewards:
+        """Gera um gerenciador de solicitações autenticado a partir do driver.
+
+        Args:
+            driver: Instância do botasaurus utilizada no fluxo de login.
+            perfil_sessao: Identificador do perfil usado na automação.
+            registro: Logger contextual para reportar métricas.
+
+        Returns:
+            Gerenciador de solicitações pronto para criar clientes HTTP.
         """
-        Verifica se houve erro de login (status 400, 401, 403).
-        """
-        # Procura por respostas de login com erro
-        patterns_login = [
-            "login", "signin", "auth", "authenticate",
-            "microsoft.com/common/oauth2", "login.live.com"
-        ]
-        
-        for resp in reversed(network.respostas):
-            url_lower = resp["url"].lower()
-            for pattern in patterns_login:
-                if pattern in url_lower:
-                    if resp["status"] in [400, 401, 403]:
-                        return True
-        
-        return False
+
+        gestor = GerenciadorSolicitacoesRewards(perfil_sessao, driver)
+        sessao = gestor.capturar()
+        registro.debug(
+            "Sessao pronta para requests",
+            perfil=perfil_sessao,
+            total_cookies=len(sessao.cookies),
+        )
+        cls._ultimo_gerenciador = gestor
+        return gestor
+
+    @classmethod
+    def obter_ultimo_gerenciador(cls) -> GerenciadorSolicitacoesRewards | None:
+        """Retorna o ultimo gerenciador de solicitacoes utilizado."""
+
+        return cls._ultimo_gerenciador
 
     @staticmethod
     @browser(**BROWSER_KWARGS)
     def executar(driver: Driver, dados: Mapping[str, Any] | None = None, **outros: Any) -> None:
-        """Executa o fluxo de login do Microsoft Rewards com validacoes extras."""
-        
-        # Inicializa o monitoramento de rede
-        network = NetWork()
-        network.inicializar(driver)
-        
+        """Executa o fluxo de login do Microsoft Rewards com validações extras.
+
+        Args:
+            driver: Instância controlada pelo decorator ``@browser``.
+            dados: Dicionário opcional contendo ``email`` e ``senha``.
+            **outros: Argumentos adicionais aceitos pelo decorator (``profile``,
+                ``add_arguments`` etc.).
+
+        Returns:
+            ``GerenciadorSolicitacoesRewards`` ou ``None`` (mantido por compatibilidade).
+
+        Raises:
+            CredenciaisInvalidas: Quando email ou senha são inválidos.
+            RuntimeError: Quando elementos essenciais não são encontrados na página.
+        """
+
         dados = dados or {}
         perfil = outros.get("profile")
         registro = AutenticadorRewards._criar_registro(perfil=perfil)
@@ -113,43 +122,36 @@ class AutenticadorRewards:
             raise
         
         driver.enable_human_mode()
-        driver.google_get("https://rewards.bing.com")
+        driver.google_get(REWARDS_BASE_URL)
         driver.short_random_sleep()
         
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
             registro.sucesso("Conta ja autenticada")
-            return
-        
-        # Se o campo de email ja estiver presente, significa que é um novo login
-        # Se não, o site pode estar pedindo a senha diretamente (sessão expirada)
-        if driver.is_element_present("input[type='email']", wait=Wait.SHORT):
-            registro.info("Nova Sessao, solicitando email")
-            AutenticadorRewards._inserir_email(driver, email_validado)
-            registro.info("Solicitando senha")
-            AutenticadorRewards._inserir_senha(driver, senha_validada)
-        elif driver.is_element_present("input[type='password']", wait=Wait.SHORT):
-            registro.info("Sessao expirada, solicitando senha")
-            AutenticadorRewards._inserir_senha(driver, senha_validada)
-        else:
-            registro.erro("Nao foi possivel encontrar campos de login")
-            raise RuntimeError("Nao foi possivel encontrar campos de login")        
-        # Verifica o status após o login
-        driver.sleep(1)  # Aguarda um momento para capturar as respostas
-        
-        # Verifica se houve erro de autenticação
-        if AutenticadorRewards._verificar_erro_login(network):
-            status = network.get_status("login")
-            registro.erro(f"Erro de autenticacao detectado. Status code: {status}")
-            
-            # Pega detalhes da última resposta de login
-            ultima_resposta = network.get_ultima_resposta("login")
-            if ultima_resposta:
-                registro.erro(f"URL: {ultima_resposta['url']}, Status: {ultima_resposta['status']}")
-                
-                
-            driver.delete_cookies()
-            raise RuntimeError(f"Falha na autenticacao - Status {status}")
-        
+            return AutenticadorRewards._registrar_solicitacoes(
+                driver,
+                perfil or entrada_email,
+                registro,
+            )
+
+        if not driver.is_element_present("input[type='email']", wait=Wait.VERY_LONG):
+            registro.erro("Campo de email nao encontrado na pagina")
+            raise RuntimeError("Campo de email nao encontrado na pagina de login")
+
+        registro.info("Digitando email")
+        driver.type("input[type='email']", email_validado, wait=Wait.VERY_LONG)
+        driver.click("button[type='submit']")
+        driver.short_random_sleep()
+
+        if not driver.is_element_present("input[type='password']", wait=Wait.VERY_LONG):
+            registro.erro("Campo de senha nao encontrado apos informar email")
+            raise RuntimeError("Campo de senha nao encontrado apos informar email")
+
+        registro.info("Digitando senha")
+        driver.type("input[type='password']", senha_validada, wait=Wait.VERY_LONG)
+        driver.click("button[type='submit']")
+        driver.short_random_sleep()
+        driver.prompt()
+
         try:
             driver.click("button[aria-label='Yes']", wait=Wait.SHORT)
         except Exception:
@@ -174,8 +176,12 @@ class AutenticadorRewards:
                 raise RuntimeError(f"Erro HTTP durante login: {status}")
             
             registro.aviso("Nao foi possivel confirmar o login automaticamente")
-        driver.prompt()
-        
+
+        return AutenticadorRewards._registrar_solicitacoes(
+            driver,
+            perfil or entrada_email,
+            registro,
+        )
 
 
 def login(*args: Any, **kwargs: Any) -> Any:

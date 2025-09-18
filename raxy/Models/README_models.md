@@ -7,7 +7,7 @@ Este diretório reúne os modelos declarativos utilizados pela aplicação. Eles
 | Arquivo             | Descrição                                                                 |
 |---------------------|----------------------------------------------------------------------------|
 | `modelo_base.py`    | Define `BaseDeclarativa` (classe base SQLAlchemy) e `ModeloBase`, fornecendo `to_dict()`, `chaves_definidas()` e validação de chaves. |
-| `conta_modelo.py`   | Implementa `ModeloConta`, modelo utilizado pela automação (`id`, `email`, `senha`, `id_perfil`, `pontos`). |
+| `conta_modelo.py`   | Implementa `ModeloConta`, utilizado pela automação (`id`, `email`, `senha`, `id_perfil`, `pontos`). O campo `pontos` pode ser alimentado com `APIRecompensas.extrair_pontos_disponiveis`. |
 | `__init__.py`       | Reexporta símbolos (`ModeloBase`, `BaseDeclarativa`, `ModeloConta`) para facilitar imports. |
 
 ## Estrutura de um modelo
@@ -57,6 +57,7 @@ chaves = conta.chaves_definidas()  # {"email": "user@example.com"}
 ## Integração com BaseModelos
 
 Os modelos aqui definidos são consumidos por `BaseModelos` (`src/base_modelos.py`), que oferece métodos de CRUD, buscas por key/ID, remoções em massa e registro de métodos personalizados.
+Integre-os com as respostas da API utilizando os helpers de `APIRecompensas` para converter JSON em valores persistíveis.
 
 Para utilizar:
 ```python

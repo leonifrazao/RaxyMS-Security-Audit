@@ -2,7 +2,7 @@
 
 Bem-vindo à documentação oficial do Raxy! Este guia consolida todas as informações relevantes sobre a automação de contas Microsoft Rewards, estrutura do código, processos de execução e contribuição.
 
-> **Resumo rápido:** Raxy é uma aplicação Python 3.11+ que roda automações com botasaurus, organiza logs avançados, gerencia perfis de navegador e mantém dados com SQLAlchemy/SQLite – tudo escrito em português para facilitar a manutenção por equipes pt-BR.
+> **Resumo rápido:** Raxy é uma aplicação Python 3.11+ que roda automações com botasaurus, organiza logs avançados, gerencia perfis de navegador e mantém dados com SQLAlchemy/SQLite – tudo escrito em português para facilitar a manutenção por equipes pt-BR. O executor suporta processamento paralelo opcional e expõe utilidades para extrair pontos e recompensas diretamente das respostas do Rewards.
 
 ## Índice
 
@@ -23,20 +23,20 @@ Bem-vindo à documentação oficial do Raxy! Este guia consolida todas as inform
 - **Linguagem:** Python 3.11+
 - **Principais dependências:** `rich`, `botasaurus`, `sqlalchemy`, `random-user-agent`.
 - **Documentação complementar:**
-  - [`raxy/README.md`](raxy/README.md) – resumo operacional do pacote principal.
-  - [`raxy/src/README.md`](raxy/src/README.md) – detalhes dos módulos core.
-  - [`raxy/Models/README.md`](raxy/Models/README.md) – instruções para criar modelos ORM.
-  - [`raxy/tests/README.md`](raxy/tests/README.md) – guia de testes automatizados.
+  - [`raxy/DOCUMENTACAO.md`](raxy/DOCUMENTACAO.md) – panorama operacional do pacote principal.
+  - [`raxy/src/README_src.md`](raxy/src/README_src.md) – detalhes dos módulos core.
+  - [`raxy/Models/README_models.md`](raxy/Models/README_models.md) – instruções para criar modelos ORM.
+  - [`raxy/tests/README_tests.md`](raxy/tests/README_tests.md) – guia de testes automatizados.
 
 ## Arquitetura de Pastas
 
 ```
 .
-├── DOCUMENTACAO.md        # Este arquivo
+├── DOCUMENTACAO.md        # Guia operacional da automação
 ├── raxy/                  # Código-fonte principal
 │   ├── main.py            # Executor em lote
 │   ├── Models/            # Modelos SQLAlchemy
-│   ├── src/               # Autenticação, logging, base de dados
+│   ├── src/               # Autenticação, logging, helpers e base de dados
 │   └── tests/             # Testes unitários
 ├── users.txt              # Exemplo de arquivo de contas (fora do .git)
 └── shell.nix / .venv ...  # Configurações de ambiente (opcionais)
@@ -61,9 +61,12 @@ pip install rich botasaurus sqlalchemy random-user-agent
 2. Crie um ambiente virtual (opcional).
 3. Instale as dependências listadas acima.
 4. Prepare o arquivo `users.txt` com entradas `email:senha` (uma por linha).
-5. Ajuste variáveis de ambiente conforme necessário:
+5. Ajuste variáveis de ambiente conforme necessário (todas são lidas e normalizadas pelo `ExecutorConfig` e helpers de ambiente):
    - `USERS_FILE`: caminho do arquivo de contas.
    - `ACTIONS`: sequências de ações (ex.: `login`, `rewards`).
+   - `MAX_WORKERS` / `RAXY_MAX_WORKERS`: limite de paralelismo.
+   - `REWARDS_BASE_URL`: sobrescreve a URL padrão `https://rewards.bing.com`.
+   - `RAXY_API_INTERACTIVE` e `RAXY_SOLICITACOES_INTERATIVAS`: controlam prompts sonoros/interativos.
    - Variáveis de logging (`LOG_LEVEL`, `LOG_FILE`, `LOG_COLOR`, etc.).
 
 ## Fluxo Principal
@@ -71,8 +74,11 @@ pip install rich botasaurus sqlalchemy random-user-agent
 - `raxy/main.py` implementa `ExecutorEmLote`, responsável por:
   1. Ler contas de `users.txt`.
   2. Criar contexto de logging por conta.
-  3. Executar `AutenticadorRewards.executar` (login) e `NavegadorRecompensas.abrir_pagina` (rewards) conforme ações configuradas.
-  4. Reportar erros sem interromper as demais contas.
+  3. Executar `AutenticadorRewards.executar` (login), `NavegadorRecompensas.abrir_pagina` (rewards) e chamadas de API conforme `ACTIONS`.
+  4. Orquestrar as contas sequencialmente ou em paralelo via `ThreadPoolExecutor` (configurado com `ExecutorConfig.max_workers`).
+  5. Reportar erros sem interromper as demais contas.
+
+Utilidades pós-processamento residem em `APIRecompensas` (`extrair_pontos_disponiveis`, `contar_recompensas`) para reduzir duplicação ao interpretar os retornos JSON.
 
 O fluxo pode ser estendido para incluir novas ações (ex.: coleta de pontos, scraping). Basta adicionar métodos em `ExecutorEmLote` e gerenciar via `ACTIONS`.
 
@@ -110,17 +116,18 @@ base.remover_por_key(ModeloConta(email="user@example.com", senha="qualquer"), pr
 ## Testes Automatizados
 
 - Baseados em `unittest`, localizados em `raxy/tests/`.
-- Para rodar toda a suíte:
+- Para rodar toda a suíte (a maioria dos testes evita chamadas reais ao navegador):
   ```bash
   cd raxy
   python -m unittest discover tests
   ```
+- Testes que dependem do botasaurus exigem ambiente capaz de abrir portas locais; em ambientes restritos, execute-os manualmente.
 - Os testes que dependem de SQLAlchemy são executados com banco em memória.
 - Consulte o README específico (`raxy/tests/README.md`) para detalhes e boas práticas.
 
 ## Extensões e Contribuição
 
-1. **Novos fluxos de automação**: adicione métodos no `ExecutorEmLote` e exponha-os via `ACTIONS`.
+1. **Novos fluxos de automação**: adicione métodos no `ExecutorEmLote` e exponha-os via `ACTIONS`. Se a ação incluir consultas HTTP, avalie mover parsing para `APIRecompensas`.
 2. **Enriquecimento do logging**: use contextos (`log.com_contexto`) para metadados adicionais, escreva em arquivos (`LOG_FILE`).
 3. **Modelos adicionais**: crie classes em `Models/`, reexporte-as e utilize via `BaseModelos`.
 4. **Persistência alternativa**: substitua o SQLite por outro banco passando `url_banco` (ex.: `postgresql+psycopg://...`).

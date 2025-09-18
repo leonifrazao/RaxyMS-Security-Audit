@@ -19,6 +19,8 @@ try:
     SQLALCHEMY_DISPONIVEL = True
 
     class ModeloGrupo(ModeloBase):
+        """Modelo auxiliar utilizado nos testes de remoção em massa."""
+
         __tablename__ = "grupos"
         CHAVES = ("grupo", "categoria")
 
@@ -36,9 +38,13 @@ class TestBaseModelos(unittest.TestCase):
     """Garante o comportamento do handler de modelos com SQLAlchemy."""
 
     def setUp(self) -> None:
+        """Cria uma instância de ``BaseModelos`` com SQLite em memória."""
+
         self.base = BaseModelos(url_banco="sqlite:///:memory:")
 
     def test_inserir_e_obter_modelos(self) -> None:
+        """Valida inserção e recuperação básica de registros."""
+
         conta = ModeloConta(email="user@example.com", senha="123")
         self.base.inserir_ou_atualizar(conta)
 
@@ -47,6 +53,8 @@ class TestBaseModelos(unittest.TestCase):
         self.assertEqual(encontrados[0].email, "user@example.com")
 
     def test_inserir_atualiza_quando_chave_existente(self) -> None:
+        """Confere a atualização quando um registro com mesma chave já existe."""
+
         conta = ModeloConta(email="user@example.com", senha="123", pontos=10)
         self.base.inserir_ou_atualizar(conta)
 
@@ -58,6 +66,8 @@ class TestBaseModelos(unittest.TestCase):
         self.assertEqual(resultado.pontos, 30)
 
     def test_obter_por_key_com_chave_parcial(self) -> None:
+        """Garante que a busca por chave parcial retorna apenas a conta alvo."""
+
         primeira = ModeloConta(email="alice@example.com", senha="segredo")
         segunda = ModeloConta(email="bruno@example.com", senha="outro")
         self.base.inserir_ou_atualizar(primeira)
@@ -69,6 +79,8 @@ class TestBaseModelos(unittest.TestCase):
         self.assertEqual(encontrados[0].email, "alice@example.com")
 
     def test_delete_remove_itens_correspondentes(self) -> None:
+        """Certifica que o delete remove apenas o registro correspondente."""
+
         conta = ModeloConta(email="user@example.com", senha="123")
         outra = ModeloConta(email="outro@example.com", senha="456")
         self.base.inserir_ou_atualizar(conta)
@@ -81,12 +93,16 @@ class TestBaseModelos(unittest.TestCase):
         self.assertEqual(restantes[0].email, "outro@example.com")
 
     def test_obter_por_id(self) -> None:
+        """Valida a recuperação de um registro pelo seu ID."""
+
         salvo = self.base.inserir_ou_atualizar(ModeloConta(email="user@example.com", senha="123"))
         recuperado = self.base.obter_por_id(salvo.id, ModeloConta)
         self.assertIsNotNone(recuperado)
         self.assertEqual(recuperado.id, salvo.id)
 
     def test_atualizar_por_id(self) -> None:
+        """Garante que atualizar por ID substitui campos corretamente."""
+
         salvo = self.base.inserir_ou_atualizar(ModeloConta(email="user@example.com", senha="123", pontos=1))
         atualizado = self.base.atualizar_por_id(
             salvo.id,
@@ -97,6 +113,8 @@ class TestBaseModelos(unittest.TestCase):
         self.assertEqual(atualizado.senha, "xyz")
 
     def test_deletar_por_id(self) -> None:
+        """Verifica a remoção por ID seguida de inexistência."""
+
         salvo = self.base.inserir_ou_atualizar(ModeloConta(email="user@example.com", senha="123"))
         removidos = self.base.deletar_por_id(salvo.id, ModeloConta)
         self.assertEqual(removidos, 1)
@@ -104,6 +122,8 @@ class TestBaseModelos(unittest.TestCase):
         self.assertIsNone(restante)
 
     def test_operacoes_sem_chave_disparam_erro(self) -> None:
+        """Certifica que operações exigem preenchimento de chaves obrigatórias."""
+
         conta_sem_email = ModeloConta(email=None, senha="123")  # type: ignore[arg-type]
         with self.assertRaises(ValueError):
             self.base.obter_por_key(conta_sem_email)
@@ -113,7 +133,11 @@ class TestBaseModelos(unittest.TestCase):
             self.base.delete(conta_sem_email)
 
     def test_metodo_personalizado(self) -> None:
+        """Garante que métodos personalizados são ligados na instância."""
+
         def aumentar_pontos(handler: BaseModelos, email: str, incremento: int) -> int:
+            """Incrementa a pontuação da conta e retorna o novo total."""
+
             registro = handler.obter_por_key(ModeloConta(email=email, senha="placeholder"))
             if not registro:
                 raise ValueError("Conta nao encontrada")
@@ -129,6 +153,8 @@ class TestBaseModelos(unittest.TestCase):
         self.assertEqual(total, 15)
 
     def test_remover_por_key_sem_predicado(self) -> None:
+        """Remove múltiplos registros apenas pelas chaves definidas."""
+
         self.base.inserir_ou_atualizar(ModeloGrupo(grupo="premium", categoria="bronze", pontos=500))
         self.base.inserir_ou_atualizar(ModeloGrupo(grupo="premium", categoria="ouro", pontos=1500))
         self.base.inserir_ou_atualizar(ModeloGrupo(grupo="basico", categoria="bronze", pontos=100))
@@ -141,6 +167,8 @@ class TestBaseModelos(unittest.TestCase):
         self.assertEqual(grupos_restantes, [("basico", "bronze")])
 
     def test_remover_por_key_com_predicado(self) -> None:
+        """Aplica filtro adicional ao remover registros por key."""
+
         self.base.inserir_ou_atualizar(ModeloGrupo(grupo="premium", categoria="bronze", pontos=500))
         self.base.inserir_ou_atualizar(ModeloGrupo(grupo="premium", categoria="ouro", pontos=1500))
         self.base.inserir_ou_atualizar(ModeloGrupo(grupo="premium", categoria="diamante", pontos=2500))
