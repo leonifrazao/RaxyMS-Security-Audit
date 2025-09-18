@@ -5,12 +5,15 @@ import re
 class NetWork:
     """Utilitário para inspecionar respostas de rede emitidas pelo botasaurus."""
 
-    def __init__(self):
+    def __init__(self, driver: Optional[Driver] = None):
         """Inicializa estrutura vazia para capturar respostas de rede."""
 
         self.respostas: List[Dict] = []
         self.driver: Optional[Driver] = None
         self._handler_registrado = False
+
+        if driver is not None:
+            self.inicializar(driver)
 
     def inicializar(self, driver: Driver):
         """Inicializa o monitoramento de rede para um driver específico.
@@ -18,9 +21,13 @@ class NetWork:
         Args:
             driver: Instância do botasaurus monitorada.
         """
+        driver_anterior = self.driver
+        if driver_anterior is not driver:
+            self._handler_registrado = False
+
         self.driver = driver
         self.respostas = []
-        
+
         if not self._handler_registrado:
             self.driver.after_response_received(self._response_handler)
             self._handler_registrado = True

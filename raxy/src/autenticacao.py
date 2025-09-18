@@ -103,10 +103,16 @@ class AutenticadorRewards:
             RuntimeError: Quando elementos essenciais não são encontrados na página.
         """
 
+        if not dados and "data" in outros:
+            dados = outros["data"]
+
         dados = dados or {}
         perfil = outros.get("profile")
         registro = AutenticadorRewards._criar_registro(perfil=perfil)
         registro.debug("Coletando credenciais")
+
+        network = NetWork(driver)
+        network.limpar_respostas()
         
         entrada_email = dados.get("email") or os.getenv("MS_EMAIL") or ""
         entrada_senha = (
@@ -159,7 +165,7 @@ class AutenticadorRewards:
             pass
         else:
             registro.debug("Confirmacao de sessao aceita")
-        network = NetWork(driver)
+            
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
             registro.sucesso("Login finalizado")
             
@@ -167,22 +173,34 @@ class AutenticadorRewards:
             status_final = network.get_status()
             if status_final == 200:
                 registro.sucesso(f"Login bem-sucedido - Status: {status_final}")
+            elif status_final is not None:
+                registro.aviso(f"Login concluido mas com status inesperado: {status_final}")
             else:
-                registro.aviso(f"Login concluído mas com status inesperado: {status_final}")
+                registro.debug("Nenhum status HTTP registrado apos login")
+
+            return AutenticadorRewards._registrar_solicitacoes(
+                driver,
+                perfil or entrada_email,
+                registro,
+            )
         else:
             # Verifica se houve erro HTTP
             status = network.get_status()
             if status and status >= 400:
                 registro.erro(f"Erro HTTP detectado: {status}")
                 raise RuntimeError(f"Erro HTTP durante login: {status}")
-            
-            registro.aviso("Nao foi possivel confirmar o login automaticamente")
 
-        return AutenticadorRewards._registrar_solicitacoes(
-            driver,
-            perfil or entrada_email,
-            registro,
-        )
+            if status is not None:
+                registro.erro(
+                    "Login nao confirmado mesmo apos tentativa",
+                    status=status,
+                )
+            else:
+                registro.erro("Login nao confirmado: nenhuma resposta de rede capturada")
+
+            raise RuntimeError(
+                f"Nao foi possivel confirmar o login para {email_validado}."
+            )
 
 
 def login(*args: Any, **kwargs: Any) -> Any:
