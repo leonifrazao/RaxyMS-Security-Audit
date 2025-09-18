@@ -4,12 +4,14 @@ Raxy é um utilitário completo que orquestra múltiplas contas do Microsoft Rew
 
 ## Principais recursos
 
-- **Execução em lote** com controle por variáveis de ambiente (`USERS_FILE`, `ACTIONS`).
+- **Execução em lote** com controle por variáveis de ambiente (`USERS_FILE`, `ACTIONS`, `MAX_WORKERS`).
+- **Paralelismo configurável** via `MAX_WORKERS`/`RAXY_MAX_WORKERS`, acelerando o processamento de múltiplas contas.
 - **Logging opinativo em português** com Rich, contextos e níveis customizados (`log`, `configurar_logging`).
 - **Gerenciamento de perfis/User-Agent** dedicado para otimizar pontuação no Rewards.
 - **Autenticação resiliente** (validação de email/senha, tratamentos de DOM e sugestões de falhas).
 - **Camada de dados extensível** com SQLAlchemy (`BaseModelos`, `ModeloConta`) e suporte a métodos customizados.
 - **Testes automatizados** cobrindo cada camada (`unittest`).
+- **Configuração centralizada** com `ExecutorConfig` e helpers de ambiente para manter defaults consistentes.
 
 ## Estrutura do projeto
 
@@ -27,7 +29,7 @@ raxy/
 Contém a base declarativa (`ModeloBase`) e modelos concretos como `ModeloConta`, prontos para uso com SQLAlchemy. Consulte [`Models/README_models.md`](Models/README_models.md) para detalhes de extensão.
 
 ### src
-Módulos responsáveis por autenticação, navegação, logging, carregamento de contas e pela `BaseModelos`. Veja [`src/README_src.md`](src/README_src.md) para um tour completo.
+Módulos responsáveis por autenticação, navegação, logging, carregamento de contas, helpers compartilhados e pela `BaseModelos`. Veja [`src/README_src.md`](src/README_src.md) para um tour completo.
 
 ### tests
 Suíte de testes unitários cobrindo autenticação, executor, utilitários e camada de dados. Instruções completas em [`tests/README_tests.md`](tests/README_tests.md).
@@ -53,8 +55,10 @@ Suíte de testes unitários cobrindo autenticação, executor, utilitários e ca
    usuario1@example.com:senha1
    usuario2@example.com:senha2
    ```
-2. Defina as ações desejadas (`login`, `rewards`, ou ambas separadas por vírgula).
-3. Execute:
+2. Defina as ações desejadas (`login`, `rewards`, `solicitacoes`, separadas por vírgula).
+3. Ajuste o paralelismo se desejar: `MAX_WORKERS=4` (exemplo) executa até 4 contas simultaneamente. O comportamento padrão pode ser consultado/ajustado via `ExecutorConfig.from_env()`.
+4. Opcional: configure `REWARDS_BASE_URL` para apontar para uma instância alternativa do Rewards ou habilite/desabilite prompts sonoros com `RAXY_API_INTERACTIVE`/`RAXY_SOLICITACOES_INTERATIVAS`.
+5. Execute:
    ```bash
    cd raxy
    USERS_FILE=../users.txt ACTIONS="login,rewards" python main.py
@@ -94,11 +98,20 @@ python -m unittest discover tests
 
 Os testes incluem mocks para isolamento e cobrem os principais caminhos críticos. Amplie a suíte conforme adicionar novos módulos.
 
+> **Ambientes restritos:** testes que instanciam botasaurus necessitam abrir portas locais; execute-os manualmente caso o ambiente bloqueie sockets.
+
+## Utilidades de API
+
+- `APIRecompensas.extrair_pontos_disponiveis(dados)` percorre qualquer resposta JSON e retorna o inteiro associado a `availablePoints`.
+- `APIRecompensas.contar_recompensas(dados)` identifica coleções de itens (`catalogItems`, `items`, listas de objetos com `price`) e devolve a quantidade total encontrada.
+- Métodos aceitam o JSON bruto retornado por `obter_pontos` e `obter_recompensas`, evitando duplicação de parsing em outras camadas.
+
 ## Personalização e próximos passos
 
 - **Novos modelos:** derive de `ModeloBase`, defina `__tablename__`, `CHAVES` e colunas via SQLAlchemy.
 - **Métodos customizados:** passe um dicionário `metodos_personalizados` ao instanciar `BaseModelos`.
 - **Integração externa:** exponha `BaseModelos` via API, CLI ou UI conforme necessário.
 - **Observabilidade:** configure `LOG_FILE` para persistir logs ou integre com ferramentas externas (ELK, Loki etc.).
+- **Novas ações:** utilize `ACTIONS` e `MAX_WORKERS` juntos para balancear throughput e estabilidade; ações que consultam a API devem reutilizar os helpers da `APIRecompensas`.
 
 Ficou com dúvida? Consulte também [`README.md`](../README.md) na raiz para uma visão consolidada do repositório.

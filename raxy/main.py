@@ -9,12 +9,60 @@ Linhas em branco ou iniciadas por ``#`` sao ignoradas.
 
 from __future__ import annotations
 
-import os
-from typing import Iterable, List
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 
-from src import AutenticadorRewards, NavegadorRecompensas, GerenciadorPerfil
+from typing import Any, Callable, Iterable, List, Mapping, Optional
+
+from src import (
+    AutenticadorRewards,
+    NavegadorRecompensas,
+    GerenciadorPerfil,
+    GerenciadorSolicitacoesRewards,
+    APIRecompensas,
+)
+from src.config import DEFAULT_ACTIONS, ExecutorConfig
 from src.contas import Conta, carregar_contas
 from src.logging import log
+
+
+@dataclass(slots=True)
+class ContextoConta:
+    """Mantém o estado de processamento de uma conta específica."""
+
+    conta: Conta
+    perfil: str
+    argumentos_navegador: List[str]
+    registro: Any
+    solicitacoes: GerenciadorSolicitacoesRewards | None = None
+    api: APIRecompensas | None = None
+
+    def registrar_solicitacoes(
+        self,
+        gerenciador: GerenciadorSolicitacoesRewards,
+        palavras_erro: List[str],
+        *,
+        interativo: Optional[bool] = None,
+    ) -> None:
+        """Registra os objetos auxiliares responsáveis por chamadas à API.
+
+        Args:
+            gerenciador: Instância capturada durante o fluxo de login capaz de
+                criar clientes HTTP autenticados.
+            palavras_erro: Lista de termos que sinalizam respostas inválidas e
+                devem ser monitorados pelo cliente HTTP reutilizado.
+            interativo: Define o comportamento de prompts do botasaurus. ``True``
+                mantém alertas; ``False`` silencia; ``None`` deixa a decisão para
+                o próprio cliente.
+        """
+
+        self.solicitacoes = gerenciador
+        self.api = APIRecompensas(
+            gerenciador,
+            palavras_erro=palavras_erro,
+            interativo=interativo,
+        )
 
 
 class ExecutorEmLote:
@@ -24,15 +72,76 @@ class ExecutorEmLote:
         self,
         arquivo_usuarios: str | None = None,
         acoes: Iterable[str] | str | None = None,
+        max_workers: int | None = None,
+        *,
+        config: ExecutorConfig | None = None,
     ) -> None:
-        self.arquivo_usuarios = arquivo_usuarios or os.getenv("USERS_FILE", "users.txt")
-        self.acoes = self._normalizar_acoes(acoes or os.getenv("ACTIONS", "login,rewards"))
+        """Configura caminhos de entrada, pipeline de ações e paralelismo.
+
+        Args:
+            arquivo_usuarios: Caminho para o arquivo de contas. Quando omitido,
+                utiliza ``USERS_FILE`` ou ``users.txt`` na raiz do projeto.
+            acoes: Sequência de ações a executar (iterável ou string separada
+                por vírgulas). Valores ausentes usam ``ACTIONS`` ou o conjunto
+                padrão ``login,rewards,solicitacoes``.
+            max_workers: Quantidade máxima de contas processadas em paralelo. Se
+                nenhum valor válido for encontrado, o executor roda de forma
+                sequencial.
+            config: Permite injetar uma configuração pré-processada (útil para
+                testes ou cenários customizados).
+        """
+
+        base_config = (
+            config.clone()
+            if config
+            else ExecutorConfig.from_env(fallback_file=arquivo_usuarios)
+        )
+
+        if arquivo_usuarios:
+            base_config.users_file = arquivo_usuarios
+
+        if acoes is not None:
+            normalizadas = self._normalizar_acoes(acoes)
+            base_config.actions = normalizadas or list(DEFAULT_ACTIONS)
+
+        if max_workers is not None:
+            if max_workers >= 1:
+                base_config.max_workers = max_workers
+            else:
+                log.aviso("Valor invalido para max_workers", valor=max_workers)
+
+        self._config = base_config
+        self.arquivo_usuarios = self._config.users_file
+        self.acoes = list(self._config.actions)
         self.contas: List[Conta] = []
+        self._palavras_erro_api = list(self._config.api_error_words)
+        self._max_workers = self._config.max_workers
+        self._handlers: dict[str, Callable[[ContextoConta], None]] = {
+            "login": self._acao_login,
+            "rewards": self._acao_rewards,
+            "solicitacoes": self._acao_solicitacoes,
+        }
+
         log.atualizar_contexto_padrao(arquivo=self.arquivo_usuarios)
-        log.debug("Lista de acoes normalizada", acoes=self.acoes)
+        log.debug(
+            "Executor inicializado",
+            acoes=self.acoes,
+            palavras_erro=len(self._palavras_erro_api),
+            max_workers=self._max_workers,
+        )
 
     @staticmethod
     def _normalizar_acoes(acoes: Iterable[str] | str) -> List[str]:
+        """Normaliza a lista de ações recebida de input ou variáveis de ambiente.
+
+        Args:
+            acoes: Iterable de strings já dividido ou string única separada por
+                vírgulas.
+
+        Returns:
+            Lista de ações em minúsculas, sem espaços duplicados e vazios.
+        """
+
         if isinstance(acoes, str):
             itens = acoes.split(",")
         else:
@@ -40,12 +149,43 @@ class ExecutorEmLote:
         return [item.strip().lower() for item in itens if item and item.strip()]
 
     def executar(self) -> None:
+        """Executa as ações configuradas para todas as contas carregadas.
+
+        Decide entre processamento sequencial ou paralelo conforme o número de
+        contas e o limite configurado de *workers*.
+        """
+
         if not self._carregar_contas():
             return
-        for conta in self.contas:
-            self._processar_conta(conta)
+
+        if self._max_workers == 1 or len(self.contas) == 1:
+            for conta in self.contas:
+                self._processar_conta(conta)
+            return
+
+        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+            futuros = {executor.submit(self._processar_conta, conta): conta for conta in self.contas}
+            for futuro in as_completed(futuros):
+                conta = futuros[futuro]
+                try:
+                    futuro.result()
+                except Exception as exc:  # pragma: no cover - depende do ambiente de execucao
+                    log.erro(
+                        "Processamento paralelo falhou",
+                        email=conta.email,
+                        perfil=conta.id_perfil,
+                        detalhe=str(exc),
+                    )
+                    raise
 
     def _carregar_contas(self) -> bool:
+        """Lê o arquivo de usuários e prepara a lista de contas válidas.
+
+        Returns:
+            ``True`` quando encontrou contas válidas; ``False`` quando o arquivo
+            não existe ou está vazio após filtragem.
+        """
+
         try:
             self.contas = carregar_contas(self.arquivo_usuarios)
         except FileNotFoundError as exc:
@@ -60,47 +200,170 @@ class ExecutorEmLote:
         return True
 
     def _processar_conta(self, conta: Conta) -> None:
+        """Executa sequencialmente as ações definidas para a conta informada.
+
+        Args:
+            conta: Dados estruturados da conta lida do arquivo (email, senha e
+                identificador de perfil).
+        """
+
         perfil = conta.id_perfil
-        argumentos_navegador = GerenciadorPerfil.argumentos_agente_usuario(perfil)
+        argumentos = GerenciadorPerfil.argumentos_agente_usuario(perfil)
+        contexto = ContextoConta(
+            conta=conta,
+            perfil=perfil,
+            argumentos_navegador=argumentos,
+            registro=log.com_contexto(email=conta.email, perfil=perfil),
+        )
 
-        registro_conta = log.com_contexto(email=conta.email, perfil=perfil)
-        registro_conta.info("Processando conta")
+        contexto.registro.info("Processando conta")
 
-        if "login" in self.acoes:
-            self._executar_login(conta, argumentos_navegador, registro_conta)
+        for acao in self.acoes:
+            handler = self._handlers.get(acao)
+            if handler is None:
+                contexto.registro.aviso("Acao desconhecida ignorada", acao=acao)
+                continue
 
-        if "rewards" in self.acoes:
-            self._abrir_recompensas(perfil, argumentos_navegador, registro_conta)
-
-    def _executar_login(self, conta: Conta, argumentos_navegador: List[str], registro_conta) -> None:
-        try:
-            with registro_conta.etapa(
-                "Login",
-                mensagem_inicial="Iniciando login",
-                mensagem_sucesso="Login concluido",
-            ):
-                AutenticadorRewards.executar(
-                    profile=conta.id_perfil,
-                    add_arguments=argumentos_navegador,
-                    data={"email": conta.email, "senha": conta.senha},
+            try:
+                handler(contexto)
+            except Exception as exc:
+                contexto.registro.erro(
+                    "Acao falhou",
+                    acao=acao,
+                    detalhe=str(exc),
                 )
-        except Exception as exc:
-            registro_conta.erro("Erro durante login", detalhe=str(exc))
+                raise
 
-    def _abrir_recompensas(self, perfil: str, argumentos_navegador: List[str], registro_conta) -> None:
-        try:
-            with registro_conta.etapa(
-                "Rewards",
-                mensagem_inicial="Abrindo pagina de rewards",
-                mensagem_sucesso="Rewards acessado",
-            ):
-                NavegadorRecompensas.abrir_pagina(
-                    profile=perfil,
-                    add_arguments=argumentos_navegador,
+    def _acao_rewards(self, contexto: ContextoConta) -> None:
+        """Aciona a abertura da página de rewards para o perfil corrente.
+
+        Args:
+            contexto: Estrutura com os parâmetros de navegação e logger da conta.
+        """
+
+        contexto.registro.info("Abrindo pagina de rewards")
+        NavegadorRecompensas.abrir_pagina(
+            profile=contexto.perfil,
+            add_arguments=contexto.argumentos_navegador,
+        )
+        contexto.registro.sucesso("Rewards acessado com sucesso")
+
+    def _acao_login(self, contexto: ContextoConta) -> None:
+        """Realiza o login e captura a sessão HTTP para chamadas futuras.
+
+        Args:
+            contexto: Estrutura contendo credenciais, logger e estado da conta.
+
+        Raises:
+            RuntimeError: Caso todas as tentativas de autenticação falhem.
+        """
+
+        max_tentativas = 2
+        contexto.registro.info("Iniciando login")
+        for tentativa in range(1, max_tentativas + 1):
+            try:
+                if tentativa > 1:
+                    atraso = 2 ** (tentativa - 1)
+                    contexto.registro.info(
+                        "Repetindo tentativa de login",
+                        tentativa=tentativa,
+                        aguardando=f"{atraso}s",
+                    )
+                    time.sleep(atraso)
+
+                gerenciador = AutenticadorRewards.executar(
+                    profile=contexto.perfil,
+                    add_arguments=contexto.argumentos_navegador,
+                    data={"email": contexto.conta.email, "senha": contexto.conta.senha},
                 )
-        except Exception as exc:
-            registro_conta.erro("Erro durante rewards", detalhe=str(exc))
 
+                contexto.registrar_solicitacoes(
+                    gerenciador,
+                    self._palavras_erro_api,
+                    interativo=self._modo_interativo_api(),
+                )
+
+                sessao = gerenciador.dados_sessao
+                total_cookies = len(sessao.cookies) if sessao else 0
+                contexto.registro.debug(
+                    "Sessao de solicitacoes capturada",
+                    total_cookies=total_cookies,
+                )
+                mensagem = (
+                    "Login concluido apos nova tentativa"
+                    if tentativa > 1
+                    else "Login concluido"
+                )
+                contexto.registro.sucesso(mensagem)
+                return
+
+            except Exception as exc:
+                if tentativa == max_tentativas:
+                    raise RuntimeError(f"Login impossivel para {contexto.conta.email}: {exc}")
+                contexto.registro.aviso("Tentativa de login falhou", tentativa=tentativa, detalhe=str(exc))
+
+    def _acao_solicitacoes(self, contexto: ContextoConta) -> None:
+        """Consulta pontos e recompensas reaproveitando a sessão autenticada.
+
+        Args:
+            contexto: Estrutura contendo o cliente de API já autenticado.
+        """
+
+        contexto.registro.info("Consultando API do Rewards com sessao autenticada")
+
+        if contexto.solicitacoes is None or contexto.api is None:
+            contexto.registro.aviso(
+                "Sessao de solicitacoes indisponivel",
+                detalhe="Execute a acao 'login' antes de 'solicitacoes'",
+            )
+            return
+
+        api = contexto.api
+
+        try:
+            pontos = api.obter_pontos(
+                palavras_erro=self._palavras_erro_api,
+                interativo=self._modo_interativo_api(),
+            )
+        except Exception as exc:
+            contexto.registro.erro("Falha ao obter pontos do Rewards", detalhe=str(exc))
+        else:
+            valor_pontos = (
+                APIRecompensas.extrair_pontos_disponiveis(pontos)
+                if isinstance(pontos, Mapping)
+                else None
+            )
+            contexto.registro.sucesso(
+                "Pontos consultados",
+                chave="availablePoints",
+                valor=valor_pontos,
+            )
+
+        try:
+            recompensas = api.obter_recompensas(
+                palavras_erro=self._palavras_erro_api,
+                interativo=self._modo_interativo_api(),
+            )
+        except Exception as exc:
+            contexto.registro.erro("Falha ao obter recompensas", detalhe=str(exc))
+        else:
+            quantidade = APIRecompensas.contar_recompensas(recompensas)
+            contexto.registro.sucesso(
+                "Recompensas consultadas",
+                chave="total",
+                quantidade=quantidade,
+            )
+
+    def _modo_interativo_api(self) -> Optional[bool]:
+        """Determina se prompts interativos devem ser exibidos pelo cliente.
+
+        Returns:
+            ``False`` quando a execução está paralelizada (evitando bloqueios),
+            ``None`` quando o modo deve seguir o comportamento padrão do
+            botasaurus.
+        """
+
+        return self._config.api_interactivity()
 
 def main() -> None:
     """Ponto de entrada da aplicacao em modo script."""

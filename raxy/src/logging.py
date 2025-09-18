@@ -36,6 +36,8 @@ from rich.theme import Theme
 from rich.text import Text
 from rich.traceback import install as install_rich_traceback
 
+from .helpers import get_env_bool
+
 # Mapas auxiliares ---------------------------------------------------------
 
 _LEVEL_MAP: Dict[str, int] = {
@@ -81,30 +83,19 @@ _TRACEBACK_INSTALADO = False
 
 
 def _normalizar_nivel(nome: str) -> str:
+    """Normaliza o nome de nível fornecido para variantes suportadas."""
+
     chave = nome.lower()
     return _NORMALIZED_NAMES.get(chave, "info")
 
 
 def _resolver_nivel(valor: str | int) -> int:
+    """Converte uma representação de nível (string/int) em valor numérico."""
+
     if isinstance(valor, int):
         return valor
     chave = valor.lower()
     return _LEVEL_MAP.get(chave, _LEVEL_MAP["info"])
-
-
-def _env_flag(nome: str) -> Optional[bool]:
-    valor = os.getenv(nome)
-    if valor is None:
-        return None
-    valor = valor.strip().lower()
-    if not valor:
-        return None
-    if valor in {"1", "true", "sim", "yes", "on"}:
-        return True
-    if valor in {"0", "false", "nao", "no", "off"}:
-        return False
-    return None
-
 
 @dataclass(slots=True)
 class LoggerConfig:
@@ -147,19 +138,19 @@ class LoggerConfig:
         if arquivo:
             cfg.arquivo_log = arquivo
 
-        sobrescrever = _env_flag("LOG_OVERWRITE")
+        sobrescrever = get_env_bool("LOG_OVERWRITE")
         if sobrescrever is not None:
             cfg.sobrescrever_arquivo = sobrescrever
 
-        mostrar_tempo = _env_flag("LOG_SHOW_TIME")
+        mostrar_tempo = get_env_bool("LOG_SHOW_TIME")
         if mostrar_tempo is not None:
             cfg.mostrar_tempo = mostrar_tempo
 
-        usar_cores = _env_flag("LOG_COLOR")
+        usar_cores = get_env_bool("LOG_COLOR")
         if usar_cores is not None:
             cfg.usar_cores = usar_cores
 
-        traceback_flag = _env_flag("LOG_RICH_TRACEBACK")
+        traceback_flag = get_env_bool("LOG_RICH_TRACEBACK")
         if traceback_flag is not None:
             cfg.registrar_traceback_rico = traceback_flag
 
@@ -170,6 +161,8 @@ class FarmLogger:
     """Implementacao principal do logger com API em portugues."""
 
     def __init__(self) -> None:
+        """Instancia o logger com configuração padrão baseada em ambiente."""
+
         self._config = LoggerConfig()
         self._console = Console(theme=_DEFAULT_THEME, highlight=False)
         self._nivel_minimo = _resolver_nivel(self._config.nivel_minimo)
@@ -188,7 +181,11 @@ class FarmLogger:
         return self._config
 
     def configure(self, config: LoggerConfig) -> None:
-        """Aplica uma nova configuracao ao logger."""
+        """Aplica uma nova configuração ao logger.
+
+        Args:
+            config: Instância pronta de :class:`LoggerConfig`.
+        """
 
         global _TRACEBACK_INSTALADO
 
@@ -210,15 +207,22 @@ class FarmLogger:
             _TRACEBACK_INSTALADO = True
 
     def atualizar_contexto_padrao(self, **dados: Any) -> None:
-        """Adiciona ou atualiza campos que aparecem em todos os logs."""
+        """Adiciona ou atualiza campos que aparecem em todos os logs.
+
+        Args:
+            **dados: Chave/valor a ser adicionado ao contexto padrão.
+        """
 
         self._contexto_padrao.update(self._filtrar_dados(dados))
 
     def limpar_contexto_padrao(self, *chaves: str) -> None:
-        """Remove campos do contexto padrao.
+        """Remove campos do contexto padrão.
 
         Quando nenhuma chave e fornecida, o contexto padrao e limpo por
         completo.
+        
+        Args:
+            *chaves: Campos a remover. Quando vazio, zera o contexto.
         """
 
         if not chaves:
@@ -232,6 +236,12 @@ class FarmLogger:
 
         Ideal para anexar informacoes fixas (ex.: conta, etapa, id) sem
         repetir kwargs em todas as chamadas.
+
+        Args:
+            **dados: Parâmetros adicionais incorporados em todas as mensagens.
+
+        Returns:
+            Instância de :class:`_ScopedLogger` com o contexto agregado.
         """
 
         contexto = self._filtrar_dados(dados)
@@ -242,21 +252,27 @@ class FarmLogger:
     # ------------------------------------------------------------------
 
     def debug(self, mensagem: str, **dados: Any) -> None:
+        """Emite log nível DEBUG."""
         self._log("debug", mensagem, dados, None)
 
     def info(self, mensagem: str, **dados: Any) -> None:
+        """Emite log nível INFO."""
         self._log("info", mensagem, dados, None)
 
     def sucesso(self, mensagem: str, **dados: Any) -> None:
+        """Emite log nível SUCESSO (25)."""
         self._log("sucesso", mensagem, dados, None)
 
     def aviso(self, mensagem: str, **dados: Any) -> None:
+        """Emite log nível AVISO."""
         self._log("aviso", mensagem, dados, None)
 
     def erro(self, mensagem: str, **dados: Any) -> None:
+        """Emite log nível ERRO."""
         self._log("erro", mensagem, dados, None)
 
     def critico(self, mensagem: str, **dados: Any) -> None:
+        """Emite log nível CRÍTICO."""
         self._log("critico", mensagem, dados, None)
 
     @contextmanager
@@ -268,7 +284,15 @@ class FarmLogger:
         mensagem_falha: Optional[str] = None,
         **dados: Any,
     ):
-        """Context manager que loga inicio/sucesso/falha de uma etapa."""
+        """Context manager que registra início, sucesso e falha de uma etapa.
+
+        Args:
+            titulo: Nome da etapa exibido nos logs.
+            mensagem_inicial: Mensagem opcional emitida ao entrar no contexto.
+            mensagem_sucesso: Mensagem emitida quando o bloco termina sem erros.
+            mensagem_falha: Mensagem emitida quando ocorre exceção.
+            **dados: Metadados adicionais incluídos em cada log gerado.
+        """
 
         dados_limpos = self._filtrar_dados(dados)
         with self._etapa_contexto(None, titulo, mensagem_inicial, mensagem_sucesso, mensagem_falha, dados_limpos):
@@ -279,9 +303,13 @@ class FarmLogger:
     # ------------------------------------------------------------------
 
     def _filtrar_dados(self, dados: Mapping[str, Any]) -> Dict[str, Any]:
+        """Remove pares com valores ``None`` preservando o restante."""
+
         return {k: v for k, v in dados.items() if v is not None}
 
     def _deve_emitir(self, nivel: str) -> bool:
+        """Retorna ``True`` quando o nível atual deve ser emitido."""
+
         return _resolver_nivel(nivel) >= self._nivel_minimo
 
     def _log(
@@ -291,6 +319,8 @@ class FarmLogger:
         dados: Mapping[str, Any],
         contexto_extra: Optional[Mapping[str, Any]],
     ) -> None:
+        """Dispara o fluxo de logging consolidando contexto e destino."""
+
         if not self._deve_emitir(nivel):
             return
 
@@ -309,6 +339,8 @@ class FarmLogger:
         contexto: Mapping[str, Any],
         dados: Mapping[str, Any],
     ) -> None:
+        """Emite a mensagem formatada no console Rich."""
+
         texto = Text()
         if self._config.mostrar_tempo:
             texto.append(self._agora(), style="log.time")
@@ -335,6 +367,8 @@ class FarmLogger:
         contexto: Mapping[str, Any],
         dados: Mapping[str, Any],
     ) -> None:
+        """Persiste a mensagem no arquivo de log quando configurado."""
+
         if not self._config.arquivo_log:
             return
 
@@ -344,6 +378,8 @@ class FarmLogger:
         handle.flush()
 
     def _obter_handle(self):
+        """Abre (se necessário) o handle do arquivo de log."""
+
         if self._arquivo_handle is None:
             path = Path(self._config.arquivo_log)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -359,6 +395,8 @@ class FarmLogger:
         contexto: Mapping[str, Any],
         dados: Mapping[str, Any],
     ) -> str:
+        """Formata pares chave=valor para anexar às mensagens."""
+
         partes: list[str] = []
         if contexto:
             partes.extend(self._formatar_dict(contexto))
@@ -367,11 +405,15 @@ class FarmLogger:
         return " ".join(partes)
 
     def _formatar_dict(self, valores: Mapping[str, Any]) -> Iterable[str]:
+        """Itera sobre o dicionário gerando ``chave=valor`` ordenados."""
+
         for chave in sorted(valores):
             partes = f"{chave}={self._formatar_valor(valores[chave])}"
             yield partes
 
     def _formatar_valor(self, valor: Any) -> str:
+        """Formata valores em representação amigável para logs de contexto."""
+
         if isinstance(valor, (int, float)):
             return str(valor)
         if isinstance(valor, str):
@@ -389,6 +431,8 @@ class FarmLogger:
         contexto: Mapping[str, Any],
         dados: Mapping[str, Any],
     ) -> str:
+        """Monta a linha padrão escrita no arquivo de log."""
+
         partes = [self._agora(data=True), nivel.upper(), mensagem]
         if contexto:
             partes.append("contexto=" + ",".join(self._formatar_dict(contexto)))
@@ -397,6 +441,8 @@ class FarmLogger:
         return " | ".join(partes)
 
     def _agora(self, data: bool = False) -> str:
+        """Retorna o timestamp atual em formato string."""
+
         fmt = "%Y-%m-%d %H:%M:%S" if data else "%H:%M:%S"
         return datetime.now().strftime(fmt)
 
@@ -417,8 +463,12 @@ class FarmLogger:
         mensagem_falha: Optional[str],
         dados: Mapping[str, Any],
     ):
+        """Cria o context manager interno usado por ``etapa``."""
+
         @contextmanager
         def _ctx():
+            """Contexto que loga início, falha e sucesso de etapas."""
+
             inicio = mensagem_inicial or f"Iniciando etapa: {titulo}"
             sucesso = mensagem_sucesso or f"Etapa concluida: {titulo}"
             falha = mensagem_falha or f"Falha na etapa: {titulo}"
@@ -439,30 +489,46 @@ class _ScopedLogger:
     """Wrapper leve para adicionar contexto fixo em um logger existente."""
 
     def __init__(self, base: FarmLogger, contexto: Mapping[str, Any]) -> None:
+        """Inicializa o escopo preservando o contexto fixo fornecido."""
+
         self._base = base
         self._contexto = dict(contexto)
 
     def com_contexto(self, **dados: Any) -> "_ScopedLogger":
+        """Retorna novo escopo de logger acumulando mais contexto."""
+
         novo = dict(self._contexto)
         novo.update(self._base._filtrar_dados(dados))
         return _ScopedLogger(self._base, novo)
 
     def debug(self, mensagem: str, **dados: Any) -> None:
+        """Emite log DEBUG reaproveitando o contexto escopo."""
+
         self._base._log("debug", mensagem, dados, self._contexto)
 
     def info(self, mensagem: str, **dados: Any) -> None:
+        """Emite log INFO reaproveitando o contexto escopo."""
+
         self._base._log("info", mensagem, dados, self._contexto)
 
     def sucesso(self, mensagem: str, **dados: Any) -> None:
+        """Emite log SUCESSO reaproveitando o contexto escopo."""
+
         self._base._log("sucesso", mensagem, dados, self._contexto)
 
     def aviso(self, mensagem: str, **dados: Any) -> None:
+        """Emite log AVISO reaproveitando o contexto escopo."""
+
         self._base._log("aviso", mensagem, dados, self._contexto)
 
     def erro(self, mensagem: str, **dados: Any) -> None:
+        """Emite log ERRO reaproveitando o contexto escopo."""
+
         self._base._log("erro", mensagem, dados, self._contexto)
 
     def critico(self, mensagem: str, **dados: Any) -> None:
+        """Emite log CRÍTICO reaproveitando o contexto escopo."""
+
         self._base._log("critico", mensagem, dados, self._contexto)
 
     @contextmanager
@@ -474,6 +540,8 @@ class _ScopedLogger:
         mensagem_falha: Optional[str] = None,
         **dados: Any,
     ):
+        """Context manager equivalente ao do logger base, herdando contexto."""
+
         dados_limpos = self._base._filtrar_dados(dados)
         with self._base._etapa_contexto(
             self._contexto,
@@ -496,6 +564,13 @@ def configurar_logging(config: Optional[LoggerConfig] = None, **overrides: Any) 
 
     Quando nenhuma configuracao e informada, os valores sao lidos das
     variaveis de ambiente suportadas.
+
+    Args:
+        config: Configuração opcional a ser aplicada.
+        **overrides: Campos para sobrescrever na configuração final.
+
+    Returns:
+        Instância ``FarmLogger`` configurada.
     """
 
     if config is None:

@@ -39,6 +39,15 @@ class BaseModelos:
         echo_sql: bool = False,
         metodos_personalizados: Mapping[str, Callable[..., object]] | None = None,
     ) -> None:
+        """Instancia a base de modelos e prepara a conexão com o banco.
+
+        Args:
+            url_banco: URL SQLAlchemy. Quando ``None``, cria ``dados.db`` (SQLite).
+            echo_sql: Ativa o log de instruções SQL para depuração.
+            metodos_personalizados: Mapeamento ``nome -> função`` a ser ligado na
+                instância para estender o comportamento padrão.
+        """
+
         if url_banco is None:
             arquivo_db = Path("dados.db").resolve()
             arquivo_db.parent.mkdir(parents=True, exist_ok=True)
@@ -59,21 +68,43 @@ class BaseModelos:
     # ------------------------------------------------------------------
 
     def obter(self, classe_modelo: Type[ModeloT]) -> list[ModeloT]:
-        """Retorna todos os registros do modelo informado."""
+        """Retorna todos os registros do modelo informado.
+
+        Args:
+            classe_modelo: Classe derivada de :class:`ModeloBase`.
+
+        Returns:
+            Lista contendo todas as instâncias persistidas.
+        """
 
         classe_modelo.validar_definicao()
         with self._nova_sessao() as sessao:
             return list(sessao.scalars(select(classe_modelo)))
 
     def obter_por_id(self, identificador: int, classe_modelo: Type[ModeloT]) -> ModeloT | None:
-        """Busca um registro pelo valor exato do ID primario."""
+        """Busca um registro pelo valor exato do ID primário.
+
+        Args:
+            identificador: Valor da chave primária.
+            classe_modelo: Classe do modelo.
+
+        Returns:
+            Instância correspondente ou ``None`` se inexistente.
+        """
 
         self._obter_nome_id(classe_modelo)
         with self._nova_sessao() as sessao:
             return sessao.get(classe_modelo, identificador)
 
     def obter_por_key(self, modelo: ModeloT) -> list[ModeloT]:
-        """Busca registros que combinem com as chaves preenchidas no ``modelo``."""
+        """Busca registros que combinem com as chaves preenchidas no ``modelo``.
+
+        Args:
+            modelo: Instância parcialmente preenchida indicando as chaves.
+
+        Returns:
+            Lista de registros compatíveis.
+        """
 
         filtros = self._extrair_filtros(modelo)
         classe_modelo = type(modelo)
@@ -82,7 +113,14 @@ class BaseModelos:
             return list(sessao.scalars(consulta))
 
     def inserir_ou_atualizar(self, modelo: ModeloT) -> ModeloT:
-        """Insere o modelo ou atualiza o registro existente com as mesmas chaves."""
+        """Insere o modelo ou atualiza o registro existente com as mesmas chaves.
+
+        Args:
+            modelo: Instância do modelo com dados a persistir.
+
+        Returns:
+            Instância persistida (nova ou atualizada).
+        """
 
         filtros = self._extrair_filtros(modelo)
         classe_modelo = type(modelo)
@@ -106,7 +144,14 @@ class BaseModelos:
             return modelo
 
     def delete(self, modelo: ModeloT) -> int:
-        """Remove registros que coincidam com as chaves preenchidas."""
+        """Remove registros que coincidam com as chaves preenchidas.
+
+        Args:
+            modelo: Instância contendo as chaves usadas como filtro.
+
+        Returns:
+            Número de registros afetados.
+        """
 
         filtros = self._extrair_filtros(modelo)
         classe_modelo = type(modelo)
@@ -122,7 +167,15 @@ class BaseModelos:
         modelo: ModeloT,
         predicado: Callable[[ModeloT], bool] | None = None,
     ) -> int:
-        """Remove varios registros que atendam as chaves (e opcionalmente um predicado)."""
+        """Remove registros por chave e, opcionalmente, por predicado extra.
+
+        Args:
+            modelo: Instância indicando as chaves a considerar.
+            predicado: Função adicional para filtrar instâncias antes da remoção.
+
+        Returns:
+            Número de registros efetivamente removidos.
+        """
 
         if predicado is not None and not callable(predicado):
             raise TypeError("Predicado precisa ser uma funcao ou None")
@@ -145,7 +198,15 @@ class BaseModelos:
             return removidos
 
     def atualizar_por_id(self, identificador: int, modelo: ModeloT) -> ModeloT | None:
-        """Atualiza os dados do registro identificado pelo ID."""
+        """Atualiza os dados do registro identificado pelo ID.
+
+        Args:
+            identificador: Valor da chave primária.
+            modelo: Instância com os novos dados (ID será ignorado).
+
+        Returns:
+            Instância atualizada ou ``None`` caso o ID não exista.
+        """
 
         classe_modelo = type(modelo)
         chave_id = self._obter_nome_id(classe_modelo)
@@ -165,7 +226,15 @@ class BaseModelos:
             return existente
 
     def deletar_por_id(self, identificador: int, classe_modelo: Type[ModeloT]) -> int:
-        """Remove um registro com base em seu ID primario."""
+        """Remove um registro com base em seu ID primário.
+
+        Args:
+            identificador: Valor da chave primária.
+            classe_modelo: Classe do modelo manipulado.
+
+        Returns:
+            ``1`` quando removeu o registro, ``0`` caso contrário.
+        """
 
         self._obter_nome_id(classe_modelo)
         with self._nova_sessao() as sessao:
@@ -181,9 +250,23 @@ class BaseModelos:
     # ------------------------------------------------------------------
 
     def _nova_sessao(self) -> Session:
+        """Cria uma nova sessão SQLAlchemy a partir da factory interna."""
+
         return self._session_factory()
 
     def _extrair_filtros(self, modelo: ModeloT) -> Mapping[str, object]:
+        """Extrai os filtros a partir das chaves definidas no modelo.
+
+        Args:
+            modelo: Instância parcialmente preenchida.
+
+        Returns:
+            Mapeamento ``chave -> valor``.
+
+        Raises:
+            ValueError: Quando nenhuma chave está preenchida.
+        """
+
         filtros = modelo.chaves_definidas()
         if not filtros:
             raise ValueError("Informe ao menos uma chave do modelo para executar a operacao")
@@ -194,6 +277,19 @@ class BaseModelos:
         classe_modelo: Type[ModeloT],
         filtros: Mapping[str, object],
     ):
+        """Constrói a condição SQLAlchemy combinando os filtros informados.
+
+        Args:
+            classe_modelo: Classe alvo da consulta.
+            filtros: Mapeamento ``campo -> valor`` usado como filtro.
+
+        Returns:
+            Expressão SQLAlchemy ``BinaryExpression``.
+
+        Raises:
+            ValueError: Quando nenhum filtro é informado.
+        """
+
         condicoes = [getattr(classe_modelo, chave) == valor for chave, valor in filtros.items()]
         if not condicoes:
             raise ValueError("Pelo menos uma condicao e necessaria")
@@ -202,6 +298,8 @@ class BaseModelos:
         return and_(*condicoes)
 
     def _obter_nome_id(self, classe_modelo: Type[ModeloT]) -> str:
+        """Obtém o nome da coluna que representa a chave primária."""
+
         info = inspect(classe_modelo)
         pk_cols = info.primary_key
         if not pk_cols:

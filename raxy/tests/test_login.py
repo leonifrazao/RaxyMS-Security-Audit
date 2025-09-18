@@ -18,19 +18,27 @@ class TestAutenticadorRewards(unittest.TestCase):
     """Garante que a validacao de credenciais cobre os cenarios esperados."""
 
     def test_validar_credenciais_retorna_email_normalizado(self) -> None:
+        """Deve remover espaços em branco e normalizar email/senha."""
+
         email, senha = AutenticadorRewards.validar_credenciais("  user@example.com  ", "  segredo  ")
         self.assertEqual(email, "user@example.com")
         self.assertEqual(senha, "segredo")
 
     def test_validar_credenciais_rejeita_email_invalido(self) -> None:
+        """Dispara exceção quando o email não possui formato válido."""
+
         with self.assertRaises(CredenciaisInvalidas):
             AutenticadorRewards.validar_credenciais("email_invalido", "senha")
 
     def test_validar_credenciais_rejeita_senha_vazia(self) -> None:
+        """Dispara exceção quando a senha contém apenas espaços."""
+
         with self.assertRaises(CredenciaisInvalidas):
             AutenticadorRewards.validar_credenciais("user@example.com", "   ")
 
     def test_validar_credenciais_rejeita_email_vazio(self) -> None:
+        """Dispara exceção quando o email contém apenas espaços."""
+
         with self.assertRaises(CredenciaisInvalidas):
             AutenticadorRewards.validar_credenciais("   ", "segredo")
 

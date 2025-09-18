@@ -1,8 +1,13 @@
 """Interface publica dos recursos de automacao."""
 
-from .navegacao import NavegadorRecompensas, goto_rewards_page
+from .navegacao import NavegadorRecompensas, goto_rewards_page, APIRecompensas
 from .autenticacao import AutenticadorRewards, login
 from .utilitarios import GerenciadorPerfil
+from .solicitacoes import (
+    GerenciadorSolicitacoesRewards,
+    ClienteSolicitacoesRewards,
+    SessaoSolicitacoes,
+)
 from .contas import Conta, carregar_contas
 
 try:  # Importacao opcional caso SQLAlchemy nao esteja disponivel
@@ -16,9 +21,13 @@ else:
 __all__ = [
     "NavegadorRecompensas",
     "goto_rewards_page",
+    "APIRecompensas",
     "AutenticadorRewards",
     "login",
     "GerenciadorPerfil",
+    "GerenciadorSolicitacoesRewards",
+    "ClienteSolicitacoesRewards",
+    "SessaoSolicitacoes",
     "Conta",
     "carregar_contas",
 ]

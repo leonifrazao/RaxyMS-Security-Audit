@@ -2,9 +2,10 @@
 
 Este diretório concentra os módulos responsáveis pela automação completa:
 
-- Autenticação e navegação (botasaurus + SQLAlchemy).
+- Autenticação e navegação (Botasaurus + SQLAlchemy).
 - Logging em português com Rich.
 - Gerenciamento de perfis de navegador e user-agent.
+- Configurações centralizadas e leitura padronizada de variáveis de ambiente.
 - Carregamento de contas a partir de arquivos simples.
 - Handler de persistência (`BaseModelos`) com operações avançadas.
 
@@ -13,12 +14,13 @@ Este diretório concentra os módulos responsáveis pela automação completa:
 | Arquivo             | Descrição                                                                                          |
 |---------------------|------------------------------------------------------------------------------------------------------|
 | `autenticacao.py`   | Classe `AutenticadorRewards` com validação de email/senha, interação DOM e logging contextual.      |
-| `navegacao.py`      | `NavegadorRecompensas` abre a página do Bing Rewards com human-mode e suporte a reuso de driver.    |
+| `navegacao.py`      | `NavegadorRecompensas` abre a página do Bing Rewards e expõe `APIRecompensas` (helpers de pontos).  |
 | `utilitarios.py`    | `GerenciadorPerfil` garante perfis botasaurus, gera user-agents e monta argumentos de navegador.    |
 | `contas.py`         | Funções para carregar contas (`carregar_contas`) e dataclass `Conta` com `email/senha/id_perfil`.   |
 | `logging.py`        | Framework de logging em português (`log`, `configurar_logging`, contextos, etapas e arquivo).       |
 | `base_modelos.py`   | Handler `BaseModelos` (CRUD, operações por ID, remoções filtradas, métodos personalizados).         |
-| `config.py`         | Configurações compartilhadas do decorador `@browser` do botasaurus.                                  |
+| `config.py`         | Defaults do decorador `@browser`, URL base do Rewards e `ExecutorConfig` com leitura de ambiente.   |
+| `helpers/`          | Funções utilitárias reutilizáveis (ex.: parsing de variáveis de ambiente).                          |
 | `__init__.py`       | Reexporta a interface pública (AutenticadorRewards, NavegadorRecompensas, GerenciadorPerfil, etc.). |
 
 ## AutenticadorRewards
@@ -32,16 +34,26 @@ Personalizações:
 - Aceita `profile`, `add_arguments` e `data` (`email`, `senha`) como parâmetros.
 - Adiciona métodos de contexto (`registro`) para logar cada passo.
 
-## NavegadorRecompensas
+## NavegadorRecompensas e APIRecompensas
 
-- `abrir_pagina(driver, dados=None)`: habilita modo humano e abre `https://rewards.bing.com`.
-- Decorador `@browser` com `reuse_driver=True` para reutilização de sessão.
-- Alias `goto_rewards_page` para compatibilidade com código pré-existente.
+- `abrir_pagina(...)`: habilita modo humano e abre `REWARDS_BASE_URL` (configurável via `REWARDS_BASE_URL`). O parâmetro `reuse_driver` padrão é `False`, podendo ser sobrescrito por chamada.
+- `APIRecompensas.obter_pontos(...)`: reutiliza um `GerenciadorSolicitacoesRewards` para capturar os pontos brutos da API.
+- `APIRecompensas.extrair_pontos_disponiveis(dados)`: percorre qualquer resposta JSON e devolve `availablePoints` como `int`.
+- `APIRecompensas.obter_recompensas(...)`: devolve o JSON das recompensas disponíveis.
+- `APIRecompensas.contar_recompensas(dados)`: identifica coleções de itens (`catalogItems`, `items`, listas com `price`) e retorna a quantidade.
+- Alias `goto_rewards_page` garante compatibilidade com código pré-existente.
 
 ## GerenciadorPerfil
 
 - `garantir_agente_usuario(perfil)`: cria/obtém perfil botasaurus focando em user agent Edge.
 - `argumentos_agente_usuario(perfil)`: retorna argumentos `--user-agent=...` para o navegador.
+
+## Helpers de configuração
+
+O pacote `helpers` contém funções utilitárias para leitura consistente de variáveis de ambiente:
+
+- `get_env_bool`, `get_env_int`, `get_env_list`, `get_env_value` padronizam parsing e fallback.
+- Reutilize essas funções ao adicionar novos comportamentos configuráveis.
 
 ## Carregamento de contas
 
@@ -94,16 +106,20 @@ from src import (
     AutenticadorRewards,
     NavegadorRecompensas,
     GerenciadorPerfil,
+    ExecutorConfig,
     BaseModelos,
     Conta,
     carregar_contas,
 )
 ```
 
+> Dica: instancie `ExecutorConfig.from_env()` para obter as ações padrão, lista de palavras de erro e limites de paralelismo já normalizados.
+
 ## Boas práticas
 
 - Centralize todo acesso à camada de dados em `BaseModelos` para manter consistência.
 - Use `GerenciadorPerfil.argumentos_agente_usuario` em qualquer fluxo botasaurus.
 - Sempre capture exceções em etapas críticas (como o `ExecutorEmLote` faz) e reporte via `log`.
+- Reutilize os helpers de `APIRecompensas` para interpretar respostas e evitar lógica duplicada no domínio.
 
 Para uma visão arquitetural completa, confira [`README.md`](../README.md).
