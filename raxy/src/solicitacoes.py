@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import traceback
 from typing import Any, Dict, Iterable, List, Mapping, Optional
+from functools import partialmethod
 from urllib.parse import urljoin
 
 from botasaurus.beep_utils import beep_input
@@ -207,8 +208,12 @@ class ClienteSolicitacoesRewards:
             for palavra in (palavras_erro or [])
             if isinstance(palavra, str) and palavra.strip()
         }
-        self._interativo = self._resolver_interatividade(interativo)
-        self._metadata_base = {
+        if interativo is None:
+            flag = get_env_bool("RAXY_SOLICITACOES_INTERATIVAS", padrao=True)
+            self._interativo = bool(flag)
+        else:
+            self._interativo = bool(interativo)
+        self._metadata = {
             "cookies": self._cookies,
             "headers": self._headers,
             "perfil": self.perfil,
@@ -223,23 +228,6 @@ class ClienteSolicitacoesRewards:
             palavras_erro=len(self._palavras_erro),
             interativo=self._interativo,
         )
-
-    @staticmethod
-    def _resolver_interatividade(interativo: Optional[bool]) -> bool:
-        """Determina se o cliente deve executar prompts interativos.
-
-        Args:
-            interativo: Override explícito do modo interativo.
-
-        Returns:
-            ``True`` quando prompts devem ser emitidos; ``False`` caso contrário.
-        """
-
-        if interativo is not None:
-            return bool(interativo)
-
-        flag = get_env_bool("RAXY_SOLICITACOES_INTERATIVAS", padrao=True)
-        return bool(flag)
 
     def _notificar_interrupcao(self, mensagem: str) -> None:
         """Reproduz um aviso auditivo/visual quando o modo interativo estiver ativo."""
@@ -406,13 +394,8 @@ class ClienteSolicitacoesRewards:
             return destino
         return urljoin(self._url_base_join, destino.lstrip("/"))
 
-    def _metadata(self) -> Dict[str, Any]:
-        """Gera o dicionário de ``metadata`` utilizado pelo decorator ``@request``."""
-
-        return self._metadata_base
-
-    def _executar(self, metodo: str, destino: str, **kwargs) -> Response:
-        """Empacota argumentos e executa o método HTTP solicitado.
+    def requisicao(self, metodo: str, destino: str, **kwargs) -> Response:
+        """Executa a operação HTTP informada reaproveitando sessão autenticada.
 
         Args:
             metodo: Verbo HTTP a ser executado (``get``, ``post`` ...).
@@ -447,7 +430,7 @@ class ClienteSolicitacoesRewards:
         try:
             resposta = self._executar_rota(
                 pacote,
-                metadata=self._metadata(),
+                metadata=self._metadata,
                 user_agent=self._headers.get("User-Agent"),
             )
         except Exception as erro:
@@ -506,50 +489,10 @@ class ClienteSolicitacoesRewards:
 
         return resposta
 
-    def get(self, destino: str, **kwargs) -> Response:
-        """Executa uma requisição GET autenticada para ``destino``.
-
-        Args:
-            destino: Caminho ou URL da operação GET.
-            **kwargs: Argumentos adicionais suportados por ``requests.get``.
-        """
-
-        return self._executar("get", destino, **kwargs)
-
-    def post(self, destino: str, **kwargs) -> Response:
-        """Executa uma requisição POST autenticada para ``destino``.
-
-        Args:
-            destino: Caminho ou URL da operação POST.
-            **kwargs: Argumentos adicionais suportados por ``requests.post``.
-        """
-
-        return self._executar("post", destino, **kwargs)
-
-    def put(self, destino: str, **kwargs) -> Response:
-        """Executa uma requisição PUT autenticada para ``destino``.
-
-        Args:
-            destino: Caminho ou URL da operação PUT.
-            **kwargs: Argumentos adicionais suportados por ``requests.put``.
-        """
-
-        return self._executar("put", destino, **kwargs)
-
-    def delete(self, destino: str, **kwargs) -> Response:
-        """Executa uma requisição DELETE autenticada para ``destino``.
-
-        Args:
-            destino: Caminho ou URL da operação DELETE.
-            **kwargs: Argumentos adicionais suportados por ``requests.delete``.
-        """
-
-        return self._executar("delete", destino, **kwargs)
-
-    def fechar(self) -> None:
-        """Mantido por compatibilidade; ``@request`` gerencia os recursos."""
-
-        return None
+    get = partialmethod(requisicao, "get")
+    post = partialmethod(requisicao, "post")
+    put = partialmethod(requisicao, "put")
+    delete = partialmethod(requisicao, "delete")
 
 
 __all__ = [

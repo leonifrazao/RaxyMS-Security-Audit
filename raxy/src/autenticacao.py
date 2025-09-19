@@ -20,7 +20,6 @@ class AutenticadorRewards:
     """Responsavel por realizar o login no Microsoft Rewards."""
 
     _PADRAO_EMAIL = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
-    _ultimo_gerenciador: GerenciadorSolicitacoesRewards | None = None
 
     @classmethod
     def validar_credenciais(cls, email: str, senha: str) -> tuple[str, str]:
@@ -43,12 +42,6 @@ class AutenticadorRewards:
             )
 
         return email_normalizado, senha_normalizada
-
-    @staticmethod
-    def _criar_registro(**contexto: Any):
-        """Cria um logger contextualizado para o fluxo de autenticação."""
-
-        return log.com_contexto(fluxo="login", **{chave: valor for chave, valor in contexto.items() if valor})
 
     @classmethod
     def _registrar_solicitacoes(
@@ -75,14 +68,7 @@ class AutenticadorRewards:
             perfil=perfil_sessao,
             total_cookies=len(sessao.cookies),
         )
-        cls._ultimo_gerenciador = gestor
         return gestor
-
-    @classmethod
-    def obter_ultimo_gerenciador(cls) -> GerenciadorSolicitacoesRewards | None:
-        """Retorna o ultimo gerenciador de solicitacoes utilizado."""
-
-        return cls._ultimo_gerenciador
 
     @staticmethod
     @browser(**BROWSER_KWARGS)
@@ -108,7 +94,10 @@ class AutenticadorRewards:
 
         dados = dados or {}
         perfil = outros.get("profile")
-        registro = AutenticadorRewards._criar_registro(perfil=perfil)
+        contexto = {"fluxo": "login"}
+        if perfil:
+            contexto["perfil"] = perfil
+        registro = log.com_contexto(**contexto)
         registro.debug("Coletando credenciais")
 
         network = NetWork(driver)
@@ -203,10 +192,4 @@ class AutenticadorRewards:
             )
 
 
-def login(*args: Any, **kwargs: Any) -> Any:
-    """Alias funcional para manter compatibilidade de chamadas antigas."""
-
-    return AutenticadorRewards.executar(*args, **kwargs)
-
-
-__all__ = ["CredenciaisInvalidas", "AutenticadorRewards", "login"]
+__all__ = ["CredenciaisInvalidas", "AutenticadorRewards"]

@@ -52,13 +52,6 @@ class NavegadorRecompensas:
         return _abrir(**kwargs)
 
 
-# Alias para retrocompatibilidade, caso algum cliente ainda use a funcao
-def goto_rewards_page(**kwargs):
-    """Atalho compatível para abrir a página de rewards com kwargs diretos."""
-
-    return NavegadorRecompensas.abrir_pagina(**kwargs)
-
-
 class APIRecompensas:
     """Agrupa chamadas de API do Rewards reutilizando um gerenciador existente."""
 
@@ -90,30 +83,6 @@ class APIRecompensas:
         self._interativo = interativo
         self._cliente_cache = None
 
-    def atualizar_palavras_erro(self, palavras: Optional[Iterable[str]]) -> None:
-        """Atualiza a lista de gatilhos de erro e reinicia o cliente.
-
-        Args:
-            palavras: Coleção com as novas palavras-chave (``None`` limpa a
-                configuração).
-        """
-
-        self._palavras_erro = list(palavras or [])
-        self._cliente_cache = None
-
-    def configurar_interatividade(self, interativo: Optional[bool]) -> None:
-        """Altera o modo interativo do cliente reutilizado.
-
-        Args:
-            interativo: ``True`` habilita prompts auditivos/visuais, ``False``
-                silencia, ``None`` restabelece o comportamento padrão.
-        """
-
-        if interativo == self._interativo:
-            return
-        self._interativo = interativo
-        self._cliente_cache = None
-
     def _cliente(
         self,
         palavras_erro: Optional[Iterable[str]] = None,
@@ -130,9 +99,11 @@ class APIRecompensas:
         """
 
         if palavras_erro is not None:
-            self.atualizar_palavras_erro(palavras_erro)
-        if interativo is not None:
-            self.configurar_interatividade(interativo)
+            self._palavras_erro = list(palavras_erro or [])
+            self._cliente_cache = None
+        if interativo is not None and interativo != self._interativo:
+            self._interativo = interativo
+            self._cliente_cache = None
         if self._cliente_cache is None:
             self._cliente_cache = self._gerenciador.criar_cliente(
                 palavras_erro=self._palavras_erro,
@@ -330,4 +301,4 @@ class APIRecompensas:
         return False
 
 
-__all__ = ["NavegadorRecompensas", "goto_rewards_page", "APIRecompensas"]
+__all__ = ["NavegadorRecompensas", "APIRecompensas"]

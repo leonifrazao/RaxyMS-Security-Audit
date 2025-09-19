@@ -73,6 +73,7 @@ pkgs.mkShell {
   shellHook = ''
     export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeLibs}:''${LD_LIBRARY_PATH:-}"
     alias burp_crack='java -jar loader.jar & burpsuitepro &'
+    alias codex='npx @openai/codex'
 
     primeiro_setup=false
     if [ ! -d "$venvDir" ]; then
