@@ -11,6 +11,13 @@ from .logging import log
 from .solicitacoes import GerenciadorSolicitacoesRewards
 from .network import NetWork
 
+# Centraliza seletores CSS usados durante o fluxo de login para facilitar manutencao.
+_HEADER_SELECTOR = "h1[ng-bind-html='$ctrl.nameHeader']"
+_EMAIL_SELECTOR = "input[type='email']"
+_PASSWORD_SELECTOR = "input[type='password']"
+_SUBMIT_SELECTOR = "button[type='submit']"
+_CONFIRM_SELECTOR = "button[aria-label='Yes']"
+
 
 class CredenciaisInvalidas(ValueError):
     """Erro levantado quando email ou senha nao atendem aos requisitos."""
@@ -121,7 +128,7 @@ class AutenticadorRewards:
         driver.google_get(REWARDS_BASE_URL)
         driver.short_random_sleep()
 
-        if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
+        if driver.is_element_present(_HEADER_SELECTOR, wait=Wait.VERY_LONG):
             registro.sucesso("Conta ja autenticada")
             return AutenticadorRewards._registrar_solicitacoes(
                 driver,
@@ -129,36 +136,36 @@ class AutenticadorRewards:
                 registro,
             )
 
-        if not driver.is_element_present("input[type='email']", wait=Wait.VERY_LONG):
+        if not driver.is_element_present(_EMAIL_SELECTOR, wait=Wait.VERY_LONG):
             registro.erro("Campo de email nao encontrado na pagina")
             raise RuntimeError("Campo de email nao encontrado na pagina de login")
 
         registro.info("Digitando email")
-        driver.type("input[type='email']", email_validado, wait=Wait.VERY_LONG)
-        driver.click("button[type='submit']")
+        driver.type(_EMAIL_SELECTOR, email_validado, wait=Wait.VERY_LONG)
+        driver.click(_SUBMIT_SELECTOR)
         driver.short_random_sleep()
 
-        if not driver.is_element_present("input[type='password']", wait=Wait.VERY_LONG):
+        if not driver.is_element_present(_PASSWORD_SELECTOR, wait=Wait.VERY_LONG):
             registro.erro("Campo de senha nao encontrado apos informar email")
             raise RuntimeError("Campo de senha nao encontrado apos informar email")
 
         registro.info("Digitando senha")
-        driver.type("input[type='password']", senha_validada, wait=Wait.VERY_LONG)
-        driver.click("button[type='submit']")
+        driver.type(_PASSWORD_SELECTOR, senha_validada, wait=Wait.VERY_LONG)
+        driver.click(_SUBMIT_SELECTOR)
         driver.short_random_sleep()
         driver.prompt()
 
         try:
-            driver.click("button[aria-label='Yes']", wait=Wait.SHORT)
+            driver.click(_CONFIRM_SELECTOR, wait=Wait.SHORT)
         except Exception:
             pass
         else:
             registro.debug("Confirmacao de sessao aceita")
 
-        if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
+        autenticado = driver.is_element_present(_HEADER_SELECTOR, wait=Wait.VERY_LONG)
+        if autenticado:
             registro.sucesso("Login finalizado")
 
-            # Verifica o status final
             status_final = network.get_status()
             if status_final == 200:
                 registro.sucesso(f"Login bem-sucedido - Status: {status_final}")
@@ -172,24 +179,23 @@ class AutenticadorRewards:
                 perfil or entrada_email,
                 registro,
             )
-        else:
-            # Verifica se houve erro HTTP
-            status = network.get_status()
-            if status and status >= 400:
-                registro.erro(f"Erro HTTP detectado: {status}")
-                raise RuntimeError(f"Erro HTTP durante login: {status}")
 
-            if status is not None:
-                registro.erro(
-                    "Login nao confirmado mesmo apos tentativa",
-                    status=status,
-                )
-            else:
-                registro.erro("Login nao confirmado: nenhuma resposta de rede capturada")
+        status = network.get_status()
+        if status and status >= 400:
+            registro.erro(f"Erro HTTP detectado: {status}")
+            raise RuntimeError(f"Erro HTTP durante login: {status}")
 
-            raise RuntimeError(
-                f"Nao foi possivel confirmar o login para {email_validado}."
+        if status is not None:
+            registro.erro(
+                "Login nao confirmado mesmo apos tentativa",
+                status=status,
             )
+        else:
+            registro.erro("Login nao confirmado: nenhuma resposta de rede capturada")
+
+        raise RuntimeError(
+            f"Nao foi possivel confirmar o login para {email_validado}."
+        )
 
 
 __all__ = ["CredenciaisInvalidas", "AutenticadorRewards"]

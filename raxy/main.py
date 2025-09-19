@@ -28,6 +28,9 @@ from src.config import DEFAULT_ACTIONS, ExecutorConfig
 from src.contas import Conta, carregar_contas
 from src.logging import log
 
+# Mantem o login resiliente sem prender a execucao em tentativas excessivas.
+MAX_TENTATIVAS_LOGIN = 2
+
 
 @dataclass(slots=True)
 class ContextoConta:
@@ -47,7 +50,7 @@ class ContextoConta:
         *,
         interativo: Optional[bool] = None,
     ) -> None:
-        """Registra os objetos auxiliares responsáveis por chamadas à API.
+        """Registra e sincroniza os utilitários de requisição pós-login.
 
         Args:
             gerenciador: Instância capturada durante o fluxo de login capaz de
@@ -261,10 +264,9 @@ class ExecutorEmLote:
             RuntimeError: Caso todas as tentativas de autenticação falhem.
         """
 
-        max_tentativas = 2
         interatividade_api = self._modo_interativo_api()
         contexto.registro.info("Iniciando login")
-        for tentativa in range(1, max_tentativas + 1):
+        for tentativa in range(1, MAX_TENTATIVAS_LOGIN + 1):
             try:
                 if tentativa > 1:
                     atraso = 2 ** (tentativa - 1)
@@ -302,7 +304,7 @@ class ExecutorEmLote:
                 return
 
             except Exception as exc:
-                if tentativa == max_tentativas:
+                if tentativa == MAX_TENTATIVAS_LOGIN:
                     raise RuntimeError(
                         f"Login impossivel para {contexto.conta.email}: {exc}"
                     ) from exc
