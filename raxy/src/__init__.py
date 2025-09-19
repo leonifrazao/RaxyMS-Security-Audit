@@ -1,11 +1,10 @@
 """Compatibilidade: reexporta interfaces agora alojadas em ``raxy.core``."""
 
-from ..core.auth import AutenticadorRewards, CredenciaisInvalidas
-from ..core.browser import NavegadorRecompensas
+from ..core.browser import AutenticadorRewards, CredenciaisInvalidas, NavegadorRecompensas
 from ..core.rewards_api import APIRecompensas
 from ..core.session import (
     GerenciadorSolicitacoesRewards,
-    ClienteSolicitacoesRewards,
+    ParametrosManualSolicitacao,
     SessaoSolicitacoes,
 )
 from ..core.profiles import GerenciadorPerfil
@@ -23,7 +22,7 @@ __all__ = [
     "NavegadorRecompensas",
     "APIRecompensas",
     "GerenciadorSolicitacoesRewards",
-    "ClienteSolicitacoesRewards",
+    "ParametrosManualSolicitacao",
     "SessaoSolicitacoes",
     "GerenciadorPerfil",
     "Conta",

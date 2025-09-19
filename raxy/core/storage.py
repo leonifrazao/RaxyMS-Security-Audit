@@ -105,7 +105,7 @@ class BaseModelos:
         """
 
         classe_modelo.validar_definicao()
-        with self._nova_sessao() as sessao:
+        with self._session_factory() as sessao:
             return list(sessao.scalars(select(classe_modelo)))
 
     def obter_por_id(self, identificador: int, classe_modelo: Type[ModeloT]) -> ModeloT | None:
@@ -119,8 +119,17 @@ class BaseModelos:
             Instância correspondente ou ``None`` se inexistente.
         """
 
-        self._obter_nome_id(classe_modelo)
-        with self._nova_sessao() as sessao:
+        info = inspect(classe_modelo)
+        pk_cols = info.primary_key
+        if not pk_cols:
+            raise ValueError(
+                f"Modelo {classe_modelo.__name__} nao possui chave primaria definida"
+            )
+        if len(pk_cols) != 1:
+            raise ValueError(
+                "Consultas por ID exigem chave primaria simples"
+            )
+        with self._session_factory() as sessao:
             return sessao.get(classe_modelo, identificador)
 
     def obter_por_key(self, modelo: ModeloT) -> list[ModeloT]:
@@ -133,10 +142,16 @@ class BaseModelos:
             Lista de registros compatíveis.
         """
 
-        filtros = self._extrair_filtros(modelo)
+        filtros = modelo.chaves_definidas()
+        if not filtros:
+            raise ValueError("Informe ao menos uma chave do modelo para executar a operacao")
         classe_modelo = type(modelo)
-        consulta = select(classe_modelo).where(self._montar_condicao(classe_modelo, filtros))
-        with self._nova_sessao() as sessao:
+        condicoes = [getattr(classe_modelo, chave) == valor for chave, valor in filtros.items()]
+        if not condicoes:
+            raise ValueError("Pelo menos uma condicao e necessaria")
+        condicao = condicoes[0] if len(condicoes) == 1 else and_(*condicoes)
+        consulta = select(classe_modelo).where(condicao)
+        with self._session_factory() as sessao:
             return list(sessao.scalars(consulta))
 
     def inserir_ou_atualizar(self, modelo: ModeloT) -> ModeloT:
@@ -149,15 +164,28 @@ class BaseModelos:
             Instância persistida (nova ou atualizada).
         """
 
-        filtros = self._extrair_filtros(modelo)
+        filtros = modelo.chaves_definidas()
+        if not filtros:
+            raise ValueError("Informe ao menos uma chave do modelo para executar a operacao")
         classe_modelo = type(modelo)
-        condicao = self._montar_condicao(classe_modelo, filtros)
+        condicoes = [getattr(classe_modelo, chave) == valor for chave, valor in filtros.items()]
+        if not condicoes:
+            raise ValueError("Pelo menos uma condicao e necessaria")
+        condicao = condicoes[0] if len(condicoes) == 1 else and_(*condicoes)
 
-        with self._nova_sessao() as sessao:
+        with self._session_factory() as sessao:
             existente = sessao.scalars(select(classe_modelo).where(condicao)).first()
             if existente:
                 dados = modelo.to_dict()
-                pk_nome = self._obter_nome_id(classe_modelo)
+                info = inspect(classe_modelo)
+                pk_cols = info.primary_key
+                if not pk_cols:
+                    raise ValueError(
+                        f"Modelo {classe_modelo.__name__} nao possui chave primaria definida"
+                    )
+                if len(pk_cols) != 1:
+                    raise ValueError("Atualizacoes exigem chave primaria simples")
+                pk_nome = pk_cols[0].key
                 dados.pop(pk_nome, None)
                 for campo, valor in dados.items():
                     setattr(existente, campo, valor)
@@ -180,11 +208,16 @@ class BaseModelos:
             Número de registros afetados.
         """
 
-        filtros = self._extrair_filtros(modelo)
+        filtros = modelo.chaves_definidas()
+        if not filtros:
+            raise ValueError("Informe ao menos uma chave do modelo para executar a operacao")
         classe_modelo = type(modelo)
-        condicao = self._montar_condicao(classe_modelo, filtros)
+        condicoes = [getattr(classe_modelo, chave) == valor for chave, valor in filtros.items()]
+        if not condicoes:
+            raise ValueError("Pelo menos uma condicao e necessaria")
+        condicao = condicoes[0] if len(condicoes) == 1 else and_(*condicoes)
 
-        with self._nova_sessao() as sessao:
+        with self._session_factory() as sessao:
             resultado = sessao.execute(delete(classe_modelo).where(condicao))
             sessao.commit()
             return resultado.rowcount or 0
@@ -207,11 +240,16 @@ class BaseModelos:
         if predicado is not None and not callable(predicado):
             raise TypeError("Predicado precisa ser uma funcao ou None")
 
-        filtros = self._extrair_filtros(modelo)
+        filtros = modelo.chaves_definidas()
+        if not filtros:
+            raise ValueError("Informe ao menos uma chave do modelo para executar a operacao")
         classe_modelo = type(modelo)
-        condicao = self._montar_condicao(classe_modelo, filtros)
+        condicoes = [getattr(classe_modelo, chave) == valor for chave, valor in filtros.items()]
+        if not condicoes:
+            raise ValueError("Pelo menos uma condicao e necessaria")
+        condicao = condicoes[0] if len(condicoes) == 1 else and_(*condicoes)
 
-        with self._nova_sessao() as sessao:
+        with self._session_factory() as sessao:
             if predicado is None:
                 resultado = sessao.execute(delete(classe_modelo).where(condicao))
                 sessao.commit()
@@ -238,9 +276,17 @@ class BaseModelos:
         """
 
         classe_modelo = type(modelo)
-        chave_id = self._obter_nome_id(classe_modelo)
+        info = inspect(classe_modelo)
+        pk_cols = info.primary_key
+        if not pk_cols:
+            raise ValueError(
+                f"Modelo {classe_modelo.__name__} nao possui chave primaria definida"
+            )
+        if len(pk_cols) != 1:
+            raise ValueError("Atualizacoes exigem chave primaria simples")
+        chave_id = pk_cols[0].key
 
-        with self._nova_sessao() as sessao:
+        with self._session_factory() as sessao:
             existente = sessao.get(classe_modelo, identificador)
             if not existente:
                 return None
@@ -265,79 +311,20 @@ class BaseModelos:
             ``1`` quando removeu o registro, ``0`` caso contrário.
         """
 
-        self._obter_nome_id(classe_modelo)
-        with self._nova_sessao() as sessao:
+        info = inspect(classe_modelo)
+        pk_cols = info.primary_key
+        if not pk_cols:
+            raise ValueError(
+                f"Modelo {classe_modelo.__name__} nao possui chave primaria definida"
+            )
+        if len(pk_cols) != 1:
+            raise ValueError("Remocao por ID exige chave primaria simples")
+        with self._session_factory() as sessao:
             existente = sessao.get(classe_modelo, identificador)
             if not existente:
                 return 0
             sessao.delete(existente)
             sessao.commit()
             return 1
-
-    # ------------------------------------------------------------------
-    # Utilitarios internos
-    # ------------------------------------------------------------------
-
-    def _nova_sessao(self) -> Session:
-        """Cria uma nova sessão SQLAlchemy a partir da factory interna."""
-
-        return self._session_factory()
-
-    def _extrair_filtros(self, modelo: ModeloT) -> Mapping[str, object]:
-        """Extrai os filtros a partir das chaves definidas no modelo.
-
-        Args:
-            modelo: Instância parcialmente preenchida.
-
-        Returns:
-            Mapeamento ``chave -> valor``.
-
-        Raises:
-            ValueError: Quando nenhuma chave está preenchida.
-        """
-
-        filtros = modelo.chaves_definidas()
-        if not filtros:
-            raise ValueError("Informe ao menos uma chave do modelo para executar a operacao")
-        return filtros
-
-    def _montar_condicao(
-        self,
-        classe_modelo: Type[ModeloT],
-        filtros: Mapping[str, object],
-    ):
-        """Constrói a condição SQLAlchemy combinando os filtros informados.
-
-        Args:
-            classe_modelo: Classe alvo da consulta.
-            filtros: Mapeamento ``campo -> valor`` usado como filtro.
-
-        Returns:
-            Expressão SQLAlchemy ``BinaryExpression``.
-
-        Raises:
-            ValueError: Quando nenhum filtro é informado.
-        """
-
-        condicoes = [getattr(classe_modelo, chave) == valor for chave, valor in filtros.items()]
-        if not condicoes:
-            raise ValueError("Pelo menos uma condicao e necessaria")
-        if len(condicoes) == 1:
-            return condicoes[0]
-        return and_(*condicoes)
-
-    def _obter_nome_id(self, classe_modelo: Type[ModeloT]) -> str:
-        """Obtém o nome da coluna que representa a chave primária."""
-
-        info = inspect(classe_modelo)
-        pk_cols = info.primary_key
-        if not pk_cols:
-            raise ValueError(f"Modelo {classe_modelo.__name__} nao possui chave primaria definida")
-        if len(pk_cols) != 1:
-            raise ValueError(
-                f"Operacoes por ID exigem chave primaria simples; encontrado {len(pk_cols)} colunas"
-            )
-        return pk_cols[0].key
-
 
 __all__ = ["BaseModelos"]

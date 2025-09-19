@@ -5,9 +5,8 @@ from __future__ import annotations
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, List, Mapping, Optional
+from typing import Any, Iterable, List, Mapping, Optional
 
 from ..core import (
     APIRecompensas,
@@ -24,36 +23,18 @@ from ..core.logging import log
 MAX_TENTATIVAS_LOGIN = 2
 
 
-@dataclass(slots=True)
-class ContextoConta:
-    """Encapsula os dados necessários para processar uma conta."""
-
-    conta: Conta
-    perfil: str
-    argumentos_navegador: List[str]
-    registro: Any
-    solicitacoes: GerenciadorSolicitacoesRewards | None = None
-    api: APIRecompensas | None = None
-
-    def registrar_solicitacoes(
-        self,
-        gerenciador: GerenciadorSolicitacoesRewards,
-        palavras_erro: List[str],
-        *,
-        interativo: Optional[bool] = None,
-    ) -> None:
-        """Sincroniza utilidades de requisição após um login bem-sucedido."""
-
-        self.solicitacoes = gerenciador
-        self.api = APIRecompensas(
-            gerenciador,
-            palavras_erro=palavras_erro,
-            interativo=interativo,
-        )
-
-
 class ExecutorEmLote:
     """Orquestra o processamento das contas com suporte a múltiplas ações."""
+
+    @staticmethod
+    def _normalizar_acoes(acoes: Iterable[str]) -> List[str]:
+        """Normaliza nomes de ações removendo espaços extras e aplicando minúsculas."""
+
+        return [
+            item.strip().lower()
+            for item in acoes
+            if isinstance(item, str) and item.strip()
+        ]
 
     def __init__(
         self,
@@ -73,7 +54,8 @@ class ExecutorEmLote:
             base_config.users_file = arquivo_usuarios
 
         if acoes is not None:
-            normalizadas = self._normalizar_acoes(acoes)
+            itens = acoes.split(",") if isinstance(acoes, str) else list(acoes)
+            normalizadas = self._normalizar_acoes(itens)
             base_config.actions = normalizadas or list(DEFAULT_ACTIONS)
 
         if max_workers is not None:
@@ -88,12 +70,11 @@ class ExecutorEmLote:
         self.contas: List[Conta] = []
         self._palavras_erro_api = list(self._config.api_error_words)
         self._max_workers = self._config.max_workers
-        self._handlers: dict[str, Callable[[ContextoConta], None]] = {
-            "login": self._acao_login,
-            "rewards": self._acao_rewards,
-            "solicitacoes": self._acao_solicitacoes,
+        self._acoes_map = {
+            "login": self.acao_login,
+            "rewards": self.acao_rewards,
+            "solicitacoes": self.acao_solicitacoes,
         }
-
         log.atualizar_contexto_padrao(arquivo=self.arquivo_usuarios)
         log.debug(
             "Executor inicializado",
@@ -102,26 +83,20 @@ class ExecutorEmLote:
             max_workers=self._max_workers,
         )
 
-    @staticmethod
-    def _normalizar_acoes(acoes: Iterable[str] | str) -> List[str]:
-        if isinstance(acoes, str):
-            itens = acoes.split(",")
-        else:
-            itens = list(acoes)
-        return [item.strip().lower() for item in itens if item and item.strip()]
-
     def executar(self) -> None:
-        if not self._carregar_contas():
+        if not self.carregar_contas():
             return
 
         if self._max_workers <= 1 or len(self.contas) <= 1:
             for conta in self.contas:
-                self._processar_conta(conta)
+                self.processar_conta(conta)
             return
 
         workers = max(1, min(self._max_workers, len(self.contas)))
         with ThreadPoolExecutor(max_workers=workers) as executor:
-            futuros = {executor.submit(self._processar_conta, conta): conta for conta in self.contas}
+            futuros = {
+                executor.submit(self.processar_conta, conta): conta for conta in self.contas
+            }
             for futuro in as_completed(futuros):
                 conta = futuros[futuro]
                 try:
@@ -135,7 +110,9 @@ class ExecutorEmLote:
                     )
                     raise
 
-    def _carregar_contas(self) -> bool:
+    def carregar_contas(self) -> bool:
+        """Carrega as contas do arquivo configurado e registra métricas."""
+
         try:
             self.contas = carregar_contas(self.arquivo_usuarios)
         except FileNotFoundError as exc:
@@ -149,144 +126,65 @@ class ExecutorEmLote:
         log.info("Contas carregadas", total=len(self.contas))
         return True
 
-    def _processar_conta(self, conta: Conta) -> None:
+    def processar_conta(self, conta: Conta) -> None:
+        """Executa as ações configuradas para uma conta específica."""
+
         perfil = conta.id_perfil
         argumentos = GerenciadorPerfil.argumentos_agente_usuario(perfil)
-        contexto = ContextoConta(
-            conta=conta,
-            perfil=perfil,
-            argumentos_navegador=argumentos,
-            registro=log.com_contexto(email=conta.email, perfil=perfil),
-        )
+        registro = log.com_contexto(email=conta.email, perfil=perfil)
 
-        contexto.registro.info("Processando conta")
+        registro.info("Processando conta")
+
+        solicitacoes: GerenciadorSolicitacoesRewards | None = None
+        api: APIRecompensas | None = None
 
         for acao in self.acoes:
-            handler = self._handlers.get(acao)
+            handler = self._acoes_map.get(acao)
             if handler is None:
-                contexto.registro.aviso("Acao desconhecida ignorada", acao=acao)
+                registro.aviso("Acao desconhecida ignorada", acao=acao)
                 continue
 
             try:
-                handler(contexto)
+                if acao == "login":
+                    resultado = handler(
+                        conta=conta,
+                        perfil=perfil,
+                        argumentos=argumentos,
+                        registro=registro,
+                    )
+                elif acao == "rewards":
+                    resultado = handler(
+                        perfil=perfil,
+                        argumentos=argumentos,
+                        registro=registro,
+                    )
+                else:  # solicitacoes
+                    resultado = handler(
+                        conta=conta,
+                        perfil=perfil,
+                        registro=registro,
+                        solicitacoes=solicitacoes,
+                        api=api,
+                    )
             except Exception as exc:
-                contexto.registro.erro(
-                    "Acao falhou",
-                    acao=acao,
-                    detalhe=str(exc),
-                )
+                registro.erro("Acao falhou", acao=acao, detalhe=str(exc))
                 raise
 
-    def _acao_rewards(self, contexto: ContextoConta) -> None:
-        contexto.registro.info("Abrindo pagina de rewards")
-        NavegadorRecompensas.abrir_pagina(
-            profile=contexto.perfil,
-            add_arguments=contexto.argumentos_navegador,
-        )
-        contexto.registro.sucesso("Rewards acessado com sucesso")
+            if acao == "login" and isinstance(resultado, tuple):
+                solicitacoes, api = resultado
 
-    def _acao_login(self, contexto: ContextoConta) -> None:
-        interatividade_api = self._modo_interativo_api()
-        contexto.registro.info("Iniciando login")
-        for tentativa in range(1, MAX_TENTATIVAS_LOGIN + 1):
-            try:
-                if tentativa > 1:
-                    atraso = 2 ** (tentativa - 1)
-                    contexto.registro.info(
-                        "Repetindo tentativa de login",
-                        tentativa=tentativa,
-                        aguardando=f"{atraso}s",
-                    )
-                    time.sleep(atraso)
+    def salvar_resposta_debug(
+        self,
+        conta: Conta,
+        perfil: str,
+        registro: Any,
+        nome: str,
+        dados: Any,
+    ) -> None:
+        """Persiste respostas de API para análise posterior."""
 
-                gerenciador = AutenticadorRewards.executar(
-                    profile=contexto.perfil,
-                    add_arguments=contexto.argumentos_navegador,
-                    data={"email": contexto.conta.email, "senha": contexto.conta.senha},
-                )
-
-                contexto.registrar_solicitacoes(
-                    gerenciador,
-                    self._palavras_erro_api,
-                    interativo=interatividade_api,
-                )
-
-                sessao = gerenciador.dados_sessao
-                total_cookies = len(sessao.cookies) if sessao else 0
-                contexto.registro.debug(
-                    "Sessao de solicitacoes capturada",
-                    total_cookies=total_cookies,
-                )
-                mensagem = (
-                    "Login concluido apos nova tentativa"
-                    if tentativa > 1
-                    else "Login concluido"
-                )
-                contexto.registro.sucesso(mensagem)
-                return
-
-            except Exception as exc:
-                if tentativa == MAX_TENTATIVAS_LOGIN:
-                    raise RuntimeError(
-                        f"Login impossivel para {contexto.conta.email}: {exc}"
-                    ) from exc
-                contexto.registro.aviso(
-                    "Tentativa de login falhou",
-                    tentativa=tentativa,
-                    detalhe=str(exc),
-                )
-
-    def _acao_solicitacoes(self, contexto: ContextoConta) -> None:
-        contexto.registro.info("Consultando API do Rewards com sessao autenticada")
-
-        if contexto.solicitacoes is None or contexto.api is None:
-            contexto.registro.aviso(
-                "Sessao de solicitacoes indisponivel",
-                detalhe="Execute a acao 'login' antes de 'solicitacoes'",
-            )
-            return
-
-        api = contexto.api
-        interatividade_api = self._modo_interativo_api()
-
-        try:
-            pontos = api.obter_pontos(
-                palavras_erro=self._palavras_erro_api,
-                interativo=interatividade_api,
-            )
-        except Exception as exc:
-            contexto.registro.erro("Falha ao obter pontos do Rewards", detalhe=str(exc))
-        else:
-            self._salvar_resposta_debug(contexto, "pontos", pontos)
-            valor_pontos = (
-                APIRecompensas.extrair_pontos_disponiveis(pontos)
-                if isinstance(pontos, Mapping)
-                else None
-            )
-            contexto.registro.sucesso(
-                "Pontos consultados",
-                chave="availablePoints",
-                valor=valor_pontos,
-            )
-
-        try:
-            recompensas = api.obter_recompensas(
-                palavras_erro=self._palavras_erro_api,
-                interativo=interatividade_api,
-            )
-        except Exception as exc:
-            contexto.registro.erro("Falha ao obter recompensas", detalhe=str(exc))
-        else:
-            quantidade = APIRecompensas.contar_recompensas(recompensas)
-            contexto.registro.sucesso(
-                "Recompensas consultadas",
-                chave="total",
-                quantidade=quantidade,
-            )
-
-    def _salvar_resposta_debug(self, contexto: ContextoConta, nome: str, dados: Any) -> None:
         destino = Path.cwd() / "debug_respostas"
-        identificador = contexto.perfil or contexto.conta.id_perfil
+        identificador = perfil or conta.id_perfil
         arquivo = destino / f"{identificador}_{nome}.json"
 
         try:
@@ -298,7 +196,7 @@ class ExecutorEmLote:
             else:
                 conteudo = json.dumps(dados, ensure_ascii=False, indent=2)
         except Exception as exc:
-            contexto.registro.aviso(
+            registro.aviso(
                 "Nao foi possivel serializar resposta para debug",
                 detalhe=str(exc),
             )
@@ -307,19 +205,147 @@ class ExecutorEmLote:
         try:
             arquivo.write_text(conteudo, encoding="utf-8")
         except Exception as exc:  # pragma: no cover - depende do FS
-            contexto.registro.aviso(
+            registro.aviso(
                 "Falha ao gravar arquivo de debug",
                 caminho=str(arquivo),
                 detalhe=str(exc),
             )
         else:
-            contexto.registro.debug(
+            registro.debug(
                 "Resposta salva para analise",
                 arquivo=str(arquivo),
             )
 
-    def _modo_interativo_api(self) -> Optional[bool]:
-        return self._config.api_interactivity()
+    def acao_rewards(
+        self,
+        *,
+        perfil: str,
+        argumentos: List[str],
+        registro: Any,
+        solicitacoes: GerenciadorSolicitacoesRewards | None = None,
+        api: APIRecompensas | None = None,
+    ) -> None:
+        """Abre a página principal do Rewards para a conta atual."""
+
+        registro.info("Abrindo pagina de rewards")
+        NavegadorRecompensas.abrir_pagina(
+            profile=perfil,
+            add_arguments=argumentos,
+        )
+        registro.sucesso("Rewards acessado com sucesso")
+
+    def acao_login(
+        self,
+        *,
+        conta: Conta,
+        perfil: str,
+        argumentos: List[str],
+        registro: Any,
+        solicitacoes: GerenciadorSolicitacoesRewards | None = None,
+        api: APIRecompensas | None = None,
+    ) -> tuple[GerenciadorSolicitacoesRewards, APIRecompensas]:
+        """Realiza o fluxo de login com tentativas controladas."""
+
+        registro.info("Iniciando login")
+        for tentativa in range(1, MAX_TENTATIVAS_LOGIN + 1):
+            try:
+                if tentativa > 1:
+                    atraso = 2 ** (tentativa - 1)
+                    registro.info(
+                        "Repetindo tentativa de login",
+                        tentativa=tentativa,
+                        aguardando=f"{atraso}s",
+                    )
+                    time.sleep(atraso)
+
+                gerenciador = AutenticadorRewards.executar(
+                    profile=perfil,
+                    add_arguments=argumentos,
+                    data={"email": conta.email, "senha": conta.senha},
+                )
+
+                api = APIRecompensas(
+                    gerenciador,
+                    palavras_erro=self._palavras_erro_api,
+                )
+
+                sessao = gerenciador.dados_sessao
+                total_cookies = len(sessao.cookies) if sessao else 0
+                registro.debug(
+                    "Sessao de solicitacoes capturada",
+                    total_cookies=total_cookies,
+                )
+                mensagem = (
+                    "Login concluido apos nova tentativa"
+                    if tentativa > 1
+                    else "Login concluido"
+                )
+                registro.sucesso(mensagem)
+                return gerenciador, api
+
+            except Exception as exc:
+                if tentativa == MAX_TENTATIVAS_LOGIN:
+                    raise RuntimeError(
+                        f"Login impossivel para {conta.email}: {exc}"
+                    ) from exc
+                registro.aviso(
+                    "Tentativa de login falhou",
+                    tentativa=tentativa,
+                    detalhe=str(exc),
+                )
+
+    def acao_solicitacoes(
+        self,
+        *,
+        conta: Conta,
+        perfil: str,
+        registro: Any,
+        solicitacoes: GerenciadorSolicitacoesRewards | None,
+        api: APIRecompensas | None,
+    ) -> None:
+        """Consulta pontos e recompensas usando a API autenticada."""
+
+        registro.info("Consultando API do Rewards com sessao autenticada")
+
+        if solicitacoes is None or api is None:
+            registro.aviso(
+                "Sessao de solicitacoes indisponivel",
+                detalhe="Execute a acao 'login' antes de 'solicitacoes'",
+            )
+            return
+
+        try:
+            pontos = api.obter_pontos(
+                palavras_erro=self._palavras_erro_api,
+            )
+        except Exception as exc:
+            registro.erro("Falha ao obter pontos do Rewards", detalhe=str(exc))
+        else:
+            self.salvar_resposta_debug(conta, perfil, registro, "pontos", pontos)
+            valor_pontos = (
+                APIRecompensas.extrair_pontos_disponiveis(pontos)
+                if isinstance(pontos, Mapping)
+                else None
+            )
+            registro.sucesso(
+                "Pontos consultados",
+                chave="availablePoints",
+                valor=valor_pontos,
+            )
+
+        try:
+            recompensas = api.obter_recompensas(
+                palavras_erro=self._palavras_erro_api,
+            )
+        except Exception as exc:
+            registro.erro("Falha ao obter recompensas", detalhe=str(exc))
+        else:
+            quantidade = APIRecompensas.contar_recompensas(recompensas)
+            registro.sucesso(
+                "Recompensas consultadas",
+                chave="total",
+                quantidade=quantidade,
+            )
 
 
 def executar_cli() -> None:
@@ -330,6 +356,5 @@ def executar_cli() -> None:
 
 __all__ = [
     "ExecutorEmLote",
-    "ContextoConta",
     "executar_cli",
 ]

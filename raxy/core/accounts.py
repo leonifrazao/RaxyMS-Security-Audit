@@ -27,39 +27,6 @@ class Conta:
     id_perfil: str
 
 
-def _derivar_id_perfil(email: str) -> str:
-    """Gera um identificador de perfil estável e seguro derivado do email.
-
-    Usa o endereço completo em minúsculas (não apenas a parte local) para evitar
-    colisões entre contas de domínios distintos e aplica uma normalização que
-    remove caracteres inválidos para nomes de perfil. Um sufixo hash curto é
-    anexado para garantir unicidade mesmo quando o processo de sanitização
-    produzir o mesmo prefixo.
-
-    Args:
-        email: Endereço de email da conta.
-
-    Returns:
-        Identificador sanitizado utilizado para nomear o perfil do navegador.
-    """
-
-    email_normalizado = email.strip().lower()
-    if not email_normalizado:
-        return "perfil"
-
-    substituido = email_normalizado.replace("@", "_at_")
-    base = _PERFIL_SEGURO_RE.sub("_", substituido).strip("_")
-    if not base:
-        base = "perfil"
-
-    sufixo = hashlib.sha1(email_normalizado.encode("utf-8")).hexdigest()[:6]
-    tamanho_maximo = 80
-    limite_base = max(1, tamanho_maximo - len(sufixo) - 1)
-    base_compactada = base[:limite_base]
-    identificador = f"{base_compactada}_{sufixo}" if base_compactada else sufixo
-
-    return identificador
-
 
 def carregar_contas(caminho_arquivo: str | Path) -> List[Conta]:
     """Lê o arquivo de contas e retorna a lista de :class:`Conta`.
@@ -89,9 +56,24 @@ def carregar_contas(caminho_arquivo: str | Path) -> List[Conta]:
             email, senha = (parte.strip() for parte in linha.split(":", 1))
             if not email or not senha:
                 continue
-            contas.append(
-                Conta(email=email, senha=senha, id_perfil=_derivar_id_perfil(email))
-            )
+            email_normalizado = email.strip().lower()
+            if not email_normalizado:
+                identificador = "perfil"
+            else:
+                substituido = email_normalizado.replace("@", "_at_")
+                base = _PERFIL_SEGURO_RE.sub("_", substituido).strip("_")
+                if not base:
+                    base = "perfil"
+
+                sufixo = hashlib.sha1(email_normalizado.encode("utf-8")).hexdigest()[:6]
+                tamanho_maximo = 80
+                limite_base = max(1, tamanho_maximo - len(sufixo) - 1)
+                base_compactada = base[:limite_base]
+                identificador = (
+                    f"{base_compactada}_{sufixo}" if base_compactada else sufixo
+                )
+
+            contas.append(Conta(email=email, senha=senha, id_perfil=identificador))
 
     return contas
 

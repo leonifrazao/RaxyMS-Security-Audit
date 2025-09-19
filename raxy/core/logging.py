@@ -82,22 +82,6 @@ _DEFAULT_THEME = Theme(
 
 _TRACEBACK_INSTALADO = False
 
-
-def _normalizar_nivel(nome: str) -> str:
-    """Normaliza o nome de nível fornecido para variantes suportadas."""
-
-    chave = nome.lower()
-    return _NORMALIZED_NAMES.get(chave, "info")
-
-
-def _resolver_nivel(valor: str | int) -> int:
-    """Converte uma representação de nível (string/int) em valor numérico."""
-
-    if isinstance(valor, int):
-        return valor
-    chave = valor.lower()
-    return _LEVEL_MAP.get(chave, _LEVEL_MAP["info"])
-
 @dataclass(slots=True)
 class LoggerConfig:
     """Configuracao centralizada do logger.
@@ -166,7 +150,12 @@ class FarmLogger:
 
         self._config = LoggerConfig()
         self._console = Console(theme=_DEFAULT_THEME, highlight=False)
-        self._nivel_minimo = _resolver_nivel(self._config.nivel_minimo)
+        valor_nivel = self._config.nivel_minimo
+        if isinstance(valor_nivel, int):
+            self._nivel_minimo = valor_nivel
+        else:
+            chave = str(valor_nivel).lower()
+            self._nivel_minimo = _LEVEL_MAP.get(chave, _LEVEL_MAP["info"])
         self._arquivo_handle = None
         self._atexit_registrado = False
         self._contexto_padrao: Dict[str, Any] = {}
@@ -193,7 +182,12 @@ class FarmLogger:
 
         with self._lock:
             self._config = config
-            self._nivel_minimo = _resolver_nivel(config.nivel_minimo)
+            valor_nivel = config.nivel_minimo
+            if isinstance(valor_nivel, int):
+                self._nivel_minimo = valor_nivel
+            else:
+                chave = str(valor_nivel).lower()
+                self._nivel_minimo = _LEVEL_MAP.get(chave, _LEVEL_MAP["info"])
 
             if config.usar_cores:
                 self._console = Console(theme=_DEFAULT_THEME, highlight=False)
@@ -216,7 +210,8 @@ class FarmLogger:
             **dados: Chave/valor a ser adicionado ao contexto padrão.
         """
         with self._lock:
-            self._contexto_padrao.update(self._filtrar_dados(dados))
+            filtrados = {k: v for k, v in dados.items() if v is not None}
+            self._contexto_padrao.update(filtrados)
 
     def limpar_contexto_padrao(self, *chaves: str) -> None:
         """Remove campos do contexto padrão.
@@ -234,7 +229,7 @@ class FarmLogger:
             for chave in chaves:
                 self._contexto_padrao.pop(chave, None)
 
-    def com_contexto(self, **dados: Any) -> "_ScopedLogger":
+    def com_contexto(self, **dados: Any) -> "ScopedLogger":
         """Retorna um logger derivado com contexto adicional.
 
         Ideal para anexar informacoes fixas (ex.: conta, etapa, id) sem
@@ -244,11 +239,11 @@ class FarmLogger:
             **dados: Parâmetros adicionais incorporados em todas as mensagens.
 
         Returns:
-            Instância de :class:`_ScopedLogger` com o contexto agregado.
+            Instância de :class:`ScopedLogger` com o contexto agregado.
         """
 
-        contexto = self._filtrar_dados(dados)
-        return _ScopedLogger(self, contexto)
+        contexto = {k: v for k, v in dados.items() if v is not None}
+        return ScopedLogger(self, contexto)
 
     # ------------------------------------------------------------------
     # API publica de logging
@@ -256,27 +251,27 @@ class FarmLogger:
 
     def debug(self, mensagem: str, **dados: Any) -> None:
         """Emite log nível DEBUG."""
-        self._log("debug", mensagem, dados, None)
+        self.registrar_evento("debug", mensagem, dados, None)
 
     def info(self, mensagem: str, **dados: Any) -> None:
         """Emite log nível INFO."""
-        self._log("info", mensagem, dados, None)
+        self.registrar_evento("info", mensagem, dados, None)
 
     def sucesso(self, mensagem: str, **dados: Any) -> None:
         """Emite log nível SUCESSO (25)."""
-        self._log("sucesso", mensagem, dados, None)
+        self.registrar_evento("sucesso", mensagem, dados, None)
 
     def aviso(self, mensagem: str, **dados: Any) -> None:
         """Emite log nível AVISO."""
-        self._log("aviso", mensagem, dados, None)
+        self.registrar_evento("aviso", mensagem, dados, None)
 
     def erro(self, mensagem: str, **dados: Any) -> None:
         """Emite log nível ERRO."""
-        self._log("erro", mensagem, dados, None)
+        self.registrar_evento("erro", mensagem, dados, None)
 
     def critico(self, mensagem: str, **dados: Any) -> None:
         """Emite log nível CRÍTICO."""
-        self._log("critico", mensagem, dados, None)
+        self.registrar_evento("critico", mensagem, dados, None)
 
     @contextmanager
     def etapa(
@@ -297,126 +292,122 @@ class FarmLogger:
             **dados: Metadados adicionais incluídos em cada log gerado.
         """
 
-        dados_limpos = self._filtrar_dados(dados)
-        with self._etapa_contexto(None, titulo, mensagem_inicial, mensagem_sucesso, mensagem_falha, dados_limpos):
+        dados_limpos = {k: v for k, v in dados.items() if v is not None}
+        inicio = mensagem_inicial or f"Iniciando etapa: {titulo}"
+        sucesso_msg = mensagem_sucesso or f"Etapa concluida: {titulo}"
+        falha_msg = mensagem_falha or f"Falha na etapa: {titulo}"
+
+        self.registrar_evento("info", inicio, dados_limpos, None)
+        try:
             yield
+        except Exception:
+            self.registrar_evento("erro", falha_msg, dados_limpos, None)
+            raise
+        else:
+            self.registrar_evento("sucesso", sucesso_msg, dados_limpos, None)
 
     # ------------------------------------------------------------------
     # Implementacao interna
     # ------------------------------------------------------------------
 
-    def _filtrar_dados(self, dados: Mapping[str, Any]) -> Dict[str, Any]:
-        """Remove pares com valores ``None`` preservando o restante."""
+    def deve_emitir(self, nivel: str | int) -> bool:
+        """Indica se o nível solicitado deve ser emitido."""
 
-        return {k: v for k, v in dados.items() if v is not None}
+        if isinstance(nivel, int):
+            valor = nivel
+        else:
+            chave = str(nivel).lower()
+            valor = _LEVEL_MAP.get(chave, _LEVEL_MAP["info"])
+        return valor >= self._nivel_minimo
 
-    def _deve_emitir(self, nivel: str) -> bool:
-        """Retorna ``True`` quando o nível atual deve ser emitido."""
-
-        return _resolver_nivel(nivel) >= self._nivel_minimo
-
-    def _log(
+    def registrar_evento(
         self,
-        nivel: str,
+        nivel: str | int,
         mensagem: str,
         dados: Mapping[str, Any],
         contexto_extra: Optional[Mapping[str, Any]],
     ) -> None:
-        """Dispara o fluxo de logging consolidando contexto e destino."""
+        """Consolida dados, contexto e emissões em console/arquivo."""
 
-        if not self._deve_emitir(nivel):
+        if not self.deve_emitir(nivel):
             return
 
-        dados_limpos = self._filtrar_dados(dados)
+        dados_limpos = {k: v for k, v in (dados or {}).items() if v is not None}
+
+        if isinstance(nivel, int):
+            valor_nivel = nivel
+            chave_referencia = next(
+                (nome for nome, valor in _LEVEL_MAP.items() if valor == valor_nivel),
+                "info",
+            )
+        else:
+            chave_normalizada = str(nivel).lower()
+            valor_nivel = _LEVEL_MAP.get(chave_normalizada, _LEVEL_MAP["info"])
+            chave_referencia = _NORMALIZED_NAMES.get(chave_normalizada, "info")
+
+        instante = datetime.now()
+
         with self._lock:
             contexto = dict(self._contexto_padrao)
             if contexto_extra:
-                contexto.update(self._filtrar_dados(contexto_extra))
+                for chave, valor in contexto_extra.items():
+                    if valor is not None:
+                        contexto[chave] = valor
 
-            self._emitir_console(nivel, mensagem, contexto, dados_limpos)
-            self._emitir_arquivo(nivel, mensagem, contexto, dados_limpos)
+            extras_partes = []
+            if contexto:
+                extras_partes.extend(self.formatar_dict(contexto))
+            if dados_limpos:
+                extras_partes.extend(self.formatar_dict(dados_limpos))
+            extras_texto = " ".join(extras_partes)
 
-    def _emitir_console(
-        self,
-        nivel: str,
-        mensagem: str,
-        contexto: Mapping[str, Any],
-        dados: Mapping[str, Any],
-    ) -> None:
-        """Emite a mensagem formatada no console Rich."""
+            texto = Text()
+            if self._config.mostrar_tempo:
+                texto.append(instante.strftime("%H:%M:%S"), style="log.time")
+                texto.append("  ")
 
-        texto = Text()
-        if self._config.mostrar_tempo:
-            texto.append(self._agora(), style="log.time")
+            estilo = f"log.{chave_referencia}"
+            texto.append(f"[{chave_referencia.upper()}]", style=estilo)
             texto.append("  ")
+            texto.append(mensagem, style=estilo)
 
-        nivel_normalizado = _normalizar_nivel(nivel)
-        estilo = f"log.{nivel_normalizado}"
+            if extras_texto:
+                texto.append("  ")
+                texto.append(extras_texto, style="log.contexto")
 
-        texto.append(f"[{nivel_normalizado.upper()}]", style=estilo)
-        texto.append("  ")
-        texto.append(mensagem, style=estilo)
+            self._console.print(texto)
 
-        extras = self._formatar_extras(contexto, dados)
-        if extras:
-            texto.append("  ")
-            texto.append(extras, style="log.contexto")
+            if self._config.arquivo_log:
+                if self._arquivo_handle is None:
+                    path = Path(self._config.arquivo_log)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    modo = "w" if self._config.sobrescrever_arquivo else "a"
+                    self._arquivo_handle = path.open(modo, encoding="utf-8")
+                    if not self._atexit_registrado:
+                        atexit.register(self.close)
+                        self._atexit_registrado = True
 
-        self._console.print(texto)
+                partes_arquivo = [instante.strftime("%Y-%m-%d %H:%M:%S"), chave_referencia.upper(), mensagem]
+                if contexto:
+                    partes_arquivo.append("contexto=" + ",".join(self.formatar_dict(contexto)))
+                if dados_limpos:
+                    partes_arquivo.append("dados=" + ",".join(self.formatar_dict(dados_limpos)))
+                linha = " | ".join(partes_arquivo)
+                self._arquivo_handle.write(linha + "\n")
+                self._arquivo_handle.flush()
 
-    def _emitir_arquivo(
-        self,
-        nivel: str,
-        mensagem: str,
-        contexto: Mapping[str, Any],
-        dados: Mapping[str, Any],
-    ) -> None:
-        """Persiste a mensagem no arquivo de log quando configurado."""
+    def close(self) -> None:
+        """Fecha o arquivo de log (quando houver)."""
 
-        if not self._config.arquivo_log:
-            return
+        with self._lock:
+            if self._arquivo_handle is not None:
+                self._arquivo_handle.close()
+                self._arquivo_handle = None
+                self._atexit_registrado = False
 
-        linha = self._linha_arquivo(nivel, mensagem, contexto, dados)
-        handle = self._obter_handle()
-        handle.write(linha + "\n")
-        handle.flush()
-
-    def _obter_handle(self):
-        """Abre (se necessário) o handle do arquivo de log."""
-
-        if self._arquivo_handle is None:
-            path = Path(self._config.arquivo_log)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            modo = "w" if self._config.sobrescrever_arquivo else "a"
-            self._arquivo_handle = path.open(modo, encoding="utf-8")
-            if not self._atexit_registrado:
-                atexit.register(self.close)
-                self._atexit_registrado = True
-        return self._arquivo_handle
-
-    def _formatar_extras(
-        self,
-        contexto: Mapping[str, Any],
-        dados: Mapping[str, Any],
-    ) -> str:
-        """Formata pares chave=valor para anexar às mensagens."""
-
-        partes: list[str] = []
-        if contexto:
-            partes.extend(self._formatar_dict(contexto))
-        if dados:
-            partes.extend(self._formatar_dict(dados))
-        return " ".join(partes)
-
-    def _formatar_dict(self, valores: Mapping[str, Any]) -> Iterable[str]:
-        """Itera sobre o dicionário gerando ``chave=valor`` ordenados."""
-
-        for chave in sorted(valores):
-            partes = f"{chave}={self._formatar_valor(valores[chave])}"
-            yield partes
-
-    def _formatar_valor(self, valor: Any) -> str:
-        """Formata valores em representação amigável para logs de contexto."""
+    @staticmethod
+    def formatar_valor(valor: Any) -> str:
+        """Transforma valores em representação amigável para logs."""
 
         if isinstance(valor, (int, float)):
             return str(valor)
@@ -428,113 +419,44 @@ class FarmLogger:
             return "None"
         return repr(valor)
 
-    def _linha_arquivo(
-        self,
-        nivel: str,
-        mensagem: str,
-        contexto: Mapping[str, Any],
-        dados: Mapping[str, Any],
-    ) -> str:
-        """Monta a linha padrão escrita no arquivo de log."""
+    @classmethod
+    def formatar_dict(cls, valores: Mapping[str, Any]) -> list[str]:
+        """Converte dicionários em pares ``chave=valor`` ordenados."""
 
-        partes = [self._agora(data=True), nivel.upper(), mensagem]
-        if contexto:
-            partes.append("contexto=" + ",".join(self._formatar_dict(contexto)))
-        if dados:
-            partes.append("dados=" + ",".join(self._formatar_dict(dados)))
-        return " | ".join(partes)
-
-    def _agora(self, data: bool = False) -> str:
-        """Retorna o timestamp atual em formato string."""
-
-        fmt = "%Y-%m-%d %H:%M:%S" if data else "%H:%M:%S"
-        return datetime.now().strftime(fmt)
-
-    def close(self) -> None:
-        """Fecha o arquivo de log (quando houver)."""
-
-        with self._lock:
-            if self._arquivo_handle:
-                self._arquivo_handle.close()
-                self._arquivo_handle = None
-                self._atexit_registrado = False
-
-    def _etapa_contexto(
-        self,
-        contexto_extra: Optional[Mapping[str, Any]],
-        titulo: str,
-        mensagem_inicial: Optional[str],
-        mensagem_sucesso: Optional[str],
-        mensagem_falha: Optional[str],
-        dados: Mapping[str, Any],
-    ):
-        """Cria o context manager interno usado por ``etapa``."""
-
-        @contextmanager
-        def _ctx():
-            """Contexto que loga início, falha e sucesso de etapas."""
-
-            inicio = mensagem_inicial or f"Iniciando etapa: {titulo}"
-            sucesso = mensagem_sucesso or f"Etapa concluida: {titulo}"
-            falha = mensagem_falha or f"Falha na etapa: {titulo}"
-
-            self._log("info", inicio, dados, contexto_extra)
-            try:
-                yield
-            except Exception:
-                self._log("erro", falha, dados, contexto_extra)
-                raise
-            else:
-                self._log("sucesso", sucesso, dados, contexto_extra)
-
-        return _ctx()
+        return [f"{chave}={cls.formatar_valor(valores[chave])}" for chave in sorted(valores)]
 
 
-class _ScopedLogger:
+class ScopedLogger:
     """Wrapper leve para adicionar contexto fixo em um logger existente."""
 
     def __init__(self, base: FarmLogger, contexto: Mapping[str, Any]) -> None:
-        """Inicializa o escopo preservando o contexto fixo fornecido."""
-
         self._base = base
         self._contexto = dict(contexto)
 
-    def com_contexto(self, **dados: Any) -> "_ScopedLogger":
-        """Retorna novo escopo de logger acumulando mais contexto."""
-
+    def com_contexto(self, **dados: Any) -> "ScopedLogger":
         novo = dict(self._contexto)
-        novo.update(self._base._filtrar_dados(dados))
-        return _ScopedLogger(self._base, novo)
+        for chave, valor in dados.items():
+            if valor is not None:
+                novo[chave] = valor
+        return ScopedLogger(self._base, novo)
 
     def debug(self, mensagem: str, **dados: Any) -> None:
-        """Emite log DEBUG reaproveitando o contexto escopo."""
-
-        self._base._log("debug", mensagem, dados, self._contexto)
+        self._base.registrar_evento("debug", mensagem, dados, self._contexto)
 
     def info(self, mensagem: str, **dados: Any) -> None:
-        """Emite log INFO reaproveitando o contexto escopo."""
-
-        self._base._log("info", mensagem, dados, self._contexto)
+        self._base.registrar_evento("info", mensagem, dados, self._contexto)
 
     def sucesso(self, mensagem: str, **dados: Any) -> None:
-        """Emite log SUCESSO reaproveitando o contexto escopo."""
-
-        self._base._log("sucesso", mensagem, dados, self._contexto)
+        self._base.registrar_evento("sucesso", mensagem, dados, self._contexto)
 
     def aviso(self, mensagem: str, **dados: Any) -> None:
-        """Emite log AVISO reaproveitando o contexto escopo."""
-
-        self._base._log("aviso", mensagem, dados, self._contexto)
+        self._base.registrar_evento("aviso", mensagem, dados, self._contexto)
 
     def erro(self, mensagem: str, **dados: Any) -> None:
-        """Emite log ERRO reaproveitando o contexto escopo."""
-
-        self._base._log("erro", mensagem, dados, self._contexto)
+        self._base.registrar_evento("erro", mensagem, dados, self._contexto)
 
     def critico(self, mensagem: str, **dados: Any) -> None:
-        """Emite log CRÍTICO reaproveitando o contexto escopo."""
-
-        self._base._log("critico", mensagem, dados, self._contexto)
+        self._base.registrar_evento("critico", mensagem, dados, self._contexto)
 
     @contextmanager
     def etapa(
@@ -545,18 +467,19 @@ class _ScopedLogger:
         mensagem_falha: Optional[str] = None,
         **dados: Any,
     ):
-        """Context manager equivalente ao do logger base, herdando contexto."""
+        dados_limpos = {k: v for k, v in dados.items() if v is not None}
+        inicio = mensagem_inicial or f"Iniciando etapa: {titulo}"
+        sucesso_msg = mensagem_sucesso or f"Etapa concluida: {titulo}"
+        falha_msg = mensagem_falha or f"Falha na etapa: {titulo}"
 
-        dados_limpos = self._base._filtrar_dados(dados)
-        with self._base._etapa_contexto(
-            self._contexto,
-            titulo,
-            mensagem_inicial,
-            mensagem_sucesso,
-            mensagem_falha,
-            dados_limpos,
-        ):
+        self._base.registrar_evento("info", inicio, dados_limpos, self._contexto)
+        try:
             yield
+        except Exception:
+            self._base.registrar_evento("erro", falha_msg, dados_limpos, self._contexto)
+            raise
+        else:
+            self._base.registrar_evento("sucesso", sucesso_msg, dados_limpos, self._contexto)
 
 
 # Instancia global simples -------------------------------------------------

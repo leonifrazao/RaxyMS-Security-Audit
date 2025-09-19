@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from raxy.core.auth import AutenticadorRewards, CredenciaisInvalidas  # noqa: E402  pylint: disable=wrong-import-position
+from raxy.core.browser import AutenticadorRewards, CredenciaisInvalidas  # noqa: E402  pylint: disable=wrong-import-position
 
 
 class TestAutenticadorRewards(unittest.TestCase):

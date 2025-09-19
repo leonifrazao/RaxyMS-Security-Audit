@@ -15,8 +15,8 @@ Este diretório concentra os módulos responsáveis pela automação completa:
 |---------------------|------------------------------------------------------------------------------------------------------|
 | `auth.py`           | Classe `AutenticadorRewards` com validação de email/senha, interação DOM e logging contextual.       |
 | `browser.py`        | `NavegadorRecompensas` abre a página do Bing Rewards com configurações opinativas de navegador.      |
-| `rewards_api.py`    | `APIRecompensas` reutiliza `GerenciadorSolicitacoesRewards` e oferece utilitários de parsing JSON.   |
-| `session.py`        | Captura cookies/tokens e expõe `ClienteSolicitacoesRewards` com tratamento de erros estruturado.     |
+| `rewards_api.py`    | `APIRecompensas` utiliza parâmetros capturados para realizar requisições autenticadas e parsear JSON. |
+| `session.py`        | Captura cookies/tokens e expõe `ParametrosManualSolicitacao` para uso manual ou pela API integrada.   |
 | `profiles.py`       | `GerenciadorPerfil` garante perfis botasaurus, gera user-agents e monta argumentos de navegador.     |
 | `accounts.py`       | Funções para carregar contas (`carregar_contas`) e dataclass `Conta` com `email/senha/id_perfil`.    |
 | `logging.py`        | Framework de logging em português (`log`, contextos, etapas e integração com Rich).                  |

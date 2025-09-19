@@ -29,6 +29,17 @@ try:
         categoria: Mapped[str] = mapped_column(String(100), nullable=False)
         pontos: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    def aumentar_pontos_personalizado(handler: BaseModelos, email: str, incremento: int) -> int:
+        """Incrementa a pontuação da conta e retorna o novo total."""
+
+        registro = handler.obter_por_key(ModeloConta(email=email, senha="placeholder"))
+        if not registro:
+            raise ValueError("Conta nao encontrada")
+        conta = registro[0]
+        conta.pontos += incremento
+        handler.inserir_ou_atualizar(conta)
+        return conta.pontos
+
 except ModuleNotFoundError:
     SQLALCHEMY_DISPONIVEL = False
 
@@ -135,18 +146,9 @@ class TestBaseModelos(unittest.TestCase):
     def test_metodo_personalizado(self) -> None:
         """Garante que métodos personalizados são ligados na instância."""
 
-        def aumentar_pontos(handler: BaseModelos, email: str, incremento: int) -> int:
-            """Incrementa a pontuação da conta e retorna o novo total."""
-
-            registro = handler.obter_por_key(ModeloConta(email=email, senha="placeholder"))
-            if not registro:
-                raise ValueError("Conta nao encontrada")
-            conta = registro[0]
-            conta.pontos += incremento
-            handler.inserir_ou_atualizar(conta)
-            return conta.pontos
-
-        base = BaseModelos(metodos_personalizados={"aumentar_pontos": aumentar_pontos})
+        base = BaseModelos(
+            metodos_personalizados={"aumentar_pontos": aumentar_pontos_personalizado}
+        )
         base.inserir_ou_atualizar(ModeloConta(email="user@example.com", senha="123", pontos=5))
 
         total = base.aumentar_pontos("user@example.com", 10)
