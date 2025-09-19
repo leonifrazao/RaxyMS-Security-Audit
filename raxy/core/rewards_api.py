@@ -126,26 +126,26 @@ class APIRecompensas:
             visitados.add(identificador)
 
             if isinstance(atual, list):
-                if atual and all(isinstance(item, Mapping) for item in atual):
-                    relevantes = [
-                        item for item in atual if APIRecompensas._parece_recompensa(item)
-                    ]
-                    if relevantes:
-                        total += len(relevantes)
+                if atual:
+                    total += APIRecompensas._contar_recompensas_iter(atual)
                 fila.extend(atual)
                 continue
 
             if isinstance(atual, Mapping):
                 candidatos = atual.get("catalogItems") or atual.get("items")
                 if isinstance(candidatos, list):
-                    relevantes = [
-                        item for item in candidatos if APIRecompensas._parece_recompensa(item)
-                    ]
-                    if relevantes:
-                        total += len(relevantes)
+                    total += APIRecompensas._contar_recompensas_iter(candidatos)
                 fila.extend(atual.values())
 
         return total or None
+
+    @staticmethod
+    def _contar_recompensas_iter(itens: Iterable[Any]) -> int:
+        contador = 0
+        for item in itens:
+            if isinstance(item, Mapping) and APIRecompensas._parece_recompensa(item):
+                contador += 1
+        return contador
 
     @staticmethod
     def _converter_para_int(valor: Any) -> Optional[int]:
