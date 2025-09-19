@@ -30,6 +30,7 @@ from datetime import datetime
 import os
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional
+import threading
 
 from rich.console import Console
 from rich.theme import Theme
@@ -169,6 +170,7 @@ class FarmLogger:
         self._arquivo_handle = None
         self._atexit_registrado = False
         self._contexto_padrao: Dict[str, Any] = {}
+        self._lock = threading.RLock()
 
     # ------------------------------------------------------------------
     # Configuracao e contexto
@@ -189,22 +191,23 @@ class FarmLogger:
 
         global _TRACEBACK_INSTALADO
 
-        self._config = config
-        self._nivel_minimo = _resolver_nivel(config.nivel_minimo)
+        with self._lock:
+            self._config = config
+            self._nivel_minimo = _resolver_nivel(config.nivel_minimo)
 
-        if config.usar_cores:
-            self._console = Console(theme=_DEFAULT_THEME, highlight=False)
-        else:
-            self._console = Console(highlight=False, no_color=True)
+            if config.usar_cores:
+                self._console = Console(theme=_DEFAULT_THEME, highlight=False)
+            else:
+                self._console = Console(highlight=False, no_color=True)
 
-        if self._arquivo_handle:
-            self._arquivo_handle.close()
-            self._arquivo_handle = None
-            self._atexit_registrado = False
+            if self._arquivo_handle:
+                self._arquivo_handle.close()
+                self._arquivo_handle = None
+                self._atexit_registrado = False
 
-        if config.registrar_traceback_rico and not _TRACEBACK_INSTALADO:
-            install_rich_traceback(show_locals=False)
-            _TRACEBACK_INSTALADO = True
+            if config.registrar_traceback_rico and not _TRACEBACK_INSTALADO:
+                install_rich_traceback(show_locals=False)
+                _TRACEBACK_INSTALADO = True
 
     def atualizar_contexto_padrao(self, **dados: Any) -> None:
         """Adiciona ou atualiza campos que aparecem em todos os logs.
@@ -212,24 +215,24 @@ class FarmLogger:
         Args:
             **dados: Chave/valor a ser adicionado ao contexto padrão.
         """
-
-        self._contexto_padrao.update(self._filtrar_dados(dados))
+        with self._lock:
+            self._contexto_padrao.update(self._filtrar_dados(dados))
 
     def limpar_contexto_padrao(self, *chaves: str) -> None:
         """Remove campos do contexto padrão.
 
         Quando nenhuma chave e fornecida, o contexto padrao e limpo por
         completo.
-        
+
         Args:
             *chaves: Campos a remover. Quando vazio, zera o contexto.
         """
-
-        if not chaves:
-            self._contexto_padrao.clear()
-            return
-        for chave in chaves:
-            self._contexto_padrao.pop(chave, None)
+        with self._lock:
+            if not chaves:
+                self._contexto_padrao.clear()
+                return
+            for chave in chaves:
+                self._contexto_padrao.pop(chave, None)
 
     def com_contexto(self, **dados: Any) -> "_ScopedLogger":
         """Retorna um logger derivado com contexto adicional.
@@ -325,12 +328,13 @@ class FarmLogger:
             return
 
         dados_limpos = self._filtrar_dados(dados)
-        contexto = dict(self._contexto_padrao)
-        if contexto_extra:
-            contexto.update(self._filtrar_dados(contexto_extra))
+        with self._lock:
+            contexto = dict(self._contexto_padrao)
+            if contexto_extra:
+                contexto.update(self._filtrar_dados(contexto_extra))
 
-        self._emitir_console(nivel, mensagem, contexto, dados_limpos)
-        self._emitir_arquivo(nivel, mensagem, contexto, dados_limpos)
+            self._emitir_console(nivel, mensagem, contexto, dados_limpos)
+            self._emitir_arquivo(nivel, mensagem, contexto, dados_limpos)
 
     def _emitir_console(
         self,
@@ -449,10 +453,11 @@ class FarmLogger:
     def close(self) -> None:
         """Fecha o arquivo de log (quando houver)."""
 
-        if self._arquivo_handle:
-            self._arquivo_handle.close()
-            self._arquivo_handle = None
-            self._atexit_registrado = False
+        with self._lock:
+            if self._arquivo_handle:
+                self._arquivo_handle.close()
+                self._arquivo_handle = None
+                self._atexit_registrado = False
 
     def _etapa_contexto(
         self,
