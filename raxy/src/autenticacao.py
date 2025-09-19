@@ -113,7 +113,7 @@ class AutenticadorRewards:
 
         network = NetWork(driver)
         network.limpar_respostas()
-        
+
         entrada_email = dados.get("email") or os.getenv("MS_EMAIL") or ""
         entrada_senha = (
             dados.get("senha")
@@ -121,17 +121,17 @@ class AutenticadorRewards:
             or os.getenv("MS_PASSWORD")
             or ""
         )
-        
+
         try:
             email_validado, senha_validada = AutenticadorRewards.validar_credenciais(entrada_email, entrada_senha)
         except CredenciaisInvalidas as exc:
             registro.erro("Credenciais invalidas", detalhe=str(exc))
             raise
-        
+
         driver.enable_human_mode()
         driver.google_get(REWARDS_BASE_URL)
         driver.short_random_sleep()
-        
+
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
             registro.sucesso("Conta ja autenticada")
             return AutenticadorRewards._registrar_solicitacoes(
@@ -165,10 +165,10 @@ class AutenticadorRewards:
             pass
         else:
             registro.debug("Confirmacao de sessao aceita")
-            
+
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
             registro.sucesso("Login finalizado")
-            
+
             # Verifica o status final
             status_final = network.get_status()
             if status_final == 200:
