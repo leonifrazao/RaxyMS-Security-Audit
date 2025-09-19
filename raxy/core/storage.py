@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import threading
 from types import MethodType
 from typing import Callable, Mapping, Type, TypeVar
 
 try:
     from sqlalchemy import and_, create_engine, delete, select, inspect
+    from sqlalchemy.engine import Engine
     from sqlalchemy.orm import Session, sessionmaker
 except ModuleNotFoundError as exc:  # pragma: no cover - depende do ambiente
     raise ModuleNotFoundError(
@@ -17,6 +19,12 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depende do ambiente
 from Models.modelo_base import ModeloBase, BaseDeclarativa
 
 ModeloT = TypeVar("ModeloT", bound=ModeloBase)
+
+
+_ENGINE_CACHE: dict[tuple[str, bool], Engine] = {}
+_SESSION_FACTORY_CACHE: dict[tuple[str, bool], sessionmaker] = {}
+_METADATA_INICIALIZADA: set[tuple[str, bool]] = set()
+_CACHE_LOCK = threading.RLock()
 
 
 class BaseModelos:
@@ -53,9 +61,28 @@ class BaseModelos:
             arquivo_db.parent.mkdir(parents=True, exist_ok=True)
             url_banco = f"sqlite:///{arquivo_db}"
 
-        self._engine = create_engine(url_banco, echo=echo_sql, future=True)
-        BaseDeclarativa.metadata.create_all(self._engine)
-        self._session_factory = sessionmaker(bind=self._engine, autoflush=False, future=True, expire_on_commit=False)
+        cache_key = (url_banco, bool(echo_sql))
+        with _CACHE_LOCK:
+            engine = _ENGINE_CACHE.get(cache_key)
+            if engine is None:
+                engine = create_engine(url_banco, echo=echo_sql, future=True)
+                _ENGINE_CACHE[cache_key] = engine
+            if cache_key not in _METADATA_INICIALIZADA:
+                BaseDeclarativa.metadata.create_all(engine)
+                _METADATA_INICIALIZADA.add(cache_key)
+
+            session_factory = _SESSION_FACTORY_CACHE.get(cache_key)
+            if session_factory is None:
+                session_factory = sessionmaker(
+                    bind=engine,
+                    autoflush=False,
+                    future=True,
+                    expire_on_commit=False,
+                )
+                _SESSION_FACTORY_CACHE[cache_key] = session_factory
+
+        self._engine = engine
+        self._session_factory = session_factory
 
         if metodos_personalizados:
             for nome, funcao in metodos_personalizados.items():
@@ -185,15 +212,17 @@ class BaseModelos:
         condicao = self._montar_condicao(classe_modelo, filtros)
 
         with self._nova_sessao() as sessao:
-            consulta = select(classe_modelo).where(condicao)
-            registros = list(sessao.scalars(consulta))
-            if predicado is not None:
-                registros = [item for item in registros if predicado(item)]
+            if predicado is None:
+                resultado = sessao.execute(delete(classe_modelo).where(condicao))
+                sessao.commit()
+                return resultado.rowcount or 0
 
+            consulta = select(classe_modelo).where(condicao)
             removidos = 0
-            for registro in registros:
-                sessao.delete(registro)
-                removidos += 1
+            for registro in sessao.scalars(consulta):
+                if predicado(registro):
+                    sessao.delete(registro)
+                    removidos += 1
             sessao.commit()
             return removidos
 
