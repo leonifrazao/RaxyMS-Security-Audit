@@ -73,37 +73,10 @@ class NetWork:
                 return resp["status"]
         return None
 
-    def get_ultima_resposta(
-        self,
-        url_pattern: str | Pattern[str] | None = None,
-    ) -> Optional[Dict[str, Any]]:
-        """Retorna o dicionário da última resposta cuja URL corresponde ao padrão.
-
-        Args:
-            url_pattern: Texto ou regex para filtragem.
-
-        Returns:
-            Dicionário com ``url`` e ``status`` ou ``None`` se não encontrar.
-        """
-        if not self.respostas:
-            return None
-
-        if url_pattern is None:
-            ultima = self.respostas[-1]
-            return {"url": ultima["url"], "status": ultima["status"]}
-
-        for resp in reversed(self.respostas):
-            if self._combina(resp["url"], url_pattern):
-                return {"url": resp["url"], "status": resp["status"]}
-        return None
 
     def limpar_respostas(self):
         """Limpa o histórico de respostas capturadas."""
         self.respostas.clear()
-
-    def get_todas_respostas(self) -> List[Dict[str, Any]]:
-        """Retorna todas as respostas capturadas."""
-        return self.respostas
 
     def _combina(self, url: str, padrao: str | Pattern[str]) -> bool:
         """Verifica se ``url`` satisfaz o padrão informado (substring ou regex)."""

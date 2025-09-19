@@ -1,7 +1,7 @@
 """Interface publica dos recursos de automacao."""
 
-from .navegacao import NavegadorRecompensas, goto_rewards_page, APIRecompensas
-from .autenticacao import AutenticadorRewards, login
+from .navegacao import NavegadorRecompensas, APIRecompensas
+from .autenticacao import AutenticadorRewards
 from .utilitarios import GerenciadorPerfil
 from .solicitacoes import (
     GerenciadorSolicitacoesRewards,
@@ -20,10 +20,8 @@ else:
 
 __all__ = [
     "NavegadorRecompensas",
-    "goto_rewards_page",
     "APIRecompensas",
     "AutenticadorRewards",
-    "login",
     "GerenciadorPerfil",
     "GerenciadorSolicitacoesRewards",
     "ClienteSolicitacoesRewards",

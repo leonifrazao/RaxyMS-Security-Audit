@@ -28,7 +28,6 @@ Este diretório concentra os módulos responsáveis pela automação completa:
 Principais métodos:
 - `AutenticadorRewards.validar_credenciais(email, senha)`: normaliza dados e lança `CredenciaisInvalidas` quando necessário.
 - `AutenticadorRewards.executar(...)`: fluxo completo de login, reuso de sessão e logging contextual.
-- Alias `login(...)` mantém compatibilidade com chamadas antigas.
 
 Personalizações:
 - Aceita `profile`, `add_arguments` e `data` (`email`, `senha`) como parâmetros.
@@ -41,7 +40,6 @@ Personalizações:
 - `APIRecompensas.extrair_pontos_disponiveis(dados)`: percorre qualquer resposta JSON e devolve `availablePoints` como `int`.
 - `APIRecompensas.obter_recompensas(...)`: devolve o JSON das recompensas disponíveis.
 - `APIRecompensas.contar_recompensas(dados)`: identifica coleções de itens (`catalogItems`, `items`, listas com `price`) e retorna a quantidade.
-- Alias `goto_rewards_page` garante compatibilidade com código pré-existente.
 
 ## GerenciadorPerfil
 
