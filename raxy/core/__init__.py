@@ -1,8 +1,7 @@
 """Componentes centrais do Raxy."""
 
 from .accounts import Conta, carregar_contas
-from .auth import AutenticadorRewards, CredenciaisInvalidas
-from .browser import NavegadorRecompensas
+from .browser import AutenticadorRewards, CredenciaisInvalidas, NavegadorRecompensas
 from .config import (
     BROWSER_KWARGS,
     DEFAULT_ACTIONS,
@@ -17,8 +16,8 @@ from .network import NetWork
 from .profiles import GerenciadorPerfil
 from .rewards_api import APIRecompensas
 from .session import (
-    ClienteSolicitacoesRewards,
     GerenciadorSolicitacoesRewards,
+    ParametrosManualSolicitacao,
     SessaoSolicitacoes,
 )
 from .storage import BaseModelos
@@ -29,7 +28,7 @@ __all__ = [
     "NavegadorRecompensas",
     "APIRecompensas",
     "GerenciadorSolicitacoesRewards",
-    "ClienteSolicitacoesRewards",
+    "ParametrosManualSolicitacao",
     "SessaoSolicitacoes",
     "GerenciadorPerfil",
     "Conta",

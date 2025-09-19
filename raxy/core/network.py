@@ -33,25 +33,9 @@ class NetWork:
         self.respostas = []
 
         if not self._handler_registrado:
-            self.driver.after_response_received(self._response_handler)
+            self.driver.after_response_received(self.registrar_resposta)
             self._handler_registrado = True
-
-    def _response_handler(
-        self,
-        request_id: str,
-        response: cdp.network.Response,
-        event: cdp.network.ResponseReceived,
-    ):
-        """Handler interno registrado no CDP para capturar respostas."""
-        self.respostas.append(
-            {
-                "url": response.url,
-                "status": response.status,
-                "timestamp": event.timestamp,
-                "type": event.type_,
-                "headers": response.headers,
-            }
-        )
+            self._callback_resposta = self.registrar_resposta  # type: ignore[attr-defined]
 
     def get_status(self, url_pattern: str | Pattern[str] | None = None) -> Optional[int]:
         """Obtém o status HTTP mais recente cuja URL combina com ``url_pattern``.
@@ -69,8 +53,28 @@ class NetWork:
             return self.respostas[-1]["status"]
 
         for resp in reversed(self.respostas):
-            if self._combina(resp["url"], url_pattern):
+            url = resp["url"]
+            padrao = url_pattern
+            if isinstance(padrao, re.Pattern):
+                try:
+                    if padrao.search(url):
+                        return resp["status"]
+                except re.error:
+                    return None
+                continue
+
+            if padrao in url:
                 return resp["status"]
+
+            try:
+                regex = self._regex_cache.get(padrao)
+                if regex is None:
+                    regex = re.compile(padrao)
+                    self._regex_cache[padrao] = regex
+                if regex.search(url):
+                    return resp["status"]
+            except re.error:
+                return None
         return None
 
 
@@ -78,23 +82,20 @@ class NetWork:
         """Limpa o histórico de respostas capturadas."""
         self.respostas.clear()
 
-    def _combina(self, url: str, padrao: str | Pattern[str]) -> bool:
-        """Verifica se ``url`` satisfaz o padrão informado (substring ou regex)."""
+    def registrar_resposta(
+        self,
+        request_id: str,
+        response: cdp.network.Response,
+        event: cdp.network.ResponseReceived,
+    ) -> None:
+        """Callback associado ao CDP para registrar respostas da rede."""
 
-        if isinstance(padrao, re.Pattern):
-            try:
-                return bool(padrao.search(url))
-            except re.error:
-                return False
-
-        if padrao in url:
-            return True
-
-        try:
-            regex = self._regex_cache.get(padrao)
-            if regex is None:
-                regex = re.compile(padrao)
-                self._regex_cache[padrao] = regex
-            return bool(regex.search(url))
-        except re.error:
-            return False
+        self.respostas.append(
+            {
+                "url": response.url,
+                "status": response.status,
+                "timestamp": event.timestamp,
+                "type": event.type_,
+                "headers": response.headers,
+            }
+        )
