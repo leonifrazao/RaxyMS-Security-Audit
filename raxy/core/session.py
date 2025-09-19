@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partialmethod
 import json
 from pathlib import Path
 import traceback
 from typing import Any, Dict, Iterable, List, Mapping, Optional
-from functools import partialmethod
 from urllib.parse import urljoin
 
 from botasaurus.beep_utils import beep_input
@@ -23,7 +23,7 @@ from .helpers import (
     inject_request_verification_token,
 )
 from .logging import log
-from .utilitarios import GerenciadorPerfil
+from .profiles import GerenciadorPerfil
 
 
 @dataclass(slots=True)
@@ -262,14 +262,14 @@ class ClienteSolicitacoesRewards:
     @request(**_OPCOES_REQUEST)
     def _executar_rota(
         req: Request,
-        pacote: Mapping[str, Any],
+        chamada: Mapping[str, Any],
         metadata: Mapping[str, Any],
     ) -> Response:
         """Executa a rota solicitada utilizando configurações dinâmicas.
 
         Args:
             req: Objeto de requisição injetado pelo decorator ``@request``.
-            pacote: Dicionário com método HTTP, URL final e parâmetros extras.
+            chamada: Dicionário com método HTTP, URL final e parâmetros extras.
             metadata: Informações persistidas entre execuções (cookies, headers, perfil).
 
         Returns:
@@ -279,15 +279,15 @@ class ClienteSolicitacoesRewards:
         cookies_base = dict(metadata.get("cookies") or {})
         headers_base = dict(metadata.get("headers") or {})
         perfil = metadata.get("perfil")
-        cookies_extra = pacote.get("cookies") or {}
-        headers_extra = pacote.get("headers") or {}
+        cookies_extra = chamada.get("cookies") or {}
+        headers_extra = chamada.get("headers") or {}
         cookies = {**cookies_base, **cookies_extra} if cookies_base or cookies_extra else {}
         headers = {**headers_base, **headers_extra} if headers_base or headers_extra else {}
 
-        metodo = pacote["metodo"]
+        metodo = chamada["metodo"]
         metodo_upper = metodo.upper()
-        url = pacote["url"]
-        parametros_base = pacote.get("kwargs")
+        url = chamada["url"]
+        parametros_base = chamada.get("kwargs")
         parametros = dict(parametros_base) if parametros_base else {}
 
         if headers:
@@ -316,7 +316,7 @@ class ClienteSolicitacoesRewards:
     @staticmethod
     def _registrar_erro(
         perfil: str,
-        pacote: Mapping[str, Any],
+        chamada: Mapping[str, Any],
         resposta: Response | None = None,
         erro: Exception | None = None,
         extras: Optional[Mapping[str, Any]] = None,
@@ -325,7 +325,7 @@ class ClienteSolicitacoesRewards:
 
         Args:
             perfil: Identificador do perfil associado ao request.
-            pacote: Metadados usados na chamada (URL, método, overrides).
+            chamada: Metadados usados na chamada (URL, método, overrides).
             resposta: Resposta recebida do servidor, quando disponível.
             erro: Exceção levantada durante a execução, se houver.
             extras: Informações adicionais para enriquecer o log.
@@ -346,11 +346,11 @@ class ClienteSolicitacoesRewards:
 
         detalhes: Dict[str, Any] = {
             "perfil": perfil,
-            "metodo": pacote.get("metodo"),
-            "url": pacote.get("url"),
-            "parametros": pacote.get("kwargs"),
-            "headers_personalizados": pacote.get("headers"),
-            "cookies_personalizados": pacote.get("cookies"),
+            "metodo": chamada.get("metodo"),
+            "url": chamada.get("url"),
+            "parametros": chamada.get("kwargs"),
+            "headers_personalizados": chamada.get("headers"),
+            "cookies_personalizados": chamada.get("cookies"),
         }
 
         if extras:
@@ -362,7 +362,7 @@ class ClienteSolicitacoesRewards:
                     "status": getattr(resposta, "status_code", None),
                     "motivo": getattr(resposta, "reason", None),
                     "headers": dict(getattr(resposta, "headers", {}) or {}),
-                    "url_final": getattr(resposta, "url", pacote.get("url")),
+                    "url_final": getattr(resposta, "url", chamada.get("url")),
                 }
             )
 
@@ -420,7 +420,7 @@ class ClienteSolicitacoesRewards:
             headers_personalizados,
             self._verification_token,
         )
-        pacote = {
+        chamada = {
             "metodo": metodo,
             "url": url,
             "kwargs": kwargs,
@@ -429,12 +429,12 @@ class ClienteSolicitacoesRewards:
         }
         try:
             resposta = self._executar_rota(
-                pacote,
+                chamada,
                 metadata=self._metadata,
                 user_agent=self._headers.get("User-Agent"),
             )
         except Exception as erro:
-            pasta = self._registrar_erro(self.perfil, pacote, erro=erro)
+            pasta = self._registrar_erro(self.perfil, chamada, erro=erro)
             log.erro(
                 "Erro ao executar request",
                 perfil=self.perfil,
@@ -449,7 +449,7 @@ class ClienteSolicitacoesRewards:
             raise
 
         if hasattr(resposta, "ok") and not resposta.ok:
-            pasta = self._registrar_erro(self.perfil, pacote, resposta=resposta)
+            pasta = self._registrar_erro(self.perfil, chamada, resposta=resposta)
             log.erro(
                 "Response nao OK",
                 perfil=self.perfil,
@@ -467,7 +467,7 @@ class ClienteSolicitacoesRewards:
         if palavras_detectadas:
             pasta = self._registrar_erro(
                 self.perfil,
-                pacote,
+                chamada,
                 resposta=resposta,
                 extras={"palavras_detectadas": palavras_detectadas},
             )
@@ -489,6 +489,7 @@ class ClienteSolicitacoesRewards:
 
         return resposta
 
+    # Alias sem repeticao de logica para os verbos HTTP suportados.
     get = partialmethod(requisicao, "get")
     post = partialmethod(requisicao, "post")
     put = partialmethod(requisicao, "put")

@@ -24,7 +24,7 @@ Bem-vindo à documentação oficial do Raxy! Este guia consolida todas as inform
 - **Principais dependências:** `rich`, `botasaurus`, `sqlalchemy`, `random-user-agent`.
 - **Documentação complementar:**
   - [`raxy/DOCUMENTACAO.md`](raxy/DOCUMENTACAO.md) – panorama operacional do pacote principal.
-  - [`raxy/src/README_src.md`](raxy/src/README_src.md) – detalhes dos módulos core.
+  - [`raxy/core/README.md`](raxy/core/README.md) – detalhes dos módulos core.
   - [`raxy/Models/README_models.md`](raxy/Models/README_models.md) – instruções para criar modelos ORM.
   - [`raxy/tests/README_tests.md`](raxy/tests/README_tests.md) – guia de testes automatizados.
 
@@ -34,9 +34,10 @@ Bem-vindo à documentação oficial do Raxy! Este guia consolida todas as inform
 .
 ├── DOCUMENTACAO.md        # Guia operacional da automação
 ├── raxy/                  # Código-fonte principal
-│   ├── main.py            # Executor em lote
+│   ├── main.py            # Entrada CLI enxuta
+│   ├── core/              # Autenticação, APIs, perfis, config e persistência
+│   ├── services/          # Orquestração e fluxos de alto nível
 │   ├── Models/            # Modelos SQLAlchemy
-│   ├── src/               # Autenticação, logging, helpers e base de dados
 │   └── tests/             # Testes unitários
 ├── users.txt              # Exemplo de arquivo de contas (fora do .git)
 └── shell.nix / .venv ...  # Configurações de ambiente (opcionais)
@@ -71,7 +72,7 @@ pip install rich botasaurus sqlalchemy random-user-agent
 
 ## Fluxo Principal
 
-- `raxy/main.py` implementa `ExecutorEmLote`, responsável por:
+- `raxy/services/executor.py` define `ExecutorEmLote`, responsável por:
   1. Ler contas de `users.txt`.
   2. Criar contexto de logging por conta.
   3. Executar `AutenticadorRewards.executar` (login), `NavegadorRecompensas.abrir_pagina` (rewards) e chamadas de API conforme `ACTIONS`.
@@ -84,10 +85,10 @@ O fluxo pode ser estendido para incluir novas ações (ex.: coleta de pontos, sc
 
 ## Logging e Observabilidade
 
-- `src/logging.py` configura `log`, com níveis personalizados (`sucesso`, `aviso`, etc.) e contextos.
+- `raxy/core/logging.py` configura `log`, com níveis personalizados (`sucesso`, `aviso`, etc.) e contextos.
 - Uso recomendado:
   ```python
-  from src.logging import log
+  from raxy import log
   log.info("Processo iniciado", contas=10)
   with log.etapa("Login", conta="user@example.com"):
       ...
@@ -97,7 +98,7 @@ O fluxo pode ser estendido para incluir novas ações (ex.: coleta de pontos, sc
 ## Persistência e Modelos
 
 - `Models/` define a camada ORM: `ModeloBase`, `ModeloConta` e quaisquer modelos personalizados.
-- `src/base_modelos.py` disponibiliza `BaseModelos`, que cria automaticamente `dados.db` (SQLite) e oferece operações avançadas:
+- `raxy/core/storage.py` disponibiliza `BaseModelos`, que cria automaticamente `dados.db` (SQLite) e oferece operações avançadas:
   - CRUD tradicional (`obter`, `obter_por_key`, `inserir_ou_atualizar`, `delete`).
   - Operações por ID (`obter_por_id`, `atualizar_por_id`, `deletar_por_id`).
   - Remoções em massa com predicado (`remover_por_key`).
@@ -105,7 +106,7 @@ O fluxo pode ser estendido para incluir novas ações (ex.: coleta de pontos, sc
 
 Exemplo:
 ```python
-from src import BaseModelos
+from raxy import BaseModelos
 from Models import ModeloConta
 
 base = BaseModelos()

@@ -7,12 +7,12 @@ import sys
 import tempfile
 import unittest
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from main import ExecutorEmLote  # noqa: E402  pylint: disable=wrong-import-position
-from src.contas import carregar_contas  # noqa: E402  pylint: disable=wrong-import-position
+from raxy import ExecutorEmLote  # noqa: E402  pylint: disable=wrong-import-position
+from raxy.core.accounts import carregar_contas  # noqa: E402  pylint: disable=wrong-import-position
 
 
 class TestExecutorEmLote(unittest.TestCase):

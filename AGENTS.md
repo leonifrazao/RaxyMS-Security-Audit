@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `raxy/main.py` é o orquestrador; `raxy/src/` reúne autenticação, logging, configuração e helpers reutilizáveis.
+- `raxy/services/executor.py` concentra o orquestrador; `raxy/core/` reúne autenticação, APIs, configuração e helpers reutilizáveis.
 - `raxy/Models/` mantém os modelos SQLAlchemy; documente adições em `README_models.md` e exponha-as via `__init__.py` quando necessário.
 - `raxy/tests/` hospeda a suíte `unittest` e `raxy/requests/` guarda payloads simulados; na raiz, use `requirements.txt`, `shell.nix` e `users.txt` como suportes locais (sem credenciais reais).
 
@@ -13,11 +13,11 @@
 
 ## Coding Style & Naming Conventions
 - Indente com 4 espaços, mantenha funções em `snake_case`, classes em `CamelCase` e APIs públicas com tipagem explícita.
-- Preserve identificadores, docstrings e logs em português; evite `print`, reutilize `src.logging.log` e seus contextos.
-- Prefira `dataclass(slots=True)` para contêineres simples e utilize os helpers de `src/helpers` ao lidar com variáveis de ambiente.
+- Preserve identificadores, docstrings e logs em português; evite `print`, reutilize `raxy.log` e seus contextos.
+- Prefira `dataclass(slots=True)` para contêineres simples e utilize os helpers de `raxy/core/helpers` ao lidar com variáveis de ambiente.
 
 ## Testing Guidelines
-- Nomeie arquivos `raxy/tests/test_<modulo>.py` (ex.: `src/config.py` → `test_config.py`).
+- Nomeie arquivos `raxy/tests/test_<modulo>.py` (ex.: `raxy/core/config.py` → `test_config.py`).
 - Empregue `unittest.mock` para isolar botasaurus ou HTTP e use `sqlite:///:memory:` em cenários de banco.
 - Adicione skips condicionais a testes que exigem navegador e atualize `raxy/tests/README_tests.md` quando o escopo mudar.
 
