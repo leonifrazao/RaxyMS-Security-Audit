@@ -34,7 +34,7 @@ python -m unittest discover tests
 
 ```python
 from unittest import TestCase
-from src.logging import log
+from raxy import log
 
 class TestLogging(TestCase):
     def test_log_sucesso(self):

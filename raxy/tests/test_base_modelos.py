@@ -6,13 +6,13 @@ import pathlib
 import sys
 import unittest
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 try:
     from Models import ModeloConta, ModeloBase  # noqa: E402  pylint: disable=wrong-import-position
-    from src.base_modelos import BaseModelos  # noqa: E402  pylint: disable=wrong-import-position
+    from raxy.core.storage import BaseModelos  # noqa: E402  pylint: disable=wrong-import-position
     from sqlalchemy import Integer, String  # noqa: E402  pylint: disable=wrong-import-position
     from sqlalchemy.orm import Mapped, mapped_column  # noqa: E402  pylint: disable=wrong-import-position
 

@@ -23,7 +23,7 @@ from .helpers import (
     inject_request_verification_token,
 )
 from .logging import log
-from .utilitarios import GerenciadorPerfil
+from .profiles import GerenciadorPerfil
 
 
 @dataclass(slots=True)

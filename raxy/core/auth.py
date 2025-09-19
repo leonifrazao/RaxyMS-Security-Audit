@@ -8,7 +8,7 @@ from botasaurus.browser import browser, Driver, Wait
 
 from .config import BROWSER_KWARGS, REWARDS_BASE_URL
 from .logging import log
-from .solicitacoes import GerenciadorSolicitacoesRewards
+from .session import GerenciadorSolicitacoesRewards
 from .network import NetWork
 
 # Centraliza seletores CSS usados durante o fluxo de login para facilitar manutencao.

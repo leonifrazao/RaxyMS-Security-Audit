@@ -56,12 +56,12 @@ chaves = conta.chaves_definidas()  # {"email": "user@example.com"}
 
 ## Integração com BaseModelos
 
-Os modelos aqui definidos são consumidos por `BaseModelos` (`src/base_modelos.py`), que oferece métodos de CRUD, buscas por key/ID, remoções em massa e registro de métodos personalizados.
+Os modelos aqui definidos são consumidos por `BaseModelos` (`raxy/core/storage.py`), que oferece métodos de CRUD, buscas por key/ID, remoções em massa e registro de métodos personalizados.
 Integre-os com as respostas da API utilizando os helpers de `APIRecompensas` para converter JSON em valores persistíveis.
 
 Para utilizar:
 ```python
-from src import BaseModelos
+from raxy import BaseModelos
 from Models import ModeloConta
 
 base = BaseModelos()

@@ -20,7 +20,7 @@ raxy/
 ├── main.py              # Ponto de entrada (ExecutorEmLote)
 ├── README.md            # Este guia
 ├── Models/              # Modelos ORM
-├── src/                 # Componentes principais
+├── core/                # Componentes principais
 ├── tests/               # Suíte de testes
 └── dados.db             # Banco SQLite criado automaticamente
 ```
@@ -28,8 +28,8 @@ raxy/
 ### Models
 Contém a base declarativa (`ModeloBase`) e modelos concretos como `ModeloConta`, prontos para uso com SQLAlchemy. Consulte [`Models/README_models.md`](Models/README_models.md) para detalhes de extensão.
 
-### src
-Módulos responsáveis por autenticação, navegação, logging, carregamento de contas, helpers compartilhados e pela `BaseModelos`. Veja [`src/README_src.md`](src/README_src.md) para um tour completo.
+### core
+Módulos responsáveis por autenticação, navegação, logging, carregamento de contas, helpers compartilhados e pela `BaseModelos`. Veja [`core/README.md`](core/README.md) para um tour completo.
 
 ### tests
 Suíte de testes unitários cobrindo autenticação, executor, utilitários e camada de dados. Instruções completas em [`tests/README_tests.md`](tests/README_tests.md).
@@ -66,7 +66,7 @@ Suíte de testes unitários cobrindo autenticação, executor, utilitários e ca
 
 ## Logging e observabilidade
 
-- `src/logging.py` configura uma instância global `log` com cores, contexto dinâmico e suporte a arquivo (`LOG_FILE`, `LOG_LEVEL`, etc.).
+- `raxy/core/logging.py` configura uma instância global `log` com cores, contexto dinâmico e suporte a arquivo (`LOG_FILE`, `LOG_LEVEL`, etc.).
 - Mensagens são emitidas em português; use `log.com_contexto(...)` para adicionar metadados por conta.
 
 ## Persistência com BaseModelos
@@ -80,7 +80,7 @@ Suíte de testes unitários cobrindo autenticação, executor, utilitários e ca
 
 Exemplo rápido:
 ```python
-from src import BaseModelos
+from raxy import BaseModelos
 from Models import ModeloConta
 
 base = BaseModelos()

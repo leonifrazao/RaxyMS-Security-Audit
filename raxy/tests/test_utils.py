@@ -7,19 +7,19 @@ import sys
 import unittest
 from unittest.mock import patch
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.utilitarios import GerenciadorPerfil  # noqa: E402  pylint: disable=wrong-import-position
+from raxy.core.profiles import GerenciadorPerfil  # noqa: E402  pylint: disable=wrong-import-position
 
 
 class TestGerenciadorPerfil(unittest.TestCase):
     """Garante que o gerenciador de perfis trata cenarios comuns corretamente."""
 
-    @patch("src.utilitarios.Profiles.set_profile")
-    @patch("src.utilitarios.UserAgent")
-    @patch("src.utilitarios.Profiles.get_profile")
+    @patch("raxy.core.profiles.Profiles.set_profile")
+    @patch("raxy.core.profiles.UserAgent")
+    @patch("raxy.core.profiles.Profiles.get_profile")
     def test_garantir_agente_usuario_cria_quando_inexistente(
         self,
         mock_get,
@@ -37,7 +37,7 @@ class TestGerenciadorPerfil(unittest.TestCase):
         self.assertEqual(resultado, "UA-TESTE")
         mock_set.assert_called_once()
 
-    @patch("src.utilitarios.Profiles.get_profile")
+    @patch("raxy.core.profiles.Profiles.get_profile")
     def test_garantir_agente_usuario_retorna_existente(self, mock_get) -> None:
         """Valida que o user-agent existente é reutilizado sem recriação."""
 
@@ -45,7 +45,7 @@ class TestGerenciadorPerfil(unittest.TestCase):
         resultado = GerenciadorPerfil.garantir_agente_usuario("perfil")
         self.assertEqual(resultado, "EXISTENTE")
 
-    @patch("src.utilitarios.GerenciadorPerfil.garantir_agente_usuario", return_value="UA-ARGS")
+    @patch("raxy.core.profiles.GerenciadorPerfil.garantir_agente_usuario", return_value="UA-ARGS")
     def test_argumentos_agente_usuario_encapsula_flag(self, mock_garantir) -> None:
         """Confirma que ``argumentos_agente_usuario`` monta a flag corretamente."""
 
