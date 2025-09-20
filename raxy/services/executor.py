@@ -349,6 +349,33 @@ class ExecutorEmLote:
                 tipos=tipos,
             )
 
+            resumo_tarefas = api.executar_tarefas(recompensas, registro=registro)
+            if resumo_tarefas.get("total"):
+                if resumo_tarefas.get("executadas"):
+                    registro.sucesso(
+                        "Tarefas rewards executadas",
+                        concluidas=resumo_tarefas["executadas"],
+                        falhas=resumo_tarefas["falhas"],
+                        ignoradas=resumo_tarefas["ignoradas"],
+                    )
+                elif resumo_tarefas.get("falhas"):
+                    registro.aviso(
+                        "Tarefas rewards apresentaram falhas",
+                        falhas=resumo_tarefas["falhas"],
+                        ignoradas=resumo_tarefas["ignoradas"],
+                    )
+                elif resumo_tarefas.get("ja_concluidas"):
+                    registro.info(
+                        "Tarefas rewards ja estavam concluidas",
+                        concluidas=resumo_tarefas["ja_concluidas"],
+                        ignoradas=resumo_tarefas["ignoradas"],
+                    )
+                elif resumo_tarefas.get("ignoradas"):
+                    registro.aviso(
+                        "Tarefas rewards ignoradas",
+                        ignoradas=resumo_tarefas["ignoradas"],
+                    )
+
 
 def executar_cli() -> None:
     """Ponto de entrada padrão para execução via CLI."""
