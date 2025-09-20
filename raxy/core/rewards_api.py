@@ -626,6 +626,101 @@ class APIRecompensas:
         return _PONTOS_PADRAO_PESQUISA
 
     @staticmethod
+    def _sincronizar_cookies(
+        destino: Dict[str, str], resposta: Any, logger: Any, contexto: str
+    ) -> None:
+        """Mescla cookies retornados por uma resposta HTTP."""
+
+        try:
+            cookies_resposta = getattr(resposta, "cookies", None)
+            if not cookies_resposta:
+                return
+            try:
+                destino.update(cookies_resposta.get_dict())  # type: ignore[attr-defined]
+            except Exception:
+                destino.update({c.name: c.value for c in cookies_resposta})  # type: ignore[attr-defined]
+        except Exception as exc:  # pragma: no cover - depende do driver real
+            logger.debug(
+                "Nao foi possivel sincronizar cookies da resposta",
+                contexto=contexto,
+                detalhe=str(exc),
+            )
+
+    @staticmethod
+    def _sincronizar_cookies_navegador(
+        destino: Dict[str, str], driver: Any, logger: Any, contexto: str
+    ) -> None:
+        """Integra cookies atuais do navegador controlado pelo Botasaurus."""
+
+        try:
+            cookies_origem: Any = None
+            obter_dict = getattr(driver, "get_cookies_dict", None)
+            if callable(obter_dict):
+                cookies_origem = obter_dict()
+            elif hasattr(driver, "get_cookies"):
+                cookies_origem = driver.get_cookies()
+
+            if isinstance(cookies_origem, Mapping):
+                for chave, valor in cookies_origem.items():
+                    if not chave:
+                        continue
+                    if valor is None:
+                        continue
+                    destino[str(chave)] = str(valor)
+                return
+
+            if isinstance(cookies_origem, list):
+                for item in cookies_origem:
+                    if not isinstance(item, Mapping):
+                        continue
+                    nome = item.get("name")
+                    valor = item.get("value")
+                    if nome and valor is not None:
+                        destino[str(nome)] = str(valor)
+        except Exception as exc:  # pragma: no cover - depende do driver real
+            logger.debug(
+                "Nao foi possivel sincronizar cookies do navegador",
+                contexto=contexto,
+                detalhe=str(exc),
+            )
+
+    def _preparar_bing_para_pesquisa(self, driver: Any, logger: Any) -> None:
+        """Abre o Bing e verifica se a sessao aparenta estar autenticada."""
+
+        try:
+            driver.google_get(_BING_HOME_URL)
+            driver.short_random_sleep()
+        except Exception as exc:  # pragma: no cover - depende do driver real
+            logger.aviso(
+                "Falha ao abrir Bing antes da pesquisa",
+                detalhe=str(exc),
+            )
+            return
+
+        autenticado = True
+        try:
+            html_bing = getattr(driver, "page_source", "") or ""
+        except Exception as exc:  # pragma: no cover - depende do driver real
+            html_bing = ""
+            logger.debug(
+                "Nao foi possivel ler HTML do Bing para validar sessao",
+                detalhe=str(exc),
+            )
+
+        indicadores_login = ("Sign in", "Entrar", "Iniciar sessão", "Iniciar sesion")
+        if any(indicador in html_bing for indicador in indicadores_login):
+            autenticado = False
+
+        if not autenticado:
+            logger.aviso(
+                "Sessao do Bing pode nao estar autenticada",
+                detalhe=(
+                    "Realize o login manualmente em https://www.bing.com/ "
+                    "antes de executar as pesquisas automatizadas."
+                ),
+            )
+
+    @staticmethod
     def _gerar_consulta_busca(indice: int) -> str:
         termo = random.choice(_CONSULTAS_PADRAO)
         sufixo = random.randint(1000, 9999)
@@ -748,6 +843,19 @@ class APIRecompensas:
         if quantidade <= 0:
             return 0, 0, pontos_totais
 
+        driver = getattr(self._gerenciador, "driver", None)
+        if driver is None:
+            logger.aviso("Driver nao disponível para executar pesquisas automatizadas")
+            return 0, 0, pontos_totais
+
+        requisicoes = getattr(driver, "requests", None)
+        if requisicoes is None:
+            logger.aviso("Driver nao possui interface de requests para pesquisas")
+            return 0, 0, pontos_totais
+
+        self._preparar_bing_para_pesquisa(driver, logger)
+        self._sincronizar_cookies_navegador(cookies, driver, logger, "preparacao")
+
         executadas = 0
         falhas = 0
         restante = pontos_totais
@@ -766,6 +874,9 @@ class APIRecompensas:
                 cookies=cookies,
                 accept_language=accept_language,
                 logger=logger,
+                driver=driver,
+                requisicoes=requisicoes,
+                preparado=True,
             )
             if sucesso:
                 executadas += 1
@@ -785,6 +896,9 @@ class APIRecompensas:
         cookies: Dict[str, str],
         accept_language: str,
         logger: Any,
+        driver: Any | None = None,
+        requisicoes: Any | None = None,
+        preparado: bool = False,
     ) -> bool:
         parametros_busca = {
             "q": consulta,
@@ -797,17 +911,36 @@ class APIRecompensas:
             "Accept-Language": accept_language,
             "Referer": _BING_HOME_URL,
         }
-        pacote_busca = {
-            "metodo": "get",
-            "url": _BING_SEARCH_URL,
-            "params": parametros_busca,
-            "headers": headers_busca,
-            "cookies": dict(cookies),
-            "user_agent": parametros.user_agent,
-            "timeout": 30,
-        }
+        headers_busca.setdefault("User-Agent", parametros.user_agent)
+
+        driver = driver or getattr(self._gerenciador, "driver", None)
+        if driver is None:
+            logger.aviso(
+                "Driver nao disponível para executar pesquisas",
+                consulta=consulta,
+            )
+            return False
+
+        requisicoes = requisicoes or getattr(driver, "requests", None)
+        if requisicoes is None:
+            logger.aviso(
+                "Driver nao possui interface de requests para pesquisas",
+                consulta=consulta,
+            )
+            return False
+
+        if not preparado:
+            self._preparar_bing_para_pesquisa(driver, logger)
+            self._sincronizar_cookies_navegador(cookies, driver, logger, "pre-busca")
+
         try:
-            resposta_busca = _executar_http(pacote_busca)
+            resposta_busca = requisicoes.get(
+                _BING_SEARCH_URL,
+                params=parametros_busca,
+                headers=headers_busca,
+                cookies=dict(cookies),
+                timeout=30,
+            )
         except Exception as exc:  # pragma: no cover - depende do ambiente real
             logger.aviso(
                 "Falha ao executar pesquisa no Bing",
@@ -824,19 +957,25 @@ class APIRecompensas:
             )
             return False
 
-        try:
-            cookies_resposta = getattr(resposta_busca, "cookies", None)
-            if cookies_resposta:
-                try:
-                    cookies.update(cookies_resposta.get_dict())  # type: ignore[attr-defined]
-                except Exception:
-                    cookies.update({c.name: c.value for c in cookies_resposta})  # type: ignore[attr-defined]
-        except Exception as exc:  # pragma: no cover
-            logger.debug("Nao foi possivel atualizar cookies da pesquisa", detalhe=str(exc))
+        self._sincronizar_cookies(cookies, resposta_busca, logger, "pesquisa")
 
         search_url = getattr(resposta_busca, "url", None)
         if not search_url:
             search_url = f"{_BING_SEARCH_URL}?{urlencode(parametros_busca)}"
+
+        try:
+            driver.google_get(search_url)
+            driver.short_random_sleep()
+        except Exception as exc:  # pragma: no cover - depende do driver real
+            logger.debug(
+                "Nao foi possivel carregar pagina da pesquisa no navegador",
+                detalhe=str(exc),
+            )
+        else:
+            atual_browser = getattr(driver, "current_url", None)
+            if isinstance(atual_browser, str) and atual_browser.startswith("http"):
+                search_url = atual_browser
+            self._sincronizar_cookies_navegador(cookies, driver, logger, "browser")
 
         headers_report = {
             "Accept": "*/*",
@@ -845,18 +984,16 @@ class APIRecompensas:
             "Origin": _BING_HOME_URL.rstrip("/"),
             "Referer": search_url,
         }
-        pacote_report = {
-            "metodo": "post",
-            "url": _BING_REPORT_ACTIVITY_URL,
-            "data": {"url": search_url, "V": "web"},
-            "headers": headers_report,
-            "cookies": dict(cookies),
-            "user_agent": parametros.user_agent,
-            "timeout": 30,
-        }
+        headers_report.setdefault("User-Agent", parametros.user_agent)
 
         try:
-            resposta_report = _executar_http(pacote_report)
+            resposta_report = requisicoes.post(
+                _BING_REPORT_ACTIVITY_URL,
+                data={"url": search_url, "V": "web"},
+                headers=headers_report,
+                cookies=dict(cookies),
+                timeout=30,
+            )
         except Exception as exc:  # pragma: no cover - depende do ambiente real
             logger.aviso(
                 "Falha ao reportar atividade de pesquisa",
@@ -882,15 +1019,8 @@ class APIRecompensas:
             )
             return False
 
-        try:
-            cookies_resposta = getattr(resposta_report, "cookies", None)
-            if cookies_resposta:
-                try:
-                    cookies.update(cookies_resposta.get_dict())  # type: ignore[attr-defined]
-                except Exception:
-                    cookies.update({c.name: c.value for c in cookies_resposta})  # type: ignore[attr-defined]
-        except Exception as exc:  # pragma: no cover
-            logger.debug("Nao foi possivel atualizar cookies apos reportActivity", detalhe=str(exc))
+        self._sincronizar_cookies(cookies, resposta_report, logger, "reportActivity")
+        self._sincronizar_cookies_navegador(cookies, driver, logger, "reportActivity")
 
         logger.sucesso("Pesquisa Bing registrada com sucesso", consulta=consulta)
         return True
