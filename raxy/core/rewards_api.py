@@ -571,12 +571,28 @@ class APIRecompensas:
             if isinstance(atributos, Mapping):
                 form_val = atributos.get("form") or atributos.get("Form")
 
+            destino_url = None
+            candidato_destino = promocao.get("destinationUrl")
+            if isinstance(candidato_destino, str) and candidato_destino.strip():
+                destino_url = candidato_destino.strip()
+            elif isinstance(atributos, Mapping):
+                for chave_destino in ("destinationUrl", "destination"):
+                    valor_destino = atributos.get(chave_destino)
+                    if isinstance(valor_destino, str) and valor_destino.strip():
+                        destino_url = valor_destino.strip()
+                        break
+            if not destino_url:
+                url_normalizada = promocao.get("url")
+                if isinstance(url_normalizada, str) and url_normalizada.strip():
+                    destino_url = url_normalizada.strip()
+
             tarefas.append(
                 {
                     "id": str(identificador),
                     "hash": str(hash_valor),
                     "type": tipo,
                     "form": form_val,
+                    "destinationUrl": destino_url,
                 }
             )
 
@@ -602,15 +618,29 @@ class APIRecompensas:
 
         requester = TemplateRequester(parametros=parametros, diretorio=REQUESTS_DIR)
 
+        def _limpar_texto(valor: Any) -> Optional[str]:
+            if isinstance(valor, str):
+                texto = valor.strip()
+                if texto:
+                    return texto
+            return None
+
         for tarefa in tarefas:
             data_extra = {
                 "id": tarefa["id"],
                 "hash": tarefa["hash"],
             }
-            if tarefa["type"]:
-                data_extra["type"] = tarefa["type"]
-            if tarefa["form"]:
-                data_extra["form"] = tarefa["form"]
+            tipo_tarefa = _limpar_texto(tarefa.get("type")) if isinstance(tarefa, Mapping) else None
+            if tipo_tarefa:
+                data_extra["type"] = tipo_tarefa
+
+            form_tarefa = _limpar_texto(tarefa.get("form")) if isinstance(tarefa, Mapping) else None
+            if form_tarefa:
+                data_extra["form"] = form_tarefa
+
+            destino_tarefa = _limpar_texto(tarefa.get("destinationUrl")) if isinstance(tarefa, Mapping) else None
+            if destino_tarefa:
+                data_extra["destinationUrl"] = destino_tarefa
 
             try:
                 _, resposta = requester.executar(
