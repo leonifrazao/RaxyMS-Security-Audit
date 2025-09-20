@@ -27,12 +27,57 @@ class NavegadorRecompensas:
 
         driver.enable_human_mode()
         driver.google_get(REWARDS_BASE_URL)
+        driver.short_random_sleep()
         html = getattr(driver, "page_source", "") or ""
         if "Sign in" in html or "Entrar" in html:
             log.aviso(
                 "Parece que voce nao esta logado no Rewards",
                 detalhe="Acesse https://rewards.microsoft.com/ e entre com sua conta Microsoft",
             )
+
+        try:
+            driver.google_get("https://www.bing.com/")
+            driver.short_random_sleep()
+        except Exception as exc:  # pragma: no cover - depende do driver real
+            log.aviso(
+                "Falha ao abrir o Bing apos acessar o Rewards",
+                detalhe=str(exc),
+            )
+        else:
+            autenticado = True
+            try:
+                if driver.is_element_present("a#id_s", wait=Wait.SHORT):
+                    autenticado = False
+            except Exception as exc:  # pragma: no cover - depende do driver real
+                log.debug(
+                    "Nao foi possivel verificar botao de login no Bing",
+                    detalhe=str(exc),
+                )
+            try:
+                html_bing = getattr(driver, "page_source", "") or ""
+            except Exception as exc:  # pragma: no cover - depende do driver real
+                html_bing = ""
+                log.debug(
+                    "Falha ao ler HTML do Bing para validar sessao",
+                    detalhe=str(exc),
+                )
+            if any(
+                indicador in html_bing
+                for indicador in ("Sign in", "Entrar", "Iniciar sessão", "Iniciar sesion")
+            ):
+                autenticado = False
+
+            if not autenticado:
+                log.aviso(
+                    "Bing indica que a conta nao esta autenticada",
+                    detalhe=(
+                        "Realize o login manualmente em https://www.bing.com/ "
+                        "para garantir o funcionamento das tarefas de pesquisa."
+                    ),
+                )
+            else:
+                log.debug("Bing aberto apos Rewards com sessao autenticada aparente")
+
         driver.prompt()
 
 

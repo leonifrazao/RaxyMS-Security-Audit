@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import json
+import random
+import re
 from collections import defaultdict, deque
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlencode
 import traceback
 from typing import Any, Dict, Iterable, Mapping, Optional, List
 from botasaurus.beep_utils import beep_input
+from botasaurus.request import Request, request
 from botasaurus_requests.response import Response
 
 from .helpers import extract_request_verification_token
@@ -19,6 +23,49 @@ from .template_requester import TemplateRequester
 
 
 REQUESTS_DIR = Path(__file__).resolve().parents[1] / "requests"
+
+_BING_HOME_URL = "https://www.bing.com/"
+_BING_SEARCH_URL = f"{_BING_HOME_URL}search"
+_BING_REPORT_ACTIVITY_URL = f"{_BING_HOME_URL}rewardsapp/reportActivity"
+_PONTOS_PADRAO_PESQUISA = 3
+_CONSULTAS_PADRAO = [
+    "noticias tecnologia",
+    "previsao do tempo hoje",
+    "futebol brasileiro",
+    "receitas saudaveis",
+    "dicas de produtividade",
+    "cotacao do dolar",
+    "tendencias de moda",
+    "historia da arte",
+    "curiosidades espaciais",
+    "filmes em cartaz",
+    "inovacoes em saude",
+    "viagem e turismo",
+]
+
+
+@request(cache=False, raise_exception=True, create_error_logs=False, output=None)
+def _executar_http(req: Request, pacote: Mapping[str, Any]) -> Response:
+    metodo = str(pacote.get("metodo", "get")).lower()
+    operacao = getattr(req, metodo)
+    url = str(pacote.get("url"))
+
+    argumentos: Dict[str, Any] = {}
+    for campo in (
+        "params",
+        "data",
+        "json",
+        "headers",
+        "cookies",
+        "timeout",
+        "allow_redirects",
+        "user_agent",
+    ):
+        valor = pacote.get(campo)
+        if valor is not None:
+            argumentos[campo] = valor
+
+    return operacao(url, **argumentos)
 
 
 class APIRecompensas:
@@ -484,6 +531,358 @@ class APIRecompensas:
         visitar(dados)
         return restante
 
+    @staticmethod
+    def _converter_para_int(valor: Any) -> Optional[int]:
+        if isinstance(valor, bool):
+            return int(valor)
+        if isinstance(valor, (int, float)):
+            return int(valor)
+        if isinstance(valor, str):
+            correspondencias = re.findall(r"-?\d+", valor)
+            if correspondencias:
+                try:
+                    return int(correspondencias[0])
+                except ValueError:
+                    return None
+        return None
+
+    @staticmethod
+    def _obter_contadores_pc(dados: Mapping[str, Any]) -> List[Mapping[str, Any]]:
+        if not isinstance(dados, Mapping):
+            return []
+
+        candidatos = [
+            dados.get("raw_dashboard"),
+            dados.get("dashboard"),
+        ]
+        bruto = dados.get("raw") if isinstance(dados, Mapping) else None
+        if isinstance(bruto, Mapping):
+            candidatos.append(bruto.get("dashboard"))
+
+        dashboard: Mapping[str, Any] | None = None
+        for item in candidatos:
+            if isinstance(item, Mapping):
+                dashboard = item
+                break
+
+        if not isinstance(dashboard, Mapping):
+            return []
+
+        counters = dashboard.get("counters")
+        if isinstance(counters, Mapping):
+            pc_search = counters.get("pcSearch")
+            if isinstance(pc_search, list):
+                return [entrada for entrada in pc_search if isinstance(entrada, Mapping)]
+        return []
+
+    @classmethod
+    def _detectar_pontos_por_pesquisa(cls, contador: Mapping[str, Any]) -> int:
+        atributos = contador.get("attributes") if isinstance(contador.get("attributes"), Mapping) else {}
+        candidatos = []
+        if isinstance(atributos, Mapping):
+            candidatos.extend(
+                atributos.get(chave)
+                for chave in ("pointsPerSearch", "PointsPerSearch", "pontosPorPesquisa")
+            )
+        candidatos.append(contador.get("pointsPerSearch"))
+        for valor in candidatos:
+            pontos = cls._converter_para_int(valor)
+            if pontos and pontos > 0:
+                return pontos
+
+        textos: List[str] = []
+        if isinstance(contador.get("description"), str):
+            textos.append(str(contador["description"]))
+        if isinstance(atributos, Mapping):
+            for chave in ("description", "link_text", "title"):
+                valor = atributos.get(chave)
+                if isinstance(valor, str):
+                    textos.append(valor)
+
+        padroes = [
+            r"(\d+)\s*(?:pontos?|points?)\s*(?:por|per)\s*(?:pesquisa|search)",
+            r"(\d+)\s*(?:puntos?)\s*(?:por|por)\s*(?:busca|b[uú]squeda)",
+        ]
+        for texto_padrao in textos:
+            for padrao in padroes:
+                encontrado = re.search(padrao, texto_padrao, flags=re.IGNORECASE)
+                if encontrado:
+                    pontos = cls._converter_para_int(encontrado.group(1))
+                    if pontos and pontos > 0:
+                        return pontos
+
+        return _PONTOS_PADRAO_PESQUISA
+
+    @staticmethod
+    def _gerar_consulta_busca(indice: int) -> str:
+        termo = random.choice(_CONSULTAS_PADRAO)
+        sufixo = random.randint(1000, 9999)
+        return f"{termo} {indice + 1} {sufixo}".strip()
+
+    def _executar_pesquisas_pc(
+        self,
+        dados_recompensas: Mapping[str, Any],
+        *,
+        logger: Any,
+        resumo: Dict[str, int],
+    ) -> None:
+        contadores = self._obter_contadores_pc(dados_recompensas)
+        if not contadores:
+            return
+
+        try:
+            parametros = self.obter_parametros()
+        except Exception as exc:  # pragma: no cover - depende do ambiente real
+            logger.aviso(
+                "Nao foi possivel preparar parametros para pesquisas no Bing",
+                detalhe=str(exc),
+            )
+            return
+
+        cookies = dict(getattr(parametros, "cookies", {}) or {})
+        cabecalhos = getattr(parametros, "headers", {}) or {}
+        accept_language = cabecalhos.get("Accept-Language") or "en-US,en;q=0.9"
+
+        total_previstas = 0
+        total_executadas = 0
+        total_falhas = 0
+        pontos_restantes_total = 0
+
+        for contador in contadores:
+            atributos = contador.get("attributes") if isinstance(contador.get("attributes"), Mapping) else {}
+            progresso = self._converter_para_int(atributos.get("progress"))
+            if progresso is None:
+                progresso = self._converter_para_int(contador.get("pointProgress")) or 0
+            maximo = self._converter_para_int(atributos.get("max"))
+            if maximo is None:
+                maximo = self._converter_para_int(contador.get("pointProgressMax")) or 0
+            if maximo <= 0:
+                continue
+
+            faltante = max(0, maximo - max(progresso, 0))
+            titulo = None
+            if isinstance(atributos, Mapping) and isinstance(atributos.get("title"), str):
+                titulo = atributos.get("title")
+            if not titulo and isinstance(contador.get("title"), str):
+                titulo = contador.get("title")
+            identificador = titulo or contador.get("name") or contador.get("offerId") or "pcSearch"
+
+            if faltante <= 0:
+                logger.info(
+                    "Contador de pesquisas no PC ja concluido",
+                    titulo=identificador,
+                    progresso=progresso,
+                    maximo=maximo,
+                )
+                continue
+
+            pontos_por_pesquisa = max(1, self._detectar_pontos_por_pesquisa(contador))
+            estimativa = max(1, min(30, (faltante + pontos_por_pesquisa - 1) // pontos_por_pesquisa))
+
+            logger.info(
+                "Executando pesquisas Bing para contador de PC",
+                titulo=identificador,
+                faltando=faltante,
+                pontos_por_pesquisa=pontos_por_pesquisa,
+                previstas=estimativa,
+            )
+
+            executadas, falhas, restante = self._realizar_pesquisas_bing(
+                quantidade=estimativa,
+                parametros=parametros,
+                cookies=cookies,
+                accept_language=accept_language,
+                pontos_por_pesquisa=pontos_por_pesquisa,
+                pontos_totais=faltante,
+                logger=logger,
+            )
+
+            total_previstas += estimativa
+            total_executadas += executadas
+            total_falhas += falhas
+
+            if restante > 0:
+                pontos_restantes_total += restante
+                logger.aviso(
+                    "Pesquisas Bing possivelmente restantes apos execucao",
+                    titulo=identificador,
+                    pontos_restantes=restante,
+                )
+
+        if total_previstas:
+            resumo["pesquisas_pc_previstas"] = total_previstas
+        if total_executadas:
+            resumo["pesquisas_pc_executadas"] = total_executadas
+            logger.sucesso(
+                "Pesquisas Bing executadas para contador de PC",
+                total=total_executadas,
+            )
+        if total_falhas:
+            resumo["pesquisas_pc_falhas"] = total_falhas
+        if pontos_restantes_total:
+            resumo["pesquisas_pc_restantes_estimado"] = pontos_restantes_total
+
+    def _realizar_pesquisas_bing(
+        self,
+        *,
+        quantidade: int,
+        parametros: ParametrosManualSolicitacao,
+        cookies: Dict[str, str],
+        accept_language: str,
+        pontos_por_pesquisa: int,
+        pontos_totais: int,
+        logger: Any,
+    ) -> tuple[int, int, int]:
+        if quantidade <= 0:
+            return 0, 0, pontos_totais
+
+        executadas = 0
+        falhas = 0
+        restante = pontos_totais
+
+        for indice in range(quantidade):
+            consulta = self._gerar_consulta_busca(indice)
+            logger.debug(
+                "Disparando pesquisa Bing automatizada",
+                consulta=consulta,
+                indice=indice + 1,
+                total=quantidade,
+            )
+            sucesso = self._executar_busca_bing(
+                consulta=consulta,
+                parametros=parametros,
+                cookies=cookies,
+                accept_language=accept_language,
+                logger=logger,
+            )
+            if sucesso:
+                executadas += 1
+                restante = max(0, restante - pontos_por_pesquisa)
+                if restante <= 0:
+                    break
+            else:
+                falhas += 1
+
+        return executadas, falhas, restante
+
+    def _executar_busca_bing(
+        self,
+        *,
+        consulta: str,
+        parametros: ParametrosManualSolicitacao,
+        cookies: Dict[str, str],
+        accept_language: str,
+        logger: Any,
+    ) -> bool:
+        parametros_busca = {
+            "q": consulta,
+            "form": "QBLH",
+            "sp": "1",
+            "lq": "0",
+        }
+        headers_busca = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": accept_language,
+            "Referer": _BING_HOME_URL,
+        }
+        pacote_busca = {
+            "metodo": "get",
+            "url": _BING_SEARCH_URL,
+            "params": parametros_busca,
+            "headers": headers_busca,
+            "cookies": dict(cookies),
+            "user_agent": parametros.user_agent,
+            "timeout": 30,
+        }
+        try:
+            resposta_busca = _executar_http(pacote_busca)
+        except Exception as exc:  # pragma: no cover - depende do ambiente real
+            logger.aviso(
+                "Falha ao executar pesquisa no Bing",
+                consulta=consulta,
+                detalhe=str(exc),
+            )
+            return False
+
+        if hasattr(resposta_busca, "ok") and not resposta_busca.ok:
+            logger.aviso(
+                "Pesquisa no Bing retornou status inesperado",
+                consulta=consulta,
+                status=getattr(resposta_busca, "status_code", None),
+            )
+            return False
+
+        try:
+            cookies_resposta = getattr(resposta_busca, "cookies", None)
+            if cookies_resposta:
+                try:
+                    cookies.update(cookies_resposta.get_dict())  # type: ignore[attr-defined]
+                except Exception:
+                    cookies.update({c.name: c.value for c in cookies_resposta})  # type: ignore[attr-defined]
+        except Exception as exc:  # pragma: no cover
+            logger.debug("Nao foi possivel atualizar cookies da pesquisa", detalhe=str(exc))
+
+        search_url = getattr(resposta_busca, "url", None)
+        if not search_url:
+            search_url = f"{_BING_SEARCH_URL}?{urlencode(parametros_busca)}"
+
+        headers_report = {
+            "Accept": "*/*",
+            "Accept-Language": accept_language,
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Origin": _BING_HOME_URL.rstrip("/"),
+            "Referer": search_url,
+        }
+        pacote_report = {
+            "metodo": "post",
+            "url": _BING_REPORT_ACTIVITY_URL,
+            "data": {"url": search_url, "V": "web"},
+            "headers": headers_report,
+            "cookies": dict(cookies),
+            "user_agent": parametros.user_agent,
+            "timeout": 30,
+        }
+
+        try:
+            resposta_report = _executar_http(pacote_report)
+        except Exception as exc:  # pragma: no cover - depende do ambiente real
+            logger.aviso(
+                "Falha ao reportar atividade de pesquisa",
+                consulta=consulta,
+                detalhe=str(exc),
+            )
+            return False
+
+        sucesso = getattr(resposta_report, "ok", False)
+        corpo_report = None
+        try:
+            corpo_report = resposta_report.json()
+        except Exception:
+            corpo_report = None
+        if corpo_report is not None:
+            if corpo_report.get("success") or corpo_report.get("isSuccess"):
+                sucesso = True
+        if not sucesso:
+            logger.aviso(
+                "Registro de pesquisa retornou resposta inesperada",
+                consulta=consulta,
+                status=getattr(resposta_report, "status_code", None),
+            )
+            return False
+
+        try:
+            cookies_resposta = getattr(resposta_report, "cookies", None)
+            if cookies_resposta:
+                try:
+                    cookies.update(cookies_resposta.get_dict())  # type: ignore[attr-defined]
+                except Exception:
+                    cookies.update({c.name: c.value for c in cookies_resposta})  # type: ignore[attr-defined]
+        except Exception as exc:  # pragma: no cover
+            logger.debug("Nao foi possivel atualizar cookies apos reportActivity", detalhe=str(exc))
+
+        logger.sucesso("Pesquisa Bing registrada com sucesso", consulta=consulta)
+        return True
+
     def _resolver_token_tarefas(self) -> Optional[str]:
         """Obtém o token antifalsificação atual usando os helpers configurados."""
 
@@ -526,6 +925,12 @@ class APIRecompensas:
 
         if not isinstance(dados_recompensas, Mapping):
             return resumo
+
+        self._executar_pesquisas_pc(
+            dados_recompensas,
+            logger=logger,
+            resumo=resumo,
+        )
 
         base_iteracao: Any = dados_recompensas.get("raw") if isinstance(dados_recompensas, Mapping) else None
         if not isinstance(base_iteracao, Mapping):
