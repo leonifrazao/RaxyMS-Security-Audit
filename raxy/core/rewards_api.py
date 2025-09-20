@@ -551,29 +551,41 @@ class APIRecompensas:
         if not isinstance(dados, Mapping):
             return []
 
-        candidatos = [
-            dados.get("raw_dashboard"),
-            dados.get("dashboard"),
-        ]
+        candidatos: List[Mapping[str, Any]] = []
+        for chave in ("raw_dashboard", "dashboard"):
+            candidato = dados.get(chave)
+            if isinstance(candidato, Mapping):
+                candidatos.append(candidato)
+
         bruto = dados.get("raw") if isinstance(dados, Mapping) else None
         if isinstance(bruto, Mapping):
-            candidatos.append(bruto.get("dashboard"))
+            dash_bruto = bruto.get("dashboard")
+            if isinstance(dash_bruto, Mapping):
+                candidatos.append(dash_bruto)
 
-        dashboard: Mapping[str, Any] | None = None
-        for item in candidatos:
-            if isinstance(item, Mapping):
-                dashboard = item
-                break
+        def _extrair(base: Mapping[str, Any] | None) -> List[Mapping[str, Any]]:
+            if not isinstance(base, Mapping):
+                return []
 
-        if not isinstance(dashboard, Mapping):
+            counters = base.get("counters")
+            if isinstance(counters, Mapping):
+                pc_search = counters.get("pcSearch")
+                if isinstance(pc_search, list):
+                    return [item for item in pc_search if isinstance(item, Mapping)]
+
+            for chave_aninhada in ("userStatus", "status"):
+                resultado = _extrair(base.get(chave_aninhada))
+                if resultado:
+                    return resultado
+
             return []
 
-        counters = dashboard.get("counters")
-        if isinstance(counters, Mapping):
-            pc_search = counters.get("pcSearch")
-            if isinstance(pc_search, list):
-                return [entrada for entrada in pc_search if isinstance(entrada, Mapping)]
-        return []
+        for candidato in candidatos:
+            resultado = _extrair(candidato)
+            if resultado:
+                return resultado
+
+        return _extrair(dados.get("status"))
 
     @classmethod
     def _detectar_pontos_por_pesquisa(cls, contador: Mapping[str, Any]) -> int:
