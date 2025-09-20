@@ -340,11 +340,13 @@ class ExecutorEmLote:
         except Exception as exc:
             registro.erro("Falha ao obter recompensas", detalhe=str(exc))
         else:
+            tipos = APIRecompensas.contar_recompensas_por_tipo(recompensas)
             quantidade = APIRecompensas.contar_recompensas(recompensas)
             registro.sucesso(
                 "Recompensas consultadas",
                 chave="total",
                 quantidade=quantidade,
+                tipos=tipos,
             )
 
 

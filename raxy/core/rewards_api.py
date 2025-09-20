@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections import deque
+from collections import defaultdict, deque
 from datetime import datetime
 from pathlib import Path
 import traceback
@@ -163,6 +163,19 @@ class APIRecompensas:
                         return None
             return None
 
+        def extrair_tipo_promocao(item: Mapping[str, Any], atributos: Mapping[str, Any]) -> Optional[str]:
+            """Tenta extrair o tipo da promocao em diferentes campos."""
+
+            for chave in ("type", "promotionType", "promotionSubtype"):
+                valor = item.get(chave)
+                if isinstance(valor, str) and valor.strip():
+                    return valor.strip()
+            for chave in ("type", "promotionType", "promotionSubtype"):
+                valor = atributos.get(chave) if isinstance(atributos, Mapping) else None
+                if isinstance(valor, str) and valor.strip():
+                    return valor.strip()
+            return None
+
         def montar_promocao(item: Mapping[str, Any], *, data_referencia: Optional[str] = None) -> Dict[str, Any]:
             atributos = item.get("attributes") if isinstance(item.get("attributes"), Mapping) else {}
             pontos = (
@@ -173,6 +186,8 @@ class APIRecompensas:
             completo_attr = atributos.get("complete") if isinstance(atributos, Mapping) else None
             url_destino = item.get("destinationUrl") or (atributos.get("destination") if isinstance(atributos, Mapping) else None)
 
+            tipo = extrair_tipo_promocao(item, atributos)
+
             return {
                 "id": item.get("name") or item.get("offerId"),
                 "title": item.get("title") or (atributos.get("title") if isinstance(atributos, Mapping) else None),
@@ -181,6 +196,7 @@ class APIRecompensas:
                 "complete": bool(item.get("complete") or (isinstance(completo_attr, str) and completo_attr.lower() == "true")),
                 "url": url_destino,
                 "date": data_referencia,
+                "type": tipo,
             }
 
         mais_promocoes_bruto = dashboard.get("morePromotionsWithoutPromotionalItems")
@@ -348,27 +364,99 @@ class APIRecompensas:
         return None
 
     @staticmethod
-    def contar_recompensas(dados: Any) -> Optional[int]:
-        if isinstance(dados, Mapping):
-            total_especifico = 0
-            mais = dados.get("more_promotions")
-            if isinstance(mais, list):
-                total_especifico += len([item for item in mais if isinstance(item, Mapping)])
-            diarias = dados.get("daily_sets")
-            if isinstance(diarias, list):
-                for conjunto in diarias:
-                    if isinstance(conjunto, Mapping):
-                        promocoes = conjunto.get("promotions")
-                        if isinstance(promocoes, list):
-                            total_especifico += len([item for item in promocoes if isinstance(item, Mapping)])
-            if total_especifico:
-                return total_especifico
+    def _resolver_tipo_generico(promocao: Mapping[str, Any]) -> Optional[str]:
+        """Extrai o tipo de uma promocao independente do formato original."""
+
+        for chave in ("type", "promotionType", "promotionSubtype"):
+            valor = promocao.get(chave)
+            if isinstance(valor, str) and valor.strip():
+                return valor.strip()
+
+        atributos = promocao.get("attributes")
+        if isinstance(atributos, Mapping):
+            for chave in ("type", "promotionType", "promotionSubtype"):
+                valor = atributos.get(chave)
+                if isinstance(valor, str) and valor.strip():
+                    return valor.strip()
+
+        return None
+
+    @staticmethod
+    def _iterar_promocoes(dados: Any):
+        """Gera promoscoes conhecendo tanto o formato bruto quanto o normalizado."""
+
+        if not isinstance(dados, Mapping):
+            return
+
+        possui_formato_normalizado = False
+
+        diarias = dados.get("daily_sets")
+        if isinstance(diarias, list):
+            possui_formato_normalizado = True
+            for conjunto in diarias:
+                if isinstance(conjunto, Mapping):
+                    promocoes = conjunto.get("promotions")
+                    if isinstance(promocoes, list):
+                        for item in promocoes:
+                            if isinstance(item, Mapping):
+                                yield item
+
+        mais = dados.get("more_promotions")
+        if isinstance(mais, list):
+            possui_formato_normalizado = True
+            for item in mais:
+                if isinstance(item, Mapping):
+                    yield item
+
+        if possui_formato_normalizado:
+            return
+
+        dashboard = dados.get("dashboard")
+        if not isinstance(dashboard, Mapping):
+            return
+
+        diarias_bruto = dashboard.get("dailySetPromotions")
+        if isinstance(diarias_bruto, Mapping):
+            for itens in diarias_bruto.values():
+                if isinstance(itens, list):
+                    for item in itens:
+                        if isinstance(item, Mapping):
+                            yield item
+
+        mais_bruto = dashboard.get("morePromotionsWithoutPromotionalItems")
+        if isinstance(mais_bruto, list):
+            for item in mais_bruto:
+                if isinstance(item, Mapping):
+                    yield item
+
+    @classmethod
+    def contar_recompensas_por_tipo(cls, dados: Any) -> Dict[str, int]:
+        """Agrupa as promoscoes por tipo retornando suas contagens."""
+
+        contagem = defaultdict(int)
+        for promocao in cls._iterar_promocoes(dados) or []:
+            tipo = cls._resolver_tipo_generico(promocao)
+            if not tipo:
+                continue
+            contagem[tipo] += 1
+
+        return dict(sorted(contagem.items()))
+
+    @classmethod
+    def contar_recompensas(cls, dados: Any) -> int:
+        """Retorna o total de promoscoes encontradas no payload informado."""
+
+        total = 0
+        for _ in cls._iterar_promocoes(dados) or []:
+            total += 1
+        if total:
+            return total
 
         visitados: set[int] = set()
-        total = 0
+        restante = 0
 
         def visitar(alvo: Any) -> None:
-            nonlocal total
+            nonlocal restante
             identificador = id(alvo)
             if identificador in visitados:
                 return
@@ -377,11 +465,11 @@ class APIRecompensas:
             if isinstance(alvo, Mapping):
                 preco = alvo.get("price")
                 if isinstance(preco, (int, float)):
-                    total += 1
+                    restante += 1
                 elif isinstance(preco, str):
                     texto = preco.replace(".", "", 1)
                     if texto.isdigit():
-                        total += 1
+                        restante += 1
                 for valor in alvo.values():
                     visitar(valor)
             elif isinstance(alvo, list):
@@ -389,7 +477,7 @@ class APIRecompensas:
                     visitar(valor)
 
         visitar(dados)
-        return total or None
+        return restante
 
 
 __all__ = ["APIRecompensas"]
