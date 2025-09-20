@@ -1,35 +1,27 @@
-"""API pública do pacote Raxy."""
+"""Top level package exports for the Farm rewards toolkit."""
 
-from .core import (
-    APIRecompensas,
-    AutenticadorRewards,
-    BaseModelos,
-    Conta,
-    CredenciaisInvalidas,
+from __future__ import annotations
+
+from .accounts.account import Account
+from .accounts.account_loader import AccountLoader
+from .config.executor_config import (
+    DEFAULT_ACTIONS,
+    DEFAULT_MAX_WORKERS,
+    DEFAULT_USERS_FILE,
     ExecutorConfig,
-    GerenciadorPerfil,
-    GerenciadorSolicitacoesRewards,
-    ParametrosManualSolicitacao,
-    NavegadorRecompensas,
-    SessaoSolicitacoes,
-    carregar_contas,
-    log,
 )
-from .services.executor import ExecutorEmLote
+from .execution.batch_executor import BatchExecutor
+from .logging.structured_logger import StructuredLogger
+from .rewards.reward_summary import RewardSummary
 
 __all__ = [
-    "APIRecompensas",
-    "AutenticadorRewards",
-    "BaseModelos",
-    "Conta",
-    "CredenciaisInvalidas",
+    "Account",
+    "AccountLoader",
+    "BatchExecutor",
     "ExecutorConfig",
-    "ExecutorEmLote",
-    "GerenciadorPerfil",
-    "GerenciadorSolicitacoesRewards",
-    "ParametrosManualSolicitacao",
-    "NavegadorRecompensas",
-    "SessaoSolicitacoes",
-    "carregar_contas",
-    "log",
+    "RewardSummary",
+    "StructuredLogger",
+    "DEFAULT_ACTIONS",
+    "DEFAULT_MAX_WORKERS",
+    "DEFAULT_USERS_FILE",
 ]
