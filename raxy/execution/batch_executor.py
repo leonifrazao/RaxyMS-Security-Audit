@@ -8,7 +8,7 @@ from typing import Dict, Iterable, List, Tuple
 from ..accounts.account import Account
 from ..accounts.account_loader import AccountLoader
 from ..config.executor_config import DEFAULT_ACTIONS, ExecutorConfig
-from ..logging.structured_logger import StructuredLogger
+from ..loggers.structured_logger import StructuredLogger
 from ..rewards.reward_browser import RewardBrowser
 from ..rewards.reward_client import RewardClient
 from ..rewards.reward_login_service import RewardLoginService

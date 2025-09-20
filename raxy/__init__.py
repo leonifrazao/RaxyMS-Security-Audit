@@ -11,7 +11,7 @@ from .config.executor_config import (
     ExecutorConfig,
 )
 from .execution.batch_executor import BatchExecutor
-from .logging.structured_logger import StructuredLogger
+from .loggers.structured_logger import StructuredLogger
 from .rewards.reward_summary import RewardSummary
 
 __all__ = [

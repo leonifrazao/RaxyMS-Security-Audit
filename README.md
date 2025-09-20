@@ -26,7 +26,7 @@ is organised around small, well-defined classes to keep each responsibility isol
 │   │   └── executor_config.py    # `ExecutorConfig`
 │   ├── execution/                # Orchestrators
 │   │   └── batch_executor.py     # `BatchExecutor`
-│   ├── logging/                  # Logging helpers
+│   ├── loggers/                  # Logging helpers
 │   │   └── structured_logger.py  # `StructuredLogger`
 │   ├── rewards/                  # Rewards related services
 │   │   ├── reward_browser.py     # `RewardBrowser`

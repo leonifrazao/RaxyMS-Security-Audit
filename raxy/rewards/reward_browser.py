@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from ..logging.structured_logger import StructuredLogger
+from ..loggers.structured_logger import StructuredLogger
 
 
 class RewardBrowser:

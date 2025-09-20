@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-from ..logging.structured_logger import StructuredLogger
+from ..loggers.structured_logger import StructuredLogger
 from .reward_session import RewardSession
 from .reward_summary import RewardSummary
 

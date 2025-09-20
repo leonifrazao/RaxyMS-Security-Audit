@@ -7,7 +7,7 @@ from typing import Sequence
 from uuid import uuid4
 
 from ..accounts.account import Account
-from ..logging.structured_logger import StructuredLogger
+from ..loggers.structured_logger import StructuredLogger
 from .reward_session import RewardSession
 
 
