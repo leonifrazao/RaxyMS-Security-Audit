@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict, deque
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 import traceback
@@ -11,6 +12,7 @@ from typing import Any, Dict, Iterable, Mapping, Optional, List
 from botasaurus.beep_utils import beep_input
 from botasaurus_requests.response import Response
 
+from .helpers import extract_request_verification_token
 from .logging import log
 from .session import GerenciadorSolicitacoesRewards, ParametrosManualSolicitacao
 from .template_requester import TemplateRequester
@@ -23,6 +25,7 @@ class APIRecompensas:
     """Agrupa chamadas autenticadas e utilitários de parsing da API."""
 
     _TEMPLATE_OBTER_PONTOS = "rewards_obter_pontos.json"
+    _TEMPLATE_EXECUTAR_TAREFA = "pegar_recompensa_rewards.json"
 
     def __init__(
         self,
@@ -227,6 +230,8 @@ class APIRecompensas:
         return {
             "daily_sets": conjuntos_diarios,
             "more_promotions": lista_promocoes,
+            "raw": corpo,
+            "raw_dashboard": dashboard,
         }
 
     def obter_parametros(
@@ -478,6 +483,190 @@ class APIRecompensas:
 
         visitar(dados)
         return restante
+
+    def _resolver_token_tarefas(self) -> Optional[str]:
+        """Obtém o token antifalsificação atual usando os helpers configurados."""
+
+        driver = getattr(self._gerenciador, "driver", None)
+        if driver is not None:
+            try:
+                html_atual = getattr(driver, "page_source", None)
+            except Exception as exc:  # pragma: no cover - depende do driver real
+                log.debug("Falha ao ler HTML para token", detalhe=str(exc))
+                html_atual = None
+            token_html = extract_request_verification_token(html_atual)
+            if token_html:
+                return token_html
+
+        sessao = self._gerenciador.dados_sessao
+        if sessao and sessao.request_verification_token:
+            return sessao.request_verification_token
+
+        if self._parametros_cache and self._parametros_cache.verification_token:
+            return self._parametros_cache.verification_token
+
+        return None
+
+    def executar_tarefas(
+        self,
+        dados_recompensas: Mapping[str, Any],
+        *,
+        registro: Any | None = None,
+    ) -> Dict[str, int]:
+        """Executa as tarefas pendentes reportando seu status."""
+
+        logger = registro or log
+        resumo: Dict[str, int] = {
+            "executadas": 0,
+            "falhas": 0,
+            "ignoradas": 0,
+            "ja_concluidas": 0,
+            "total": 0,
+        }
+
+        if not isinstance(dados_recompensas, Mapping):
+            return resumo
+
+        base_iteracao: Any = dados_recompensas.get("raw") if isinstance(dados_recompensas, Mapping) else None
+        if not isinstance(base_iteracao, Mapping):
+            base_iteracao = dados_recompensas
+
+        tarefas: List[Dict[str, Any]] = []
+        vistos: set[tuple[str, str]] = set()
+
+        for promocao in self._iterar_promocoes(base_iteracao) or []:
+            if not isinstance(promocao, Mapping):
+                continue
+
+            if bool(promocao.get("complete")):
+                resumo["ja_concluidas"] += 1
+                continue
+
+            identificador = (
+                promocao.get("offerId")
+                or promocao.get("id")
+                or promocao.get("name")
+            )
+            atributos = promocao.get("attributes") if isinstance(promocao.get("attributes"), Mapping) else None
+            hash_valor = promocao.get("hash")
+            if not hash_valor and isinstance(atributos, Mapping):
+                hash_valor = atributos.get("hash")
+
+            if not identificador or not hash_valor:
+                resumo["ignoradas"] += 1
+                logger.debug(
+                    "Tarefa ignorada por falta de dados",
+                    id=identificador,
+                    possui_hash=bool(hash_valor),
+                )
+                continue
+
+            chave = (str(identificador), str(hash_valor))
+            if chave in vistos:
+                continue
+            vistos.add(chave)
+
+            tipo = self._resolver_tipo_generico(promocao) or ""
+            form_val = None
+            if isinstance(atributos, Mapping):
+                form_val = atributos.get("form") or atributos.get("Form")
+
+            tarefas.append(
+                {
+                    "id": str(identificador),
+                    "hash": str(hash_valor),
+                    "type": tipo,
+                    "form": form_val,
+                }
+            )
+
+        token = self._resolver_token_tarefas() or None
+        parametros = self.obter_parametros()
+        if token or parametros.verification_token:
+            token_final = token or parametros.verification_token
+            if token_final != parametros.verification_token:
+                parametros = replace(parametros, verification_token=token_final)
+        else:
+            token_final = None
+
+        if tarefas and not token_final:
+            resumo["ignoradas"] += len(tarefas)
+            resumo["total"] = (
+                resumo["executadas"]
+                + resumo["falhas"]
+                + resumo["ja_concluidas"]
+                + resumo["ignoradas"]
+            )
+            logger.aviso("Token de verificacao ausente; tarefas nao executadas", pendentes=len(tarefas))
+            return resumo
+
+        requester = TemplateRequester(parametros=parametros, diretorio=REQUESTS_DIR)
+
+        for tarefa in tarefas:
+            data_extra = {
+                "id": tarefa["id"],
+                "hash": tarefa["hash"],
+            }
+            if tarefa["type"]:
+                data_extra["type"] = tarefa["type"]
+            if tarefa["form"]:
+                data_extra["form"] = tarefa["form"]
+
+            try:
+                _, resposta = requester.executar(
+                    self._TEMPLATE_EXECUTAR_TAREFA,
+                    data_extra=data_extra,
+                )
+            except Exception as exc:
+                resumo["falhas"] += 1
+                logger.erro(
+                    "Execucao de tarefa falhou",
+                    id=tarefa["id"],
+                    tipo=tarefa["type"] or "desconhecido",
+                    detalhe=str(exc),
+                )
+                continue
+
+            corpo = None
+            try:
+                corpo = resposta.json()
+            except Exception:
+                corpo = None
+
+            sucesso = False
+            if corpo is not None:
+                status_valor = str(corpo.get("status", "")).lower()
+                sucesso = bool(
+                    corpo.get("success")
+                    or corpo.get("isSuccess")
+                    or status_valor in {"success", "sucesso", "ok", "completed", "complete"}
+                )
+            elif getattr(resposta, "ok", False):
+                sucesso = True
+
+            if sucesso:
+                resumo["executadas"] += 1
+                logger.sucesso(
+                    "Tarefa executada",
+                    id=tarefa["id"],
+                    tipo=tarefa["type"] or "desconhecido",
+                )
+            else:
+                resumo["falhas"] += 1
+                logger.aviso(
+                    "Tarefa com resposta inesperada",
+                    id=tarefa["id"],
+                    tipo=tarefa["type"] or "desconhecido",
+                    status=getattr(resposta, "status_code", None),
+                )
+
+        resumo["total"] = (
+            resumo["executadas"]
+            + resumo["falhas"]
+            + resumo["ja_concluidas"]
+            + resumo["ignoradas"]
+        )
+        return resumo
 
 
 __all__ = ["APIRecompensas"]
