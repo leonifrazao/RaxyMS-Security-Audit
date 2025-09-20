@@ -62,6 +62,26 @@ class TestAPIRecompensasPcSearch(unittest.TestCase):
         self.assertEqual(len(contadores), 2)
         self.assertEqual(contadores[0]["name"], "um")
 
+    def test_obter_contadores_pc_busca_em_user_status(self) -> None:
+        """Estruturas novas do dashboard devem ser analisadas para localizar os contadores."""
+
+        dados = {
+            "raw_dashboard": {
+                "userStatus": {
+                    "counters": {
+                        "pcSearch": [
+                            {"name": "novo"},
+                            None,
+                        ]
+                    }
+                }
+            }
+        }
+
+        contadores = APIRecompensas._obter_contadores_pc(dados)
+        self.assertEqual(len(contadores), 1)
+        self.assertEqual(contadores[0]["name"], "novo")
+
     def test_detectar_pontos_por_pesquisa_ler_descricao(self) -> None:
         """O número de pontos por pesquisa deve ser extraído da descrição quando presente."""
 
