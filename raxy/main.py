@@ -1,22 +1,15 @@
-"""Entrada da linha de comando para o Raxy."""
+"""Command line entry point for the Farm rewards automation."""
 
 from __future__ import annotations
 
-import pathlib
-import sys
-
-if __package__ in {None, ""}:
-    ROOT = pathlib.Path(__file__).resolve().parents[1]
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
-    from raxy.services.executor import executar_cli  # type: ignore[assignment]
-else:
-    from .services.executor import executar_cli
+from .execution.batch_executor import BatchExecutor
 
 
 def main() -> None:
-    executar_cli()
+    """Run the batch executor with configuration inferred from the environment."""
+
+    BatchExecutor().run()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

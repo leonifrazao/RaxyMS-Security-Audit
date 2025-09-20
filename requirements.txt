@@ -1,4 +1,1 @@
-botasaurus
-rich
-sqlalchemy
-random-user-agent
+# The refactored project relies solely on the Python standard library.
