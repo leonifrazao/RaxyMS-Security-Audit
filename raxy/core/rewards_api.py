@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import random
 import re
@@ -9,7 +10,7 @@ from collections import defaultdict, deque
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 import traceback
 from typing import Any, Dict, Iterable, Mapping, Optional, List
 from botasaurus.beep_utils import beep_input
@@ -66,6 +67,143 @@ def _executar_http(req: Request, pacote: Mapping[str, Any]) -> Response:
             argumentos[campo] = valor
 
     return operacao(url, **argumentos)
+
+
+def _normalizar_params(params: Any) -> list[tuple[str, str]]:
+    """Converte parâmetros arbitrários em uma lista de pares de strings."""
+
+    if params is None:
+        return []
+
+    if isinstance(params, str):
+        return parse_qsl(params, keep_blank_values=True)
+
+    if isinstance(params, Mapping):
+        itens = params.items()
+    else:
+        try:
+            itens = list(params)
+        except TypeError:
+            return []
+
+    pares: list[tuple[str, str]] = []
+    for item in itens:
+        try:
+            chave, valor = item
+        except Exception:
+            continue
+        if valor is None:
+            continue
+        pares.append((str(chave), str(valor)))
+    return pares
+
+
+def _montar_url_com_params(url: str, params: Any) -> str:
+    """Mescla parâmetros de consulta adicionais ao URL informado."""
+
+    pares = _normalizar_params(params)
+    if not pares:
+        return url
+
+    dividido = urlsplit(url)
+    existentes = parse_qsl(dividido.query, keep_blank_values=True)
+    existentes.extend(pares)
+    nova_query = urlencode(existentes)
+    return urlunsplit((dividido.scheme, dividido.netloc, dividido.path, nova_query, dividido.fragment))
+
+
+def _aplicar_cookies_em_headers(
+    headers: Mapping[str, str] | None, cookies: Mapping[str, Any] | None
+) -> dict[str, str]:
+    """Garante que os cookies sejam enviados via cabeçalho quando necessário."""
+
+    base = {str(chave): str(valor) for chave, valor in (headers or {}).items()}
+    if not cookies:
+        return base
+
+    if any(chave.lower() == "cookie" for chave in base):
+        return base
+
+    partes: list[str] = []
+    for chave, valor in cookies.items():
+        if not chave:
+            continue
+        valor_formatado = "" if valor is None else str(valor)
+        partes.append(f"{chave}={valor_formatado}")
+
+    if not partes:
+        return base
+
+    base["Cookie"] = "; ".join(partes)
+    return base
+
+
+def _executar_metodo_http(
+    metodo: Any,
+    url: str,
+    *,
+    params: Any = None,
+    headers: Mapping[str, str] | None = None,
+    cookies: Mapping[str, Any] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Invoca métodos HTTP aceitando APIs com assinaturas distintas."""
+
+    if metodo is None:
+        raise AttributeError("Metodo HTTP indisponivel")
+
+    headers_dict = dict(headers or {})
+    cookies_dict = dict(cookies or {})
+    extras = dict(kwargs)
+
+    try:
+        assinatura = inspect.signature(metodo)
+    except (TypeError, ValueError):
+        assinatura = None
+
+    if assinatura is None:
+        if headers_dict:
+            extras["headers"] = headers_dict
+        if cookies_dict:
+            extras["cookies"] = cookies_dict
+        if params is not None:
+            extras["params"] = params
+        return metodo(url, **extras)
+
+    parametros = assinatura.parameters
+    aceita_kwargs = any(
+        parametro.kind == inspect.Parameter.VAR_KEYWORD
+        for parametro in parametros.values()
+    )
+    nomes_validos = set(parametros)
+
+    final_kwargs: Dict[str, Any] = {}
+    pode_headers = aceita_kwargs or "headers" in nomes_validos
+    pode_cookies = aceita_kwargs or "cookies" in nomes_validos
+    pode_params = aceita_kwargs or "params" in nomes_validos
+
+    if params is not None:
+        if pode_params:
+            final_kwargs["params"] = params
+        else:
+            url = _montar_url_com_params(url, params)
+
+    if cookies_dict:
+        if pode_cookies:
+            final_kwargs["cookies"] = cookies_dict
+        elif pode_headers:
+            headers_dict = _aplicar_cookies_em_headers(headers_dict, cookies_dict)
+
+    if headers_dict and pode_headers:
+        final_kwargs["headers"] = headers_dict
+
+    for nome, valor in extras.items():
+        if nome in {"headers", "cookies", "params"}:
+            continue
+        if aceita_kwargs or nome in nomes_validos:
+            final_kwargs[nome] = valor
+
+    return metodo(url, **final_kwargs)
 
 
 class APIRecompensas:
@@ -933,8 +1071,20 @@ class APIRecompensas:
             self._preparar_bing_para_pesquisa(driver, logger)
             self._sincronizar_cookies_navegador(cookies, driver, logger, "pre-busca")
 
+        fallback_request: Request | None = None
+
+        def _obter_metodo_http(nome: str) -> Any:
+            nonlocal fallback_request
+            metodo = getattr(requisicoes, nome, None)
+            if callable(metodo):
+                return metodo
+            if fallback_request is None:
+                fallback_request = Request(user_agent=parametros.user_agent)
+            return getattr(fallback_request, nome)
+
         try:
-            resposta_busca = requisicoes.get(
+            resposta_busca = _executar_metodo_http(
+                _obter_metodo_http("get"),
                 _BING_SEARCH_URL,
                 params=parametros_busca,
                 headers=headers_busca,
@@ -987,7 +1137,8 @@ class APIRecompensas:
         headers_report.setdefault("User-Agent", parametros.user_agent)
 
         try:
-            resposta_report = requisicoes.post(
+            resposta_report = _executar_metodo_http(
+                _obter_metodo_http("post"),
                 _BING_REPORT_ACTIVITY_URL,
                 data={"url": search_url, "V": "web"},
                 headers=headers_report,

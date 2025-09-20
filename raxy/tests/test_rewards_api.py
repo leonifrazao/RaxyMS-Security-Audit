@@ -261,6 +261,111 @@ class TestAPIRecompensasPcSearch(unittest.TestCase):
         post_payload = requisicoes.post_calls[0][1]
         self.assertEqual(post_payload["data"]["url"], driver.current_url)
 
+    def test_executar_busca_bing_suporta_metodos_restritos(self) -> None:
+        """Busca deve funcionar com clientes que nao aceitam params/cookies como kwargs."""
+
+        class DummyCookieJar(dict):
+            def get_dict(self):
+                return dict(self)
+
+        class DummyResponse:
+            def __init__(
+                self,
+                url: str,
+                *,
+                cookies: Dict[str, str] | None = None,
+                ok: bool = True,
+                json_data: Dict[str, Any] | None = None,
+            ) -> None:
+                self.url = url
+                self.ok = ok
+                self.status_code = 200
+                self._json_data = json_data
+                self.cookies = DummyCookieJar(cookies or {})
+                self.text = "<html></html>"
+
+            def json(self):
+                if self._json_data is None:
+                    raise ValueError("sem dados")
+                return self._json_data
+
+        class DummyRequests:
+            def __init__(self) -> None:
+                self.get_calls: list[tuple[str, Dict[str, Any] | None]] = []
+                self.post_calls: list[tuple[str, Dict[str, Any], Dict[str, Any] | None]] = []
+
+            def get(self, url: str, headers: Dict[str, Any] | None = None) -> DummyResponse:
+                self.get_calls.append((url, headers))
+                return DummyResponse(url, cookies={"SRCHHPGUSR": "lang=pt"})
+
+            def post(
+                self,
+                url: str,
+                data: Dict[str, Any],
+                headers: Dict[str, Any] | None = None,
+            ) -> DummyResponse:
+                self.post_calls.append((url, data, headers))
+                return DummyResponse(url, cookies={"MSPTC": "1"}, json_data={"success": True})
+
+        class DummyDriver:
+            def __init__(self, requisicoes: DummyRequests) -> None:
+                self.requests = requisicoes
+                self.page_source = "<html>Usuario logado</html>"
+                self.current_url = ""
+                self.called_urls: list[str] = []
+                self._cookies: Dict[str, str] = {"SRCHHPGUSR": "lang=pt"}
+
+            def google_get(self, url: str) -> None:
+                self.called_urls.append(url)
+                self.current_url = url
+                if "search" in url:
+                    self.current_url = f"{url}&via=browser"
+                    self._cookies["BINGAUTH"] = "1"
+
+            def short_random_sleep(self) -> None:
+                return None
+
+            def get_cookies_dict(self) -> Dict[str, str]:
+                return dict(self._cookies)
+
+        requisicoes = DummyRequests()
+        driver = DummyDriver(requisicoes)
+        api = self._criar_api(driver=driver)
+        parametros = api.obter_parametros()
+        cookies: Dict[str, str] = {}
+        accept_language = parametros.headers.get("Accept-Language", "pt-BR,pt;q=0.9")
+
+        api._preparar_bing_para_pesquisa(driver, log)
+        api._sincronizar_cookies_navegador(cookies, driver, log, "teste")
+        sucesso = api._executar_busca_bing(
+            consulta="consulta automatizada",
+            parametros=parametros,
+            cookies=cookies,
+            accept_language=accept_language,
+            logger=log,
+            driver=driver,
+            requisicoes=requisicoes,
+            preparado=True,
+        )
+
+        self.assertTrue(sucesso)
+        self.assertEqual(len(requisicoes.get_calls), 1)
+        self.assertEqual(len(requisicoes.post_calls), 1)
+        get_url, get_headers = requisicoes.get_calls[0]
+        self.assertTrue(get_url.startswith(rewards_mod._BING_SEARCH_URL))
+        self.assertIn("consulta+automatizada", get_url)
+        self.assertIsNotNone(get_headers)
+        self.assertIn("Cookie", get_headers)
+        self.assertIn("SRCHHPGUSR=lang=pt", get_headers["Cookie"])
+        post_url, post_data, post_headers = requisicoes.post_calls[0]
+        self.assertEqual(post_url, rewards_mod._BING_REPORT_ACTIVITY_URL)
+        self.assertEqual(post_data["url"], driver.current_url)
+        self.assertIsNotNone(post_headers)
+        self.assertIn("Cookie", post_headers)
+        self.assertIn("SRCHHPGUSR=lang=pt", post_headers["Cookie"])
+        self.assertIn("MSPTC", cookies)
+        self.assertIn("BINGAUTH", cookies)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
