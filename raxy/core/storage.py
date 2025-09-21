@@ -16,7 +16,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depende do ambiente
         "SQLAlchemy nao encontrado. Instale com 'pip install sqlalchemy'."
     ) from exc
 
-from raxy.Models.modelo_base import ModeloBase, BaseDeclarativa
+from Models.modelo_base import ModeloBase, BaseDeclarativa
 
 ModeloT = TypeVar("ModeloT", bound=ModeloBase)
 

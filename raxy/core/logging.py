@@ -37,8 +37,6 @@ from rich.theme import Theme
 from rich.text import Text
 from rich.traceback import install as install_rich_traceback
 
-from .helpers import get_env_bool
-
 # Mapas auxiliares ---------------------------------------------------------
 
 _LEVEL_MAP: Dict[str, int] = {
@@ -122,22 +120,6 @@ class LoggerConfig:
         arquivo = os.getenv("LOG_FILE")
         if arquivo:
             cfg.arquivo_log = arquivo
-
-        sobrescrever = get_env_bool("LOG_OVERWRITE")
-        if sobrescrever is not None:
-            cfg.sobrescrever_arquivo = sobrescrever
-
-        mostrar_tempo = get_env_bool("LOG_SHOW_TIME")
-        if mostrar_tempo is not None:
-            cfg.mostrar_tempo = mostrar_tempo
-
-        usar_cores = get_env_bool("LOG_COLOR")
-        if usar_cores is not None:
-            cfg.usar_cores = usar_cores
-
-        traceback_flag = get_env_bool("LOG_RICH_TRACEBACK")
-        if traceback_flag is not None:
-            cfg.registrar_traceback_rico = traceback_flag
 
         return cfg
 

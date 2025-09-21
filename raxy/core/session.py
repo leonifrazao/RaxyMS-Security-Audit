@@ -1,178 +1,106 @@
-"""Ferramentas para capturar cookies e executar requests autenticadas."""
+# base_request.py
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Optional
+import json
+from pathlib import Path
 from urllib.parse import urljoin
-
-from botasaurus.browser import Driver
-
-from .config import REWARDS_BASE_URL
-from .helpers import (
-    extract_request_verification_token,
-    get_env_bool,
-)
-from .logging import log
-from .profiles import GerenciadorPerfil
+from botasaurus.soupify import soupify
+from botasaurus.request import request, Request
 
 
-@dataclass(slots=True)
-class SessaoSolicitacoes:
-    """Representa o contexto HTTP derivado de uma sessao autenticada."""
-
-    perfil: str
-    cookies: Dict[str, str]
-    user_agent: str
-    url_base: str = REWARDS_BASE_URL
-    request_verification_token: Optional[str] = None
-
-
-@dataclass(slots=True, frozen=True)
-class ParametrosManualSolicitacao:
-    """Guarda os dados necessários para montar requisições manuais via Botasaurus."""
-
-    perfil: str
-    url_base: str
-    user_agent: str
-    headers: Mapping[str, str]
-    cookies: Mapping[str, str]
-    verification_token: Optional[str]
-    palavras_erro: tuple[str, ...]
-    interativo: bool
+def _extract_request_verification_token(html):
+    if not html:
+        return None
+    try:
+        soup = soupify(html)
+        campo = soup.find("input", {"name": "__RequestVerificationToken"})
+        if campo and campo.get("value"):
+            return campo["value"].strip() or None
+    except Exception:
+        return None
+    return None
 
 
-DEFAULT_HEADERS = {
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "pt-BR,pt;q=0.9",
-}
+class BaseRequest:
+    """Carrega templates JSON e executa requests autenticadas."""
 
-REQUEST_OPTIONS = {
-    "raise_exception": True,
-    "create_error_logs": False,
-    "output": None,
-}
-
-
-class GerenciadorSolicitacoesRewards:
-    """Captura cookies do navegador e prepara clientes HTTP."""
-
-    def __init__(self, perfil: str, driver: Driver):
-        """Inicializa o gerenciador com o perfil e o driver em uso.
-
-        Args:
-            perfil: Identificador do perfil botasaurus utilizado na automação.
-            driver: Instância ativa do navegador controlado pelo botasaurus.
-        """
-
+    def __init__(self, perfil, driver, url_base="https://rewards.bing.com/"):
         self.perfil = perfil
         self.driver = driver
-        self._dados_sessao: Optional[SessaoSolicitacoes] = None
+        self.url_base = url_base
 
-    def capturar(self) -> SessaoSolicitacoes:
-        """Coleta cookies e user-agent da sessão do navegador.
+        self.cookies = self.driver.get_cookies_dict()
+        self.user_agent = self.driver.profile.get("UA")
 
-        Returns:
-            Instância de :class:`SessaoSolicitacoes` com os dados capturados.
-        """
-
-        cookies = self.driver.get_cookies_dict()
-        user_agent = getattr(self.driver, "user_agent", None) or GerenciadorPerfil.garantir_agente_usuario(
-            self.perfil
-        )
-        token: Optional[str] = None
         try:
-            html_atual = getattr(self.driver, "page_source", None)
-        except Exception as exc:  # pragma: no cover - depende do driver
-            html_atual = None
-            log.debug("Nao foi possivel ler page_source", detalhe=str(exc))
-        if html_atual:
-            token = extract_request_verification_token(html_atual)
+            html = driver.requests.get(url_base).text
+        except Exception:
+            html = None
+        self.token_antifalsificacao = _extract_request_verification_token(html)
 
-        if not token:
-            requisicoes = getattr(self.driver, "requests", None)
-            if requisicoes is not None:
-                try:
-                    url_atual = getattr(self.driver, "current_url", None) or REWARDS_BASE_URL
-                    retorno = requisicoes.get(url_atual)
-                except Exception as exc:  # pragma: no cover - depende do ambiente
-                    retorno = None
-                    log.debug("Falha ao requisitar HTML para token", detalhe=str(exc))
-                else:
-                    html_fresco = getattr(retorno, "text", None)
-                    if html_fresco:
-                        token = extract_request_verification_token(html_fresco)
+    def executar(self, diretorio_template, bypass_request_token=False):
+        template = self._carregar(diretorio_template)
+        args = self._montar(template, bypass_request_token)
+        return self._enviar(args)
 
-        log.debug(
-            "Cookies capturados para sessao HTTP",
-            perfil=self.perfil,
-            total_cookies=len(cookies),
-        )
-        if token:
-            log.debug("Token antifalsificacao capturado", tamanho=len(token))
+    def _carregar(self, diretorio_template):
+        caminho = diretorio_template
+        with open(caminho, encoding="utf-8") as f:
+            return json.load(f)
 
-        self._dados_sessao = SessaoSolicitacoes(
-            perfil=self.perfil,
-            cookies=cookies,
-            user_agent=user_agent,
-            request_verification_token=token,
-        )
-        return self._dados_sessao
+    def _montar(self, template, bypass_request_token):
+        metodo = str(template.get("method", "GET")).upper()
 
-    @property
-    def dados_sessao(self) -> Optional[SessaoSolicitacoes]:
-        """Retorna os dados de sessao em cache, se existentes."""
-
-        return self._dados_sessao
-
-    def parametros_manuais(
-        self,
-        *,
-        url_base: Optional[str] = None,
-        palavras_erro: Optional[Iterable[str]] = None,
-        interativo: Optional[bool] = None,
-    ) -> ParametrosManualSolicitacao:
-        """Retorna os elementos prontos para montar chamadas manuais."""
-
-        if self._dados_sessao is None:
-            self.capturar()
-
-        if self._dados_sessao is None:
-            raise RuntimeError("Sessao HTTP indisponivel; execute 'capturar' antes de coletar parametros")
-
-        sessao = self._dados_sessao
-        url_referencia = (url_base or sessao.url_base).rstrip("/") or REWARDS_BASE_URL
-
-        cabecalho = dict(DEFAULT_HEADERS)
-        cabecalho["User-Agent"] = sessao.user_agent
-        cabecalho.setdefault("Referer", url_referencia)
-
-        palavras = tuple(
-            palavra.strip().lower()
-            for palavra in (palavras_erro or [])
-            if isinstance(palavra, str) and palavra.strip()
-        )
-
-        if interativo is None:
-            env_flag = get_env_bool("RAXY_SOLICITACOES_INTERATIVAS", padrao=True)
-            interativo_final = bool(env_flag)
+        # URL
+        if "url" in template:
+            url = str(template["url"])
         else:
-            interativo_final = bool(interativo)
+            destino = str(template.get("path", ""))
+            url = urljoin(self.url_base.rstrip("/") + "/", destino.lstrip("/"))
 
-        return ParametrosManualSolicitacao(
-            perfil=sessao.perfil,
-            url_base=url_referencia,
-            user_agent=sessao.user_agent,
-            headers=cabecalho,
-            cookies=dict(sessao.cookies),
-            verification_token=sessao.request_verification_token,
-            palavras_erro=palavras,
-            interativo=interativo_final,
+        # headers
+        headers = dict(template.get("headers") or {})
+        headers.setdefault("User-Agent", self.user_agent)
+
+        # cookies
+        cookies = dict(self.cookies)
+        cookies.update(template.get("cookies") or {})
+
+        params = template.get("params")
+        data = template.get("data")
+        json_payload = template.get("json")
+
+        # injeta token se necessário
+        if (
+            not bypass_request_token
+            and self.token_antifalsificacao
+            and metodo in {"POST", "PUT", "PATCH", "DELETE"}
+        ):
+            if isinstance(data, dict) and not data.get("__RequestVerificationToken"):
+                data["__RequestVerificationToken"] = self.token_antifalsificacao
+            if isinstance(json_payload, dict) and not json_payload.get("__RequestVerificationToken"):
+                json_payload["__RequestVerificationToken"] = self.token_antifalsificacao
+            headers.setdefault("RequestVerificationToken", self.token_antifalsificacao)
+
+        return {
+            "metodo": metodo.lower(),
+            "url": url,
+            "params": params,
+            "data": data,
+            "json": json_payload,
+            "headers": headers,
+            "cookies": cookies,
+        }
+
+    @staticmethod
+    @request(cache=False, raise_exception=True, create_error_logs=False, output=None)
+    def _enviar(req: Request, args: dict):
+        metodo = args["metodo"]
+        url = args["url"]
+        return getattr(req, metodo)(
+            url,
+            params=args["params"],
+            data=args["data"],
+            json=args["json"],
+            headers=args["headers"],
+            cookies=args["cookies"],
         )
-
-
-__all__ = [
-    "SessaoSolicitacoes",
-    "GerenciadorSolicitacoesRewards",
-    "ParametrosManualSolicitacao",
-]

@@ -1,95 +1,68 @@
-from __future__ import annotations
+"""Utilitário para inspecionar respostas de rede emitidas pelo botasaurus."""
 
 import re
-from typing import Any, Dict, List, Optional, Pattern
-
 from botasaurus.browser import Driver, cdp
 
+
 class NetWork:
-    """Utilitário para inspecionar respostas de rede emitidas pelo botasaurus."""
-
-    def __init__(self, driver: Optional[Driver] = None):
-        """Inicializa estrutura vazia para capturar respostas de rede."""
-
-        self.respostas: List[Dict[str, Any]] = []
-        self.driver: Optional[Driver] = None
+    def __init__(self, driver=None):
+        self.respostas = []
+        self.driver = None
         self._handler_registrado = False
-        self._regex_cache: Dict[str, Pattern[str]] = {}
+        self._regex_cache = {}
 
-        if driver is not None:
+        if driver:
             self.inicializar(driver)
 
     def inicializar(self, driver: Driver):
-        """Inicializa o monitoramento de rede para um driver específico.
-
-        Args:
-            driver: Instância do botasaurus monitorada.
-        """
-        driver_anterior = self.driver
-        if driver_anterior is not driver:
+        if self.driver is not driver:
             self._handler_registrado = False
 
         self.driver = driver
-        self.respostas = []
+        self.respostas.clear()
 
         if not self._handler_registrado:
             self.driver.after_response_received(self.registrar_resposta)
             self._handler_registrado = True
-            self._callback_resposta = self.registrar_resposta  # type: ignore[attr-defined]
 
-    def get_status(self, url_pattern: str | Pattern[str] | None = None) -> Optional[int]:
-        """Obtém o status HTTP mais recente cuja URL combina com ``url_pattern``.
-
-        Args:
-            url_pattern: Texto ou regex a ser testada contra as URLs capturadas.
-
-        Returns:
-            Código de status ou ``None`` quando não há correspondências.
-        """
+    def get_status(self, url_pattern=None):
         if not self.respostas:
             return None
 
-        if url_pattern is None:
-            return self.respostas[-1]["status"]
-
         for resp in reversed(self.respostas):
             url = resp["url"]
-            padrao = url_pattern
-            if isinstance(padrao, re.Pattern):
-                try:
-                    if padrao.search(url):
-                        return resp["status"]
-                except re.error:
-                    return None
-                continue
 
-            if padrao in url:
+            # nenhum filtro -> última resposta
+            if url_pattern is None:
                 return resp["status"]
 
+            # regex pronta
+            if isinstance(url_pattern, re.Pattern):
+                if url_pattern.search(url):
+                    return resp["status"]
+                continue
+
+            # substring direta
+            if isinstance(url_pattern, str) and url_pattern in url:
+                return resp["status"]
+
+            # string interpretada como regex
             try:
-                regex = self._regex_cache.get(padrao)
+                regex = self._regex_cache.get(url_pattern)
                 if regex is None:
-                    regex = re.compile(padrao)
-                    self._regex_cache[padrao] = regex
+                    regex = re.compile(url_pattern)
+                    self._regex_cache[url_pattern] = regex
                 if regex.search(url):
                     return resp["status"]
             except re.error:
                 return None
+
         return None
 
-
     def limpar_respostas(self):
-        """Limpa o histórico de respostas capturadas."""
         self.respostas.clear()
 
-    def registrar_resposta(
-        self,
-        request_id: str,
-        response: cdp.network.Response,
-        event: cdp.network.ResponseReceived,
-    ) -> None:
-        """Callback associado ao CDP para registrar respostas da rede."""
-
+    def registrar_resposta(self, request_id, response: cdp.network.Response, event: cdp.network.ResponseReceived):
         self.respostas.append(
             {
                 "url": response.url,
