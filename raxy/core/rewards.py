@@ -3,6 +3,7 @@
 from __future__ import annotations
 import json
 import traceback
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 
@@ -79,7 +80,7 @@ class Rewards:
         driver.short_random_sleep()
 
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
-            registro.sucesso("Conta já autenticada")
+            registro.sucesso("Conta já autenticada")            
             base_request = BaseRequest(driver.config.profile, driver)
             registro.debug("Sessão pronta para requests",
                            perfil=driver.config.profile,
@@ -221,6 +222,81 @@ class Rewards:
             "raw_dashboard": dashboard,
         }
 
+    def pegar_recompensas(self, base: BaseRequest, bypass_request_token: bool = False) -> list[dict]:
+        """Executa todas as promoções de Daily Sets encontradas."""
+
+        recompensas = self.obter_recompensas(base, bypass_request_token=bypass_request_token)
+        daily_sets = recompensas.get("daily_sets", []) if isinstance(recompensas, dict) else []
+        if not daily_sets:
+            return []
+
+        template_path = REQUESTS_DIR / self._TEMPLATE_EXECUTAR_TAREFA
+        with open(template_path, encoding="utf-8") as arquivo:
+            template_base = json.load(arquivo)
+
+        resultados = []
+        for conjunto in daily_sets:
+            data_referencia = conjunto.get("date")
+            promocoes_resultado = []
+            for promocao in conjunto.get("promotions", []):
+                identificador = promocao.get("id")
+                hash_promocao = promocao.get("hash")
+                if not identificador or not hash_promocao:
+                    continue
+
+                template = deepcopy(template_base)
+                payload = dict(template.get("data") or {})
+                payload["id"] = identificador
+                payload["hash"] = hash_promocao
+                payload["__RequestVerificationToken"] = base.token_antifalsificacao
+                template["data"] = payload
+                # print(base.token_antifalsificacao)
+
+                argumentos = base._montar(template, bypass_request_token=bypass_request_token)
+                # print(argumentos)
+                try:
+                    resposta = base._enviar(argumentos)
+                    # print(resposta.json())
+                except Exception as erro:
+                    self._registrar_erro(
+                        base,
+                        {"metodo": argumentos.get("metodo"), "url": argumentos.get("url")},
+                        erro_registro=erro,
+                        extras_registro={"id": identificador, "hash": hash_promocao},
+                    )
+                    promocoes_resultado.append(
+                        {
+                            "id": identificador,
+                            "hash": hash_promocao,
+                            "ok": False,
+                            "status_code": None,
+                            "erro": repr(erro),
+                        }
+                    )
+                    continue
+
+                if not getattr(resposta, "ok", False):
+                    self._registrar_erro(
+                        base,
+                        {"metodo": argumentos.get("metodo"), "url": argumentos.get("url")},
+                        resposta_registro=resposta,
+                        extras_registro={"id": identificador, "hash": hash_promocao},
+                    )
+
+                promocoes_resultado.append(
+                    {
+                        "id": identificador,
+                        "hash": hash_promocao,
+                        "ok": bool(getattr(resposta, "ok", False)),
+                        "status_code": getattr(resposta, "status_code", None),
+                    }
+                )
+
+            if promocoes_resultado:
+                resultados.append({"date": data_referencia, "promotions": promocoes_resultado})
+
+        return resultados
+
     # -------------------------
     # Helpers
     # -------------------------
@@ -242,6 +318,7 @@ class Rewards:
 
         return {
             "id": item.get("name") or item.get("offerId"),
+            "hash": item.get("hash"),
             "title": item.get("title") or attrs.get("title"),
             "description": item.get("description") or attrs.get("description"),
             "points": pontos,

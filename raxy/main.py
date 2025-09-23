@@ -29,9 +29,12 @@ def main():
             log.sucesso(f"Pontos disponíveis: {pontos_info}")
             
             # Obtém recompensas  
-            recompensas = rewards.obter_recompensas(base=sessao)
-            daily_sets = recompensas.get("daily_sets", [])
-            log.sucesso(f"Recompensas obtidas", quantidade=len(daily_sets))
+            # recompensas = rewards.obter_recompensas(base=sessao)
+            # daily_sets = recompensas.get("daily_sets", [])
+            # log.info(str(daily_sets))
+            # log.sucesso(f"Recompensas obtidas", quantidade=len(daily_sets))
+            recompensas_pegas = rewards.pegar_recompensas(base=sessao, bypass_request_token=True)
+            log.sucesso(f"Recompensas pegas", quantidade=len(recompensas_pegas), detalhes=str(recompensas_pegas))
             
         except Exception as e:
             print(f"Erro ao processar {conta.email}: {e}")
