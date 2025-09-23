@@ -80,7 +80,8 @@ class Rewards:
         driver.short_random_sleep()
 
         if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
-            registro.sucesso("Conta já autenticada")            
+            registro.sucesso("Conta já autenticada")       
+            driver.prompt()  # pausa interativa do Botasaurus     
             base_request = BaseRequest(driver.config.profile, driver)
             registro.debug("Sessão pronta para requests",
                            perfil=driver.config.profile,
@@ -222,23 +223,25 @@ class Rewards:
             "raw_dashboard": dashboard,
         }
 
-    def pegar_recompensas(self, base: BaseRequest, bypass_request_token: bool = False) -> list[dict]:
-        """Executa todas as promoções de Daily Sets encontradas."""
+    def pegar_recompensas(self, base: BaseRequest, bypass_request_token: bool = False) -> dict[str, list[dict]]:
+        """Executa todas as promoções de Daily Sets e More Promotions encontradas."""
 
         recompensas = self.obter_recompensas(base, bypass_request_token=bypass_request_token)
+
         daily_sets = recompensas.get("daily_sets", []) if isinstance(recompensas, dict) else []
-        if not daily_sets:
-            return []
+        more_promotions = recompensas.get("more_promotions", []) if isinstance(recompensas, dict) else []
+
+        if not daily_sets and not more_promotions:
+            return {"daily_sets": [], "more_promotions": []}
 
         template_path = REQUESTS_DIR / self._TEMPLATE_EXECUTAR_TAREFA
         with open(template_path, encoding="utf-8") as arquivo:
             template_base = json.load(arquivo)
 
-        resultados = []
-        for conjunto in daily_sets:
-            data_referencia = conjunto.get("date")
+        def processar_promocoes(lista_promocoes: list[dict], data_referencia: str | None = None) -> dict:
+            """Processa um conjunto de promoções genérico."""
             promocoes_resultado = []
-            for promocao in conjunto.get("promotions", []):
+            for promocao in lista_promocoes:
                 identificador = promocao.get("id")
                 hash_promocao = promocao.get("hash")
                 if not identificador or not hash_promocao:
@@ -250,13 +253,10 @@ class Rewards:
                 payload["hash"] = hash_promocao
                 payload["__RequestVerificationToken"] = base.token_antifalsificacao
                 template["data"] = payload
-                # print(base.token_antifalsificacao)
 
                 argumentos = base._montar(template, bypass_request_token=bypass_request_token)
-                # print(argumentos)
                 try:
                     resposta = base._enviar(argumentos)
-                    # print(resposta.json())
                 except Exception as erro:
                     self._registrar_erro(
                         base,
@@ -265,13 +265,8 @@ class Rewards:
                         extras_registro={"id": identificador, "hash": hash_promocao},
                     )
                     promocoes_resultado.append(
-                        {
-                            "id": identificador,
-                            "hash": hash_promocao,
-                            "ok": False,
-                            "status_code": None,
-                            "erro": repr(erro),
-                        }
+                        {"id": identificador, "hash": hash_promocao, "ok": False,
+                        "status_code": None, "erro": repr(erro)}
                     )
                     continue
 
@@ -284,18 +279,31 @@ class Rewards:
                     )
 
                 promocoes_resultado.append(
-                    {
-                        "id": identificador,
-                        "hash": hash_promocao,
-                        "ok": bool(getattr(resposta, "ok", False)),
-                        "status_code": getattr(resposta, "status_code", None),
-                    }
+                    {"id": identificador, "hash": hash_promocao,
+                    "ok": bool(getattr(resposta, "ok", False)),
+                    "status_code": getattr(resposta, "status_code", None)}
                 )
 
-            if promocoes_resultado:
-                resultados.append({"date": data_referencia, "promotions": promocoes_resultado})
+            return {"date": data_referencia, "promotions": promocoes_resultado} if data_referencia else {"promotions": promocoes_resultado}
 
-        return resultados
+        resultados_daily_sets = []
+        for conjunto in daily_sets:
+            data_referencia = conjunto.get("date")
+            resultado = processar_promocoes(conjunto.get("promotions", []), data_referencia)
+            if resultado["promotions"]:
+                resultados_daily_sets.append(resultado)
+
+        resultados_more_promotions = []
+        if more_promotions:
+            resultado = processar_promocoes(more_promotions)
+            if resultado["promotions"]:
+                resultados_more_promotions.append(resultado)
+
+        return {
+            "daily_sets": resultados_daily_sets,
+            "more_promotions": resultados_more_promotions
+        }
+
 
     # -------------------------
     # Helpers
