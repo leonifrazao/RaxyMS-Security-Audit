@@ -20,6 +20,7 @@ profiles.json
 # Arquivos locais de configuracao/credenciais
 users.txt
 dados.db
+acli
 
 # Arquivos do sistema
 .DS_Store
