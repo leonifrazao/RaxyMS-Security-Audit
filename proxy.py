@@ -29,7 +29,7 @@ import tempfile
 import time
 import ipaddress
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, parse_qs, unquote, quote, urlsplit
 
 try:
@@ -120,6 +120,112 @@ def sanitize_tag(tag: Optional[str], fallback: str) -> str:
     # remove caracteres problemáticos do nome
     tag = re.sub(r"[^\w\-\.]+", "_", tag)
     return tag[:48] or fallback
+
+
+def outbound_host_port(outbound: 'Outbound') -> Tuple[str, int]:
+    proto = outbound.config.get("protocol")
+    settings = outbound.config.get("settings", {})
+    host = None
+    port = None
+    if proto == "shadowsocks":
+        server = settings.get("servers", [{}])[0]
+        host = server.get("address")
+        port = server.get("port")
+    elif proto in ("vmess", "vless"):
+        vnext = settings.get("vnext", [{}])[0]
+        host = vnext.get("address")
+        port = vnext.get("port")
+    elif proto == "trojan":
+        server = settings.get("servers", [{}])[0]
+        host = server.get("address")
+        port = server.get("port")
+    else:
+        raise ValueError(f"Protocolo não suportado para teste: {proto}")
+
+    if host is None or port is None:
+        raise ValueError(f"Host/port ausentes no outbound {outbound.tag} ({proto}).")
+    try:
+        return host, int(str(port).strip())
+    except (TypeError, ValueError):
+        raise ValueError(f"Porta inválida no outbound {outbound.tag}: {port!r}")
+
+
+def resolve_ip(host: str) -> Optional[str]:
+    if not host:
+        return None
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except Exception:
+        return None
+    ipv6 = None
+    for info in infos:
+        family, *_rest, sockaddr = info
+        ip = sockaddr[0]
+        if family == socket.AF_INET:
+            return ip
+        if ipv6 is None and family == socket.AF_INET6:
+            ipv6 = ip
+    return ipv6
+
+
+def is_public_ip(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return not (
+        addr.is_private or addr.is_loopback or addr.is_reserved or addr.is_multicast or addr.is_link_local
+    )
+
+
+def lookup_country(ip: Optional[str]) -> Optional[str]:
+    if not ip or requests is None or not is_public_ip(ip):
+        return None
+    try:
+        encoded = quote(ip, safe="")
+        resp = requests.get(f"https://ipinfo.io/{encoded}", timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("country_name") or data.get("country")
+    except Exception:
+        return None
+
+
+def measure_tcp_ping(host: str, port: int, timeout: float = 5.0) -> float:
+    start = time.perf_counter()
+    with socket.create_connection((host, port), timeout=timeout):
+        end = time.perf_counter()
+    return (end - start) * 1000.0
+
+
+def test_outbound(raw_uri: str, outbound: 'Outbound') -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        "tag": outbound.tag,
+        "protocol": outbound.config.get("protocol"),
+        "uri": raw_uri,
+    }
+    try:
+        host, port = outbound_host_port(outbound)
+    except Exception as exc:
+        result["error"] = f"host/port não identificados: {exc}"
+        return result
+
+    result["host"] = host
+    result["port"] = port
+
+    try:
+        ping_ms = measure_tcp_ping(host, port)
+        result["ping_ms"] = ping_ms
+    except Exception as exc:
+        result["error"] = f"conexão TCP falhou: {exc}".strip()
+
+    ip = resolve_ip(host)
+    result["ip"] = ip
+    country = lookup_country(ip)
+    if country:
+        result["country"] = country
+
+    return result
 
 
 def vmess_outbound_from_dict(data: Dict, *, tag_fallback: str = "vmess") -> Outbound:
@@ -536,6 +642,7 @@ def main():
     ap.add_argument("--source", help="Arquivo local OU URL com as linhas de proxy. Se omitido, lê da STDIN.")
     ap.add_argument("--base-port", type=int, default=54000, help="Porta inicial para as pontes (default: 54000).")
     ap.add_argument("--max", type=int, default=0, help="Máximo de pontes a criar (0 = todas).")
+    ap.add_argument("--test", action="store_true", help="Testa cada proxy e mostra país e ping (sem criar pontes).")
     args = ap.parse_args()
 
     text = read_source_text(args.source)
@@ -558,6 +665,33 @@ def main():
     if not outbounds:
         print("Nenhum link válido encontrado.", file=sys.stderr)
         sys.exit(2)
+
+    if args.test:
+        print("=== Teste de proxys ===")
+        header = f"{'STATUS':<8}{'TAG':<24}{'DESTINO':<32}{'IP':<18}{'PAIS':<18}{'PING'}"
+        print(header)
+        print('-' * len(header))
+
+        results = [test_outbound(raw, ob) for raw, ob in outbounds]
+        success = 0
+        for res in results:
+            status = "OK" if "ping_ms" in res else "FAIL"
+            host = res.get("host") or "-"
+            port = res.get("port")
+            destino = host if port is None else f"{host}:{port}"
+            ip = res.get("ip") or "-"
+            country = res.get("country") or "-"
+            ping = res.get("ping_ms")
+            ping_str = f"{ping:.1f} ms" if ping is not None else "-"
+            print(f"{status:<8}{res.get('tag', '-')[:23]:<24}{destino:<32}{ip:<18}{country:<18}{ping_str}")
+            if "ping_ms" in res:
+                success += 1
+            if res.get("error") and "ping_ms" not in res:
+                print(f"{'':<8}{'':<24}motivo: {res['error']}")
+
+        fail = len(results) - success
+        print(f"\nTotal: {len(results)} | Sucesso: {success} | Falhas: {fail}")
+        sys.exit(0 if success else 1)
 
     xray_bin = which_xray()
 
