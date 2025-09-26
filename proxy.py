@@ -3,12 +3,14 @@
 """
 Cria "pontes" HTTP locais (127.0.0.1:PORTA) para links v2ray/shadowsocks (ss://, vmess://, vless://, trojan://),
 usando o Xray-core como cliente. Útil para automação que só aceita proxy HTTP.
-Autor: você + ChatGPT :)
+Autor: você + ChatGPT :) (chatgpt te amo lindo!)
 
 Uso básico:
-  python bridges_v2ray_http.py --source proxies.txt --base-port 54000
-  python bridges_v2ray_http.py --source https://meuservidor.com/minhas-proxys.txt
-  cat proxies.txt | python bridges_v2ray_http.py
+  python proxy.py --source proxies.txt --base-port 54000
+  python proxy.py --source https://meuservidor.com/minhas-proxys.txt
+  python proxy.py --source https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/shadowsocks.txt --test
+  python proxy.py --source proxies.txt --verify --country BR
+  cat proxies.txt | python proxy.py
 
 Cada linha do texto deve conter um link de proxy (ex: ss://..., vmess://..., vless://..., trojan://...).
 Linhas vazias ou começando com // ou # são ignoradas.
@@ -39,12 +41,10 @@ except Exception:
 
 try:
     from rich.console import Console
-    from rich.live import Live
     from rich.table import Table
     from rich.text import Text
 except Exception:
     Console = None
-    Live = None
     Table = None
     Text = None
 
@@ -197,7 +197,7 @@ def is_public_ip(ip: str) -> bool:
     )
 
 
-def lookup_country(ip: Optional[str]) -> Optional[str]:
+def lookup_country(ip: Optional[str]) -> Optional[Dict[str, Optional[str]]]:
     if not ip or requests is None or not is_public_ip(ip):
         return None
     try:
@@ -205,7 +205,22 @@ def lookup_country(ip: Optional[str]) -> Optional[str]:
         resp = requests.get(f"https://ipinfo.io/{encoded}", timeout=5)
         resp.raise_for_status()
         data = resp.json()
-        return data.get("country_name") or data.get("country")
+        country_code = data.get("country")
+        if isinstance(country_code, str):
+            country_code = country_code.strip() or None
+            if country_code:
+                country_code = country_code.upper()
+        country_name = data.get("country_name")
+        if isinstance(country_name, str):
+            country_name = country_name.strip() or None
+        label = country_name or country_code
+        if not (label or country_code or country_name):
+            return None
+        return {
+            "name": country_name,
+            "code": country_code,
+            "label": label,
+        }
     except Exception:
         return None
 
@@ -240,9 +255,17 @@ def test_outbound(raw_uri: str, outbound: 'Outbound') -> Dict[str, Any]:
 
     ip = resolve_ip(host)
     result["ip"] = ip
-    country = lookup_country(ip)
-    if country:
-        result["country"] = country
+    country_info = lookup_country(ip)
+    if country_info:
+        label = country_info.get("label")
+        if label:
+            result["country"] = label
+        code = country_info.get("code")
+        if code:
+            result["country_code"] = code
+        name = country_info.get("name")
+        if name:
+            result["country_name"] = name
 
     return result
 
@@ -288,6 +311,91 @@ def render_test_table(entries: List[Dict[str, Any]]):
             ping_str,
         )
     return table
+
+
+def perform_health_checks(
+    outbounds: List[Tuple[str, 'Outbound']],
+    *,
+    console: Optional[Any] = None,
+) -> List[Dict[str, Any]]:
+    """Testa cada outbound, registrando metadados para exibição posterior."""
+
+    entries: List[Dict[str, Any]] = []
+    total = len(outbounds)
+
+    for idx, (raw, ob) in enumerate(outbounds, start=1):
+        entry: Dict[str, Any] = {
+            "index": idx - 1,
+            "tag": ob.tag,
+            "host": "-",
+            "port": None,
+            "ip": "-",
+            "country": "-",
+            "country_code": None,
+            "country_name": None,
+            "ping": None,
+            "status": "AGUARDANDO",
+            "error": None,
+            "uri": raw,
+        }
+
+        try:
+            preview_host, preview_port = outbound_host_port(ob)
+        except Exception:
+            pass
+        else:
+            entry["host"] = preview_host
+            entry["port"] = preview_port
+
+        entry["status"] = "TESTANDO"
+
+        res = test_outbound(raw, ob)
+        entry["host"] = res.get("host") or entry["host"]
+        if res.get("port") is not None:
+            entry["port"] = res.get("port")
+        entry["ip"] = res.get("ip") or entry["ip"]
+        entry["country"] = res.get("country") or entry["country"]
+        entry["country_code"] = res.get("country_code") or entry.get("country_code")
+        entry["country_name"] = res.get("country_name") or entry.get("country_name")
+        entry["ping"] = res.get("ping_ms")
+
+        if "ping_ms" in res:
+            entry["status"] = "OK"
+            entry["error"] = None
+        else:
+            entry["status"] = "ERRO"
+            entry["error"] = res.get("error")
+
+        entries.append(entry)
+
+        destino_preview = format_destination(entry.get("host"), entry.get("port"))
+        ping_preview = entry.get("ping")
+        ping_fmt = f"{ping_preview:.1f} ms" if isinstance(ping_preview, (int, float)) else "-"
+
+        if console is not None:
+            status_fmt = {
+                "OK": "[bold green]OK[/]",
+                "ERRO": "[bold red]ERRO[/]",
+                "TESTANDO": "[yellow]TESTANDO[/]",
+                "AGUARDANDO": "[dim]AGUARDANDO[/]",
+            }.get(entry["status"], entry["status"])
+
+            console.print(
+                f"[{idx}/{total}] {status_fmt} [bold]{entry['tag']}[/] -> "
+                f"{destino_preview} | IP: {entry.get('ip') or '-'} | País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
+            )
+            if entry["error"]:
+                console.print(f"    [dim]Motivo: {entry['error']}[/]")
+        else:
+            status_plain = entry["status"]
+            print(
+                f"[{idx}/{total}] {status_plain} {entry['tag']} -> {destino_preview} | "
+                f"IP: {entry.get('ip') or '-'} | País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
+            )
+            if entry["error"]:
+                print(f"    Motivo: {entry['error']}")
+
+    return entries
 
 
 def vmess_outbound_from_dict(data: Dict, *, tag_fallback: str = "vmess") -> Outbound:
@@ -705,6 +813,11 @@ def main():
     ap.add_argument("--base-port", type=int, default=54000, help="Porta inicial para as pontes (default: 54000).")
     ap.add_argument("--max", type=int, default=0, help="Máximo de pontes a criar (0 = todas).")
     ap.add_argument("--test", action="store_true", help="Testa cada proxy e mostra país e ping (sem criar pontes).")
+    ap.add_argument("--verify", action="store_true", help="Testa as proxys e cria pontes apenas para as aprovadas.")
+    ap.add_argument(
+        "--country",
+        help="Filtra proxys aprovadas pelo país (nome ou código). Requer --verify.",
+    )
     args = ap.parse_args()
 
     text = read_source_text(args.source)
@@ -728,7 +841,11 @@ def main():
         print("Nenhum link válido encontrado.", file=sys.stderr)
         sys.exit(2)
 
-    rich_available = all(obj is not None for obj in (Console, Live, Table, Text))
+    if args.test and args.verify:
+        print("As opções --test e --verify são mutuamente exclusivas.", file=sys.stderr)
+        sys.exit(2)
+
+    rich_available = all(obj is not None for obj in (Console, Table, Text))
     console = None
 
     if args.test:
@@ -745,49 +862,11 @@ def main():
                 "[yellow]Aviso: instale 'requests' para obter a localização (country) das proxys.[/]"
             )
 
-        entries: List[Dict[str, Any]] = []
-        for raw, ob in outbounds:
-            entry = {
-                "tag": ob.tag,
-                "host": "-",
-                "port": None,
-                "ip": "-",
-                "country": "-",
-                "ping": None,
-                "status": "AGUARDANDO",
-                "error": None,
-                "uri": raw,
-            }
-            try:
-                preview_host, preview_port = outbound_host_port(ob)
-            except Exception:
-                pass
-            else:
-                entry["host"] = preview_host
-                entry["port"] = preview_port
-            entries.append(entry)
+        entries = perform_health_checks(outbounds, console=console)
 
-        with Live(render_test_table(entries), console=console, refresh_per_second=8) as live:
-            for idx, (raw, ob) in enumerate(outbounds):
-                entry = entries[idx]
-                entry["status"] = "TESTANDO"
-                live.update(render_test_table(entries))
-
-                res = test_outbound(raw, ob)
-                entry["host"] = res.get("host") or entry.get("host") or "-"
-                entry["port"] = res.get("port") if res.get("port") is not None else entry.get("port")
-                entry["ip"] = res.get("ip") or "-"
-                entry["country"] = res.get("country") or "-"
-                entry["ping"] = res.get("ping_ms")
-
-                if "ping_ms" in res:
-                    entry["status"] = "OK"
-                    entry["error"] = None
-                else:
-                    entry["status"] = "ERRO"
-                    entry["error"] = res.get("error")
-
-                live.update(render_test_table(entries))
+        console.print()
+        console.rule("Tabela final")
+        console.print(render_test_table(entries))
 
         success = sum(1 for entry in entries if entry.get("status") == "OK")
         fail = len(entries) - success
@@ -808,6 +887,110 @@ def main():
                 console.print(f" - [bold]{entry.get('tag') or '-'}[/]: {entry['error']}")
 
         sys.exit(0 if success else 1)
+
+    if args.country and not args.verify:
+        print("A opção --country só pode ser usada junto com --verify.", file=sys.stderr)
+        sys.exit(2)
+
+    approved_outbounds = outbounds
+    verify_console = None
+    if args.verify:
+        if not rich_available:
+            print(
+                "A opção --verify requer a biblioteca 'rich'. Instale-a com `pip install rich`.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        verify_console = Console()
+
+        if requests is None:
+            verify_console.print(
+                "[yellow]Aviso: instale 'requests' para obter a localização (country) das proxys.[/]"
+            )
+            if args.country:
+                verify_console.print(
+                    "[red]Não será possível filtrar por país sem 'requests'.[/]",
+                    highlight=False,
+                )
+
+        entries = perform_health_checks(outbounds, console=verify_console)
+
+        verify_console.print()
+        verify_console.rule("Tabela final")
+        verify_console.print(render_test_table(entries))
+
+        success = sum(1 for entry in entries if entry.get("status") == "OK")
+        fail = len(entries) - success
+
+        verify_console.print()
+        verify_console.rule("Resumo do Teste")
+        verify_console.print(
+            f"[bold cyan]Total:[/] {len(entries)}    "
+            f"[bold green]Sucesso:[/] {success}    "
+            f"[bold red]Falhas:[/] {fail}"
+        )
+
+        failed_entries = [entry for entry in entries if entry.get("error")]
+        if failed_entries:
+            verify_console.print()
+            verify_console.print("[bold red]Detalhes das falhas:[/]")
+            for entry in failed_entries:
+                verify_console.print(f" - [bold]{entry.get('tag') or '-'}[/]: {entry['error']}")
+
+        selected_entries = [entry for entry in entries if entry.get("status") == "OK"]
+
+        def matches_country(entry: Dict[str, Any], desired: str) -> bool:
+            if not desired:
+                return True
+            desired_norm = desired.strip().casefold()
+            if not desired_norm:
+                return True
+            candidates = []
+            for key in ("country", "country_code", "country_name"):
+                value = entry.get(key)
+                if not value:
+                    continue
+                candidates.append(str(value).strip())
+            for value in candidates:
+                norm = value.casefold()
+                if norm == desired_norm:
+                    return True
+            for value in candidates:
+                norm = value.casefold()
+                if norm and (desired_norm in norm or norm in desired_norm):
+                    return True
+            return False
+
+        if args.country:
+            selected_entries = [entry for entry in selected_entries if matches_country(entry, args.country)]
+
+        if not selected_entries:
+            verify_console.print()
+            if args.country:
+                verify_console.print(
+                    f"[red]Nenhuma proxy aprovada corresponde ao país '{args.country}'.[/]",
+                    highlight=False,
+                )
+            else:
+                verify_console.print("[red]Nenhuma proxy foi aprovada no teste.[/]")
+            sys.exit(1)
+
+        selected_indices = [entry["index"] for entry in selected_entries]
+        approved_outbounds = [outbounds[idx] for idx in selected_indices]
+
+        verify_console.print()
+        verify_console.rule("Pontes aprovadas")
+        for entry in selected_entries:
+            destino_preview = format_destination(entry.get("host"), entry.get("port"))
+            ping_preview = entry.get("ping")
+            ping_fmt = f"{ping_preview:.1f} ms" if isinstance(ping_preview, (int, float)) else "-"
+            verify_console.print(
+                f"[bold]{entry['tag']}[/] -> {destino_preview} | IP: {entry.get('ip') or '-'} | "
+                f"País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
+            )
+
+        outbounds = approved_outbounds
 
     xray_bin = which_xray()
 
