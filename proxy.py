@@ -37,6 +37,17 @@ try:
 except Exception:
     requests = None
 
+try:
+    from rich.console import Console
+    from rich.live import Live
+    from rich.table import Table
+    from rich.text import Text
+except Exception:
+    Console = None
+    Live = None
+    Table = None
+    Text = None
+
 # ---------- Utilidades ----------
 
 def b64decode_padded(s: str) -> bytes:
@@ -120,6 +131,14 @@ def sanitize_tag(tag: Optional[str], fallback: str) -> str:
     # remove caracteres problemáticos do nome
     tag = re.sub(r"[^\w\-\.]+", "_", tag)
     return tag[:48] or fallback
+
+
+STATUS_STYLES = {
+    "AGUARDANDO": "dim",
+    "TESTANDO": "yellow",
+    "OK": "bold green",
+    "ERRO": "bold red",
+}
 
 
 def outbound_host_port(outbound: 'Outbound') -> Tuple[str, int]:
@@ -226,6 +245,49 @@ def test_outbound(raw_uri: str, outbound: 'Outbound') -> Dict[str, Any]:
         result["country"] = country
 
     return result
+
+
+def format_destination(host: Optional[str], port: Optional[int]) -> str:
+    if not host or host == "-":
+        return "-"
+    if port is None:
+        return host
+    return f"{host}:{port}"
+
+
+def render_test_table(entries: List[Dict[str, Any]]):
+    if Table is None:
+        raise RuntimeError("render_test_table requer a biblioteca 'rich'.")
+    table = Table(
+        show_header=True,
+        header_style="bold cyan",
+        expand=True
+    )
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Tag", no_wrap=True)
+    table.add_column("Destino", overflow="fold")
+    table.add_column("IP", no_wrap=True)
+    table.add_column("País", no_wrap=True)
+    table.add_column("Ping", justify="right", no_wrap=True)
+
+    for entry in entries:
+        status = entry.get("status", "-")
+        style = STATUS_STYLES.get(status, "white")
+        status_cell = Text(status, style=style) if Text else status
+        host = entry.get("host")
+        port = entry.get("port")
+        destino = format_destination(host, port)
+        ping = entry.get("ping")
+        ping_str = f"{ping:.1f} ms" if isinstance(ping, (int, float)) else "-"
+        table.add_row(
+            status_cell,
+            (entry.get("tag") or "-")[:40],
+            destino,
+            entry.get("ip") or "-",
+            entry.get("country") or "-",
+            ping_str,
+        )
+    return table
 
 
 def vmess_outbound_from_dict(data: Dict, *, tag_fallback: str = "vmess") -> Outbound:
@@ -666,31 +728,85 @@ def main():
         print("Nenhum link válido encontrado.", file=sys.stderr)
         sys.exit(2)
 
+    rich_available = all(obj is not None for obj in (Console, Live, Table, Text))
+    console = None
+
     if args.test:
-        print("=== Teste de proxys ===")
-        header = f"{'STATUS':<8}{'TAG':<24}{'DESTINO':<32}{'IP':<18}{'PAIS':<18}{'PING'}"
-        print(header)
-        print('-' * len(header))
+        if not rich_available:
+            print(
+                "A opção --test requer a biblioteca 'rich'. Instale-a com `pip install rich`.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        console = Console()
 
-        results = [test_outbound(raw, ob) for raw, ob in outbounds]
-        success = 0
-        for res in results:
-            status = "OK" if "ping_ms" in res else "FAIL"
-            host = res.get("host") or "-"
-            port = res.get("port")
-            destino = host if port is None else f"{host}:{port}"
-            ip = res.get("ip") or "-"
-            country = res.get("country") or "-"
-            ping = res.get("ping_ms")
-            ping_str = f"{ping:.1f} ms" if ping is not None else "-"
-            print(f"{status:<8}{res.get('tag', '-')[:23]:<24}{destino:<32}{ip:<18}{country:<18}{ping_str}")
-            if "ping_ms" in res:
-                success += 1
-            if res.get("error") and "ping_ms" not in res:
-                print(f"{'':<8}{'':<24}motivo: {res['error']}")
+        if requests is None:
+            console.print(
+                "[yellow]Aviso: instale 'requests' para obter a localização (country) das proxys.[/]"
+            )
 
-        fail = len(results) - success
-        print(f"\nTotal: {len(results)} | Sucesso: {success} | Falhas: {fail}")
+        entries: List[Dict[str, Any]] = []
+        for raw, ob in outbounds:
+            entry = {
+                "tag": ob.tag,
+                "host": "-",
+                "port": None,
+                "ip": "-",
+                "country": "-",
+                "ping": None,
+                "status": "AGUARDANDO",
+                "error": None,
+                "uri": raw,
+            }
+            try:
+                preview_host, preview_port = outbound_host_port(ob)
+            except Exception:
+                pass
+            else:
+                entry["host"] = preview_host
+                entry["port"] = preview_port
+            entries.append(entry)
+
+        with Live(render_test_table(entries), console=console, refresh_per_second=8) as live:
+            for idx, (raw, ob) in enumerate(outbounds):
+                entry = entries[idx]
+                entry["status"] = "TESTANDO"
+                live.update(render_test_table(entries))
+
+                res = test_outbound(raw, ob)
+                entry["host"] = res.get("host") or entry.get("host") or "-"
+                entry["port"] = res.get("port") if res.get("port") is not None else entry.get("port")
+                entry["ip"] = res.get("ip") or "-"
+                entry["country"] = res.get("country") or "-"
+                entry["ping"] = res.get("ping_ms")
+
+                if "ping_ms" in res:
+                    entry["status"] = "OK"
+                    entry["error"] = None
+                else:
+                    entry["status"] = "ERRO"
+                    entry["error"] = res.get("error")
+
+                live.update(render_test_table(entries))
+
+        success = sum(1 for entry in entries if entry.get("status") == "OK")
+        fail = len(entries) - success
+
+        console.print()
+        console.rule("Resumo do Teste")
+        console.print(
+            f"[bold cyan]Total:[/] {len(entries)}    "
+            f"[bold green]Sucesso:[/] {success}    "
+            f"[bold red]Falhas:[/] {fail}"
+        )
+
+        failed_entries = [entry for entry in entries if entry.get("error")]
+        if failed_entries:
+            console.print()
+            console.print("[bold red]Detalhes das falhas:[/]")
+            for entry in failed_entries:
+                console.print(f" - [bold]{entry.get('tag') or '-'}[/]: {entry['error']}")
+
         sys.exit(0 if success else 1)
 
     xray_bin = which_xray()
