@@ -66,6 +66,8 @@ pkgs.mkShell {
 
     jdk
 
+    xray
+
   ]) ++ [
     burpsuite
   ];
