@@ -14,16 +14,20 @@ Cada linha do texto deve conter um link de proxy (ex: ss://..., vmess://..., vle
 Linhas vazias ou começando com // ou # são ignoradas.
 """
 
+from __future__ import annotations
+
 import argparse
 import base64
 import json
 import os
 import re
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
 import time
+import ipaddress
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse, parse_qs, unquote, quote, urlsplit
@@ -74,19 +78,41 @@ def shutil_which(cmd: str) -> Optional[str]:
                     return str(pe)
     return None
 
+def decode_bytes(data: bytes, *, encoding_hint: Optional[str] = None) -> str:
+    if not isinstance(data, (bytes, bytearray)):
+        return str(data)
+
+    encodings = []
+    if encoding_hint:
+        encodings.append(encoding_hint)
+    encodings.extend(["utf-8", "utf-8-sig", "latin-1"])
+
+    tried = set()
+    for encoding in encodings:
+        if not encoding or encoding in tried:
+            continue
+        tried.add(encoding)
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8", errors="replace")
+
+
 def read_source_text(source: Optional[str]) -> str:
     if source is None:
         # lê da stdin
-        return sys.stdin.read()
+        stdin_buffer = getattr(sys.stdin, "buffer", sys.stdin)
+        return decode_bytes(stdin_buffer.read())
     if re.match(r"^https?://", source, re.I):
         if requests is None:
             raise RuntimeError("O pacote requests não está instalado. `pip install requests`")
         r = requests.get(source, timeout=30)
         r.raise_for_status()
-        return r.text
+        return decode_bytes(r.content, encoding_hint=r.encoding or None)
     # arquivo local
     p = Path(source)
-    return p.read_text(encoding="utf-8")
+    return decode_bytes(p.read_bytes())
 
 def sanitize_tag(tag: Optional[str], fallback: str) -> str:
     if not tag:
@@ -94,6 +120,80 @@ def sanitize_tag(tag: Optional[str], fallback: str) -> str:
     # remove caracteres problemáticos do nome
     tag = re.sub(r"[^\w\-\.]+", "_", tag)
     return tag[:48] or fallback
+
+
+def vmess_outbound_from_dict(data: Dict, *, tag_fallback: str = "vmess") -> Outbound:
+    tag = sanitize_tag(data.get("ps"), tag_fallback)
+
+    host = data.get("add") or data.get("address")
+    port_raw = data.get("port", 0)
+    try:
+        port = int(str(port_raw).strip())
+    except (TypeError, ValueError):
+        raise ValueError(f"Porta vmess inválida: {port_raw!r}")
+
+    uuid = data.get("id")
+    if not host or not port or not uuid:
+        raise ValueError("vmess:// incompleto (host/port/id).")
+
+    alter_id = data.get("aid", 0)
+    try:
+        alter_id = int(str(alter_id).strip() or "0")
+    except (TypeError, ValueError):
+        alter_id = 0
+
+    net = str(data.get("net") or data.get("network") or "tcp").lower()
+    tls_flag = str(data.get("tls") or data.get("security") or "").lower()
+    tls = tls_flag == "tls"
+    security = "tls" if tls else "none"
+
+    sni = data.get("sni") or data.get("host")
+    path = data.get("path") or "/"
+    host_header = data.get("host")
+
+    if net == "ws":
+        transport = {
+            "network": "ws",
+            "wsSettings": {
+                "path": path or "/",
+                "headers": {"Host": host_header} if host_header else {}
+            }
+        }
+    elif net == "grpc":
+        service_name = data.get("serviceName") or (path or "/").lstrip("/")
+        transport = {
+            "network": "grpc",
+            "grpcSettings": {"serviceName": service_name}
+        }
+    else:
+        transport = {"network": "tcp"}
+
+    scy = data.get("scy") or "auto"
+
+    outbound = {
+        "tag": tag,
+        "protocol": "vmess",
+        "settings": {
+            "vnext": [{
+                "address": host,
+                "port": port,
+                "users": [{
+                    "id": uuid,
+                    "alterId": alter_id,
+                    "security": scy
+                }]
+            }]
+        },
+        "streamSettings": {
+            "security": security,
+            **transport
+        }
+    }
+
+    if tls and sni:
+        outbound["streamSettings"]["tlsSettings"] = {"serverName": sni}
+
+    return Outbound(tag, outbound)
 
 # ---------- Parsing de cada esquema ----------
 
@@ -117,10 +217,71 @@ def parse_ss(uri: str) -> Outbound:
     assert u.lower().startswith("ss://")
     payload = u[5:]  # depois de ss://
 
+    stripped_payload = payload.split('#')[0]
+
+    # alguns provedores compartilham JSON dentro do base64
+    try:
+        decoded_preview = decode_bytes(b64decode_padded(stripped_payload))
+    except Exception:
+        decoded_preview = None
+
+    if decoded_preview:
+        text_preview = decoded_preview.strip()
+        if text_preview.startswith('{') and text_preview.endswith('}'):
+            try:
+                data_json = json.loads(text_preview)
+            except json.JSONDecodeError:
+                pass
+            else:
+                if {
+                    "server", "method"
+                }.issubset(data_json.keys()) or {
+                    "address", "method"
+                }.issubset(data_json.keys()) or {
+                    "server", "password"
+                }.issubset(data_json.keys()):
+                    ss_host = data_json.get("server") or data_json.get("address")
+                    ss_port_raw = data_json.get("server_port") or data_json.get("port")
+                    ss_method = data_json.get("method") or data_json.get("cipher")
+                    ss_password = data_json.get("password") or data_json.get("passwd") or ""
+                    if not ss_host or not ss_port_raw or not ss_method:
+                        raise ValueError("Link ss:// incompleto (server/port/method ausentes no JSON).")
+                    try:
+                        ss_port = int(str(ss_port_raw).strip())
+                    except (TypeError, ValueError):
+                        raise ValueError(f"Porta inválida no JSON ss://: {ss_port_raw!r}")
+
+                    json_tag = sanitize_tag(
+                        data_json.get("ps") or data_json.get("tag") or data_json.get("remarks"), tag
+                    )
+                    server_cfg = {
+                        "address": ss_host,
+                        "port": ss_port,
+                        "method": ss_method,
+                        "password": ss_password,
+                        "uot": False
+                    }
+                    plugin = data_json.get("plugin")
+                    plugin_opts = data_json.get("plugin_opts") or data_json.get("plugin-opts")
+                    if plugin:
+                        server_cfg["plugin"] = plugin
+                        if plugin_opts:
+                            server_cfg["pluginOpts"] = plugin_opts
+
+                    outbound = {
+                        "tag": json_tag,
+                        "protocol": "shadowsocks",
+                        "settings": {"servers": [server_cfg]}
+                    }
+                    return Outbound(json_tag, outbound)
+
+                if (data_json.get("id") and (data_json.get("add") or data_json.get("address"))):
+                    return vmess_outbound_from_dict(data_json, tag_fallback=tag)
+
     # Se contém '@', normalmente é formato (a)
     if '@' in payload:
         creds_b64, rest = payload.split('@', 1)
-        creds = b64decode_padded(creds_b64.split('#')[0]).decode('utf-8')
+        creds = decode_bytes(b64decode_padded(creds_b64.split('#')[0]))
         if ':' not in creds:
             # alguns provedores mandam "method:password" já em texto
             method = creds
@@ -138,7 +299,7 @@ def parse_ss(uri: str) -> Outbound:
         # plugin (opcional) – ignorado aqui
     else:
         # formato (b): tudo no base64
-        b = b64decode_padded(payload.split('#')[0]).decode('utf-8')
+        b = decoded_preview if decoded_preview is not None else decode_bytes(b64decode_padded(stripped_payload))
         # esperado "method:password@host:port"
         # às vezes tem query no final, então separe usando urlparse após recompor
         if "@" not in b:
@@ -177,62 +338,8 @@ def parse_vmess(uri: str) -> Outbound:
     Campos comuns: add, port, id, aid, net(ws/grpc/tcp), path, host, tls, sni, alpn
     """
     b64 = uri[8:]
-    data = json.loads(b64decode_padded(b64).decode("utf-8"))
-    tag = sanitize_tag(data.get("ps"), "vmess")
-    host = data.get("add")
-    port = int(data.get("port", 0))
-    uuid = data.get("id")
-    alter_id = int(data.get("aid", 0))
-    net = (data.get("net") or "tcp").lower()
-    tls = (data.get("tls") or "").lower() == "tls"
-    sni = data.get("sni") or data.get("host")  # alguns encodem sni em host
-    path = data.get("path") or "/"
-    host_header = data.get("host")
-
-    if not host or not port or not uuid:
-        raise ValueError("vmess:// incompleto (host/port/id).")
-
-    ws_settings = None
-    grpc_settings = None
-    transport = {}
-
-    if net == "ws":
-        ws_settings = {
-            "path": path or "/",
-            "headers": {"Host": host_header} if host_header else {}
-        }
-        transport = {"network": "ws", "wsSettings": ws_settings}
-    elif net == "grpc":
-        service_name = (path or "/").lstrip("/")
-        grpc_settings = {"serviceName": service_name}
-        transport = {"network": "grpc", "grpcSettings": grpc_settings}
-    else:
-        transport = {"network": "tcp"}
-
-    security = "tls" if tls else "none"
-
-    outbound = {
-        "tag": tag,
-        "protocol": "vmess",
-        "settings": {
-            "vnext": [{
-                "address": host,
-                "port": port,
-                "users": [{
-                    "id": uuid,
-                    "alterId": alter_id,
-                    "security": "auto"
-                }]
-            }]
-        },
-        "streamSettings": {
-            "security": security,
-            **transport
-        }
-    }
-    if tls and sni:
-        outbound["streamSettings"]["tlsSettings"] = {"serverName": sni}
-    return Outbound(tag, outbound)
+    data = json.loads(decode_bytes(b64decode_padded(b64)))
+    return vmess_outbound_from_dict(data)
 
 def parse_vless(uri: str) -> Outbound:
     """
