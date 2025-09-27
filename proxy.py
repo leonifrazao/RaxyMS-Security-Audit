@@ -138,7 +138,38 @@ STATUS_STYLES = {
     "TESTANDO": "yellow",
     "OK": "bold green",
     "ERRO": "bold red",
+    "FILTRADO": "cyan",
 }
+
+
+def matches_country(entry: Dict[str, Any], desired: Optional[str]) -> bool:
+    """Retorna True se a entrada corresponder ao filtro de país informado."""
+
+    if not desired:
+        return True
+
+    desired_norm = desired.strip().casefold()
+    if not desired_norm:
+        return True
+
+    candidates: List[str] = []
+    for key in ("country", "country_code", "country_name"):
+        value = entry.get(key)
+        if not value:
+            continue
+        candidates.append(str(value).strip())
+
+    for value in candidates:
+        norm = value.casefold()
+        if norm == desired_norm:
+            return True
+
+    for value in candidates:
+        norm = value.casefold()
+        if norm and (desired_norm in norm or norm in desired_norm):
+            return True
+
+    return False
 
 
 def outbound_host_port(outbound: 'Outbound') -> Tuple[str, int]:
@@ -317,6 +348,7 @@ def perform_health_checks(
     outbounds: List[Tuple[str, 'Outbound']],
     *,
     console: Optional[Any] = None,
+    country_filter: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Testa cada outbound, registrando metadados para exibição posterior."""
 
@@ -337,6 +369,7 @@ def perform_health_checks(
             "status": "AGUARDANDO",
             "error": None,
             "uri": raw,
+            "country_match": None,
         }
 
         try:
@@ -359,6 +392,8 @@ def perform_health_checks(
         entry["country_name"] = res.get("country_name") or entry.get("country_name")
         entry["ping"] = res.get("ping_ms")
 
+        entry["country_match"] = matches_country(entry, country_filter)
+
         if "ping_ms" in res:
             entry["status"] = "OK"
             entry["error"] = None
@@ -366,34 +401,51 @@ def perform_health_checks(
             entry["status"] = "ERRO"
             entry["error"] = res.get("error")
 
+        if country_filter and entry["status"] == "OK" and not entry["country_match"]:
+            entry["status"] = "FILTRADO"
+            detected_country = (
+                entry.get("country")
+                or entry.get("country_code")
+                or entry.get("country_name")
+                or "-"
+            )
+            entry["error"] = (
+                f"Filtro de país '{country_filter}': detectado {detected_country}"
+            )
+
         entries.append(entry)
 
         destino_preview = format_destination(entry.get("host"), entry.get("port"))
         ping_preview = entry.get("ping")
         ping_fmt = f"{ping_preview:.1f} ms" if isinstance(ping_preview, (int, float)) else "-"
 
-        if console is not None:
-            status_fmt = {
-                "OK": "[bold green]OK[/]",
-                "ERRO": "[bold red]ERRO[/]",
-                "TESTANDO": "[yellow]TESTANDO[/]",
-                "AGUARDANDO": "[dim]AGUARDANDO[/]",
-            }.get(entry["status"], entry["status"])
+        should_display = not (country_filter and entry.get("status") == "FILTRADO")
 
-            console.print(
-                f"[{idx}/{total}] {status_fmt} [bold]{entry['tag']}[/] -> "
-                f"{destino_preview} | IP: {entry.get('ip') or '-'} | País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
-            )
-            if entry["error"]:
-                console.print(f"    [dim]Motivo: {entry['error']}[/]")
+        if console is not None:
+            if should_display:
+                status_fmt = {
+                    "OK": "[bold green]OK[/]",
+                    "ERRO": "[bold red]ERRO[/]",
+                    "TESTANDO": "[yellow]TESTANDO[/]",
+                    "AGUARDANDO": "[dim]AGUARDANDO[/]",
+                    "FILTRADO": "[cyan]FILTRADO[/]",
+                }.get(entry["status"], entry["status"])
+
+                console.print(
+                    f"[{idx}/{total}] {status_fmt} [bold]{entry['tag']}[/] -> "
+                    f"{destino_preview} | IP: {entry.get('ip') or '-'} | País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
+                )
+                if entry["error"]:
+                    console.print(f"    [dim]Motivo: {entry['error']}[/]")
         else:
-            status_plain = entry["status"]
-            print(
-                f"[{idx}/{total}] {status_plain} {entry['tag']} -> {destino_preview} | "
-                f"IP: {entry.get('ip') or '-'} | País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
-            )
-            if entry["error"]:
-                print(f"    Motivo: {entry['error']}")
+            if should_display:
+                status_plain = entry["status"]
+                print(
+                    f"[{idx}/{total}] {status_plain} {entry['tag']} -> {destino_preview} | "
+                    f"IP: {entry.get('ip') or '-'} | País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
+                )
+                if entry["error"]:
+                    print(f"    Motivo: {entry['error']}")
 
     return entries
 
@@ -862,24 +914,40 @@ def main():
                 "[yellow]Aviso: instale 'requests' para obter a localização (country) das proxys.[/]"
             )
 
-        entries = perform_health_checks(outbounds, console=console)
+        entries = perform_health_checks(outbounds, console=console, country_filter=args.country)
+
+        table_entries = entries
+        if args.country:
+            table_entries = [entry for entry in entries if entry.get("country_match")]
 
         console.print()
         console.rule("Tabela final")
-        console.print(render_test_table(entries))
+        if table_entries:
+            console.print(render_test_table(table_entries))
+        else:
+            console.print(
+                f"[yellow]Nenhuma proxy corresponde ao filtro de país '{args.country}'.[/]"
+            )
 
         success = sum(1 for entry in entries if entry.get("status") == "OK")
-        fail = len(entries) - success
+        fail = sum(1 for entry in entries if entry.get("status") == "ERRO")
+        filtered = sum(1 for entry in entries if entry.get("status") == "FILTRADO")
 
         console.print()
         console.rule("Resumo do Teste")
-        console.print(
-            f"[bold cyan]Total:[/] {len(entries)}    "
-            f"[bold green]Sucesso:[/] {success}    "
-            f"[bold red]Falhas:[/] {fail}"
-        )
+        summary_parts = [
+            f"[bold cyan]Total:[/] {len(entries)}",
+            f"[bold green]Sucesso:[/] {success}",
+            f"[bold red]Falhas:[/] {fail}",
+        ]
+        if filtered:
+            summary_parts.append(f"[cyan]Filtradas:[/] {filtered}")
+        console.print("    ".join(summary_parts))
 
-        failed_entries = [entry for entry in entries if entry.get("error")]
+        failed_entries = [
+            entry for entry in entries
+            if entry.get("status") == "ERRO" and entry.get("error")
+        ]
         if failed_entries:
             console.print()
             console.print("[bold red]Detalhes das falhas:[/]")
@@ -914,24 +982,41 @@ def main():
                     highlight=False,
                 )
 
-        entries = perform_health_checks(outbounds, console=verify_console)
+        entries = perform_health_checks(outbounds, console=verify_console, country_filter=args.country)
+
+        table_entries = entries
+        if args.country:
+            table_entries = [entry for entry in entries if entry.get("country_match")]
 
         verify_console.print()
         verify_console.rule("Tabela final")
-        verify_console.print(render_test_table(entries))
+        if table_entries:
+            verify_console.print(render_test_table(table_entries))
+        else:
+            verify_console.print(
+                f"[yellow]Nenhuma proxy corresponde ao filtro de país '{args.country}'.[/]",
+                highlight=False,
+            )
 
         success = sum(1 for entry in entries if entry.get("status") == "OK")
-        fail = len(entries) - success
+        fail = sum(1 for entry in entries if entry.get("status") == "ERRO")
+        filtered = sum(1 for entry in entries if entry.get("status") == "FILTRADO")
 
         verify_console.print()
         verify_console.rule("Resumo do Teste")
-        verify_console.print(
-            f"[bold cyan]Total:[/] {len(entries)}    "
-            f"[bold green]Sucesso:[/] {success}    "
-            f"[bold red]Falhas:[/] {fail}"
-        )
+        summary_parts = [
+            f"[bold cyan]Total:[/] {len(entries)}",
+            f"[bold green]Sucesso:[/] {success}",
+            f"[bold red]Falhas:[/] {fail}",
+        ]
+        if filtered:
+            summary_parts.append(f"[cyan]Filtradas:[/] {filtered}")
+        verify_console.print("    ".join(summary_parts))
 
-        failed_entries = [entry for entry in entries if entry.get("error")]
+        failed_entries = [
+            entry for entry in entries
+            if entry.get("status") == "ERRO" and entry.get("error")
+        ]
         if failed_entries:
             verify_console.print()
             verify_console.print("[bold red]Detalhes das falhas:[/]")
@@ -939,28 +1024,6 @@ def main():
                 verify_console.print(f" - [bold]{entry.get('tag') or '-'}[/]: {entry['error']}")
 
         selected_entries = [entry for entry in entries if entry.get("status") == "OK"]
-
-        def matches_country(entry: Dict[str, Any], desired: str) -> bool:
-            if not desired:
-                return True
-            desired_norm = desired.strip().casefold()
-            if not desired_norm:
-                return True
-            candidates = []
-            for key in ("country", "country_code", "country_name"):
-                value = entry.get(key)
-                if not value:
-                    continue
-                candidates.append(str(value).strip())
-            for value in candidates:
-                norm = value.casefold()
-                if norm == desired_norm:
-                    return True
-            for value in candidates:
-                norm = value.casefold()
-                if norm and (desired_norm in norm or norm in desired_norm):
-                    return True
-            return False
 
         if args.country:
             selected_entries = [entry for entry in selected_entries if matches_country(entry, args.country)]
