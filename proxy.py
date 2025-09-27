@@ -23,8 +23,9 @@ import tempfile
 import time
 import ipaddress
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse, parse_qs, unquote, quote, urlsplit
 
 try:
@@ -44,6 +45,9 @@ except Exception:  # pragma: no cover - uso opcional de rich
 
 class Proxy:
     """Gerencia uma coleção de proxys, com suporte a testes e criação de pontes HTTP."""
+
+    DEFAULT_CACHE_FILENAME: str = "proxy_cache.json"
+    CACHE_VERSION: int = 1
 
     STATUS_STYLES: Dict[str, str] = {
         "AGUARDANDO": "dim",
@@ -67,6 +71,8 @@ class Proxy:
         base_port: int = 54000,
         max_count: int = 0,
         use_console: bool = False,
+        use_cache: bool = True,
+        cache_path: Optional[Union[str, os.PathLike]] = None,
         requests_session: Optional[Any] = None,
     ) -> None:
         self.country_filter = country
@@ -85,12 +91,213 @@ class Proxy:
         self._atexit_registered = False
         self._parse_errors: List[str] = []
 
+        self.use_cache = use_cache
+        default_cache_path = Path(__file__).with_name(self.DEFAULT_CACHE_FILENAME)
+        self.cache_path = Path(cache_path) if cache_path is not None else default_cache_path
+        self._cache_entries: Dict[str, Dict[str, Any]] = {}
+
+        if self.use_cache:
+            self._load_cache()
+
         if proxies:
             self.add_proxies(proxies)
         if sources:
             self.add_sources(sources)
 
+        if self.use_cache and not self._entries and self._outbounds:
+            self._prime_entries_from_cache()
+
     # ----------- utilidades básicas -----------
+
+    def _make_base_entry(self, index: int, raw_uri: str, outbound: Proxy.Outbound) -> Dict[str, Any]:
+        return {
+            "index": index,
+            "tag": outbound.tag,
+            "uri": raw_uri,
+            "status": "AGUARDANDO",
+            "host": "-",
+            "port": None,
+            "ip": "-",
+            "country": "-",
+            "country_code": None,
+            "country_name": None,
+            "ping": None,
+            "error": None,
+            "country_match": None,
+            "tested_at": None,
+            "tested_at_ts": None,
+            "cached": False,
+        }
+
+    def _apply_cached_entry(self, entry: Dict[str, Any], cached: Dict[str, Any]) -> Dict[str, Any]:
+        if not cached:
+            return entry
+        entry = dict(entry)
+
+        status = cached.get("status")
+        if isinstance(status, str):
+            entry["status"] = status
+
+        if "host" in cached:
+            entry["host"] = cached.get("host") or entry.get("host")
+        if "port" in cached:
+            port_value = cached.get("port")
+            try:
+                entry["port"] = int(port_value) if port_value is not None else entry.get("port")
+            except (TypeError, ValueError):
+                entry["port"] = entry.get("port")
+        if "ip" in cached:
+            entry["ip"] = cached.get("ip") or entry.get("ip")
+
+        if "country" in cached:
+            entry["country"] = cached.get("country") or entry.get("country")
+        if "country_code" in cached:
+            entry["country_code"] = cached.get("country_code") or entry.get("country_code")
+        if "country_name" in cached:
+            entry["country_name"] = cached.get("country_name") or entry.get("country_name")
+
+        ping_value = cached.get("ping") if "ping" in cached else cached.get("ping_ms")
+        if ping_value is not None:
+            try:
+                entry["ping"] = float(ping_value)
+            except (TypeError, ValueError):
+                entry["ping"] = entry.get("ping")
+
+        if "error" in cached:
+            entry["error"] = cached.get("error")
+
+        tested_at_ts = cached.get("tested_at_ts")
+        if tested_at_ts is not None:
+            try:
+                entry["tested_at_ts"] = float(tested_at_ts)
+            except (TypeError, ValueError):
+                entry["tested_at_ts"] = entry.get("tested_at_ts")
+        if "tested_at" in cached:
+            entry["tested_at"] = cached.get("tested_at") or entry.get("tested_at")
+
+        entry["cached"] = True
+        return entry
+
+    def _register_new_outbound(self, raw_uri: str, outbound: Proxy.Outbound) -> None:
+        index = len(self._outbounds) - 1
+        entry = self._make_base_entry(index, raw_uri, outbound)
+        if self.use_cache and self._cache_entries:
+            cached = self._cache_entries.get(raw_uri)
+            if cached:
+                entry = self._apply_cached_entry(entry, cached)
+                entry["country_match"] = self.matches_country(entry, self.country_filter)
+        if index >= len(self._entries):
+            self._entries.append(entry)
+        else:
+            self._entries[index] = entry
+
+    def _prime_entries_from_cache(self) -> None:
+        if not self.use_cache or not self._cache_entries:
+            return
+        rebuilt: List[Dict[str, Any]] = []
+        for idx, (raw_uri, outbound) in enumerate(self._outbounds):
+            entry = self._make_base_entry(idx, raw_uri, outbound)
+            cached = self._cache_entries.get(raw_uri)
+            if cached:
+                entry = self._apply_cached_entry(entry, cached)
+                entry["country_match"] = self.matches_country(entry, self.country_filter)
+            rebuilt.append(entry)
+        self._entries = rebuilt
+
+    def _format_timestamp(self, ts: float) -> str:
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+        iso = dt.replace(microsecond=0).isoformat()
+        return iso.replace("+00:00", "Z")
+
+    def _load_cache(self) -> None:
+        if not self.use_cache:
+            return
+        try:
+            raw_cache = self.cache_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return
+        except OSError:
+            return
+
+        try:
+            data = json.loads(raw_cache)
+        except json.JSONDecodeError:
+            return
+
+        if not isinstance(data, dict):
+            return
+        entries = data.get("entries")
+        if not isinstance(entries, list):
+            return
+
+        cache_map: Dict[str, Dict[str, Any]] = {}
+        for item in entries:
+            if not isinstance(item, dict):
+                continue
+            uri = item.get("uri")
+            if not isinstance(uri, str) or not uri.strip():
+                continue
+            cache_map[uri] = item
+
+        self._cache_entries = cache_map
+
+    def _save_cache(self, entries: List[Dict[str, Any]]) -> None:
+        if not self.use_cache:
+            return
+        cache_dir = self.cache_path.parent
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+
+        payload_entries: List[Dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            uri = entry.get("uri")
+            if not isinstance(uri, str) or not uri.strip():
+                continue
+            tested_ts = entry.get("tested_at_ts")
+            if isinstance(tested_ts, (int, float)):
+                tested_at_iso = self._format_timestamp(float(tested_ts))
+            else:
+                tested_ts = time.time()
+                entry["tested_at_ts"] = tested_ts
+                tested_at_iso = self._format_timestamp(tested_ts)
+                if not entry.get("tested_at"):
+                    entry["tested_at"] = tested_at_iso
+
+            payload_entries.append({
+                "uri": uri,
+                "tag": entry.get("tag"),
+                "status": entry.get("status"),
+                "host": entry.get("host"),
+                "port": entry.get("port"),
+                "ip": entry.get("ip"),
+                "country": entry.get("country"),
+                "country_code": entry.get("country_code"),
+                "country_name": entry.get("country_name"),
+                "ping": entry.get("ping"),
+                "error": entry.get("error"),
+                "tested_at": entry.get("tested_at") or tested_at_iso,
+                "tested_at_ts": tested_ts,
+            })
+
+        payload = {
+            "version": self.CACHE_VERSION,
+            "generated_at": self._format_timestamp(time.time()),
+            "entries": payload_entries,
+        }
+
+        try:
+            self.cache_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        else:
+            self._cache_entries = {item["uri"]: item for item in payload_entries}
 
     @staticmethod
     def _b64decode_padded(value: str) -> bytes:
@@ -220,6 +427,7 @@ class Proxy:
                 self._parse_errors.append(f"Linha ignorada: {line[:80]} -> {exc}")
                 continue
             self._outbounds.append((line, outbound))
+            self._register_new_outbound(line, outbound)
             added += 1
             if self.max_count and len(self._outbounds) >= self.max_count:
                 break
@@ -671,26 +879,45 @@ class Proxy:
         *,
         country_filter: Optional[str] = None,
         emit_progress: Optional[Any] = None,
+        force_refresh: bool = False,
     ) -> List[Dict[str, Any]]:
         entries: List[Dict[str, Any]] = []
         total = len(outbounds)
+        reuse_cache = self.use_cache and not force_refresh
 
         for idx, (raw, outbound) in enumerate(outbounds, start=1):
-            entry: Dict[str, Any] = {
-                "index": idx - 1,
-                "tag": outbound.tag,
-                "host": "-",
-                "port": None,
-                "ip": "-",
-                "country": "-",
-                "country_code": None,
-                "country_name": None,
-                "ping": None,
-                "status": "AGUARDANDO",
-                "error": None,
-                "uri": raw,
-                "country_match": None,
-            }
+            zero_index = idx - 1
+            entry = self._make_base_entry(zero_index, raw, outbound)
+            cached_data = self._cache_entries.get(raw) if reuse_cache else None
+
+            if cached_data:
+                entry = self._apply_cached_entry(entry, cached_data)
+                entry["country_match"] = self.matches_country(entry, country_filter)
+                entries.append(entry)
+                if emit_progress is not None:
+                    destino = self._format_destination(entry.get("host"), entry.get("port"))
+                    ping_preview = entry.get("ping")
+                    ping_fmt = f"{ping_preview:.1f} ms" if isinstance(ping_preview, (int, float)) else "-"
+                    should_display = not (country_filter and entry.get("status") == "FILTRADO")
+                    if should_display:
+                        status_fmt = {
+                            "OK": "[bold green]OK[/]",
+                            "ERRO": "[bold red]ERRO[/]",
+                            "TESTANDO": "[yellow]TESTANDO[/]",
+                            "AGUARDANDO": "[dim]AGUARDANDO[/]",
+                            "FILTRADO": "[cyan]FILTRADO[/]",
+                        }.get(entry["status"], entry["status"])
+                        cache_note = ""
+                        if entry.get("cached"):
+                            cache_note = " [dim](cache)[/]" if Console else " (cache)"
+                        emit_progress.print(
+                            f"[{idx}/{total}] {status_fmt}{cache_note} [bold]{entry['tag']}[/] -> "
+                            f"{destino} | IP: {entry.get('ip') or '-'} | "
+                            f"País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
+                        )
+                        if entry.get("error"):
+                            emit_progress.print(f"    [dim]Motivo: {entry['error']}[/]")
+                continue
 
             try:
                 preview_host, preview_port = self._outbound_host_port(outbound)
@@ -705,6 +932,7 @@ class Proxy:
             entry["status"] = "TESTANDO"
 
             result = self._test_outbound(raw, outbound)
+            finished_at = time.time()
             entry["host"] = result.get("host") or entry["host"]
             if result.get("port") is not None:
                 entry["port"] = result.get("port")
@@ -713,6 +941,8 @@ class Proxy:
             entry["country_code"] = result.get("country_code") or entry.get("country_code")
             entry["country_name"] = result.get("country_name") or entry.get("country_name")
             entry["ping"] = result.get("ping_ms")
+            entry["tested_at_ts"] = finished_at
+            entry["tested_at"] = self._format_timestamp(finished_at)
 
             entry["country_match"] = self.matches_country(entry, country_filter)
 
@@ -768,7 +998,13 @@ class Proxy:
     def parse_errors(self) -> List[str]:
         return list(self._parse_errors)
 
-    def test(self, *, country: Optional[str] = None, verbose: Optional[bool] = None) -> List[Dict[str, Any]]:
+    def test(
+        self,
+        *,
+        country: Optional[str] = None,
+        verbose: Optional[bool] = None,
+        force_refresh: bool = False,
+    ) -> List[Dict[str, Any]]:
         if not self._outbounds:
             raise RuntimeError("Nenhuma proxy carregada para testar.")
 
@@ -778,9 +1014,12 @@ class Proxy:
             self._outbounds,
             country_filter=country_filter,
             emit_progress=emit,
+            force_refresh=force_refresh,
         )
         self._entries = entries
         self.country_filter = country_filter
+
+        self._save_cache(entries)
 
         if self.console is not None and (verbose is None or verbose):
             self._render_test_summary(entries, country_filter)
@@ -871,9 +1110,9 @@ class Proxy:
             raise RuntimeError("Nenhuma proxy carregada para iniciar.")
 
         country_filter = country if country is not None else self.country_filter
-        if auto_test and (not self._entries or country_filter != self.country_filter):
-            self.test(country=country_filter, verbose=self.use_console)
-        elif country_filter is not None and country_filter != self.country_filter:
+        # if auto_test and (not self._entries or country_filter != self.country_filter):
+        #     self.test(country=country_filter, verbose=self.use_console)
+        if country_filter is not None and country_filter != self.country_filter:
             # reutiliza testes existentes, apenas reforça a filtragem
             self.country_filter = country_filter
 
@@ -1023,6 +1262,11 @@ def main() -> None:
     ap.add_argument("--test", action="store_true", help="Testa as proxys e encerra.")
     ap.add_argument("--verify", action="store_true", help="Testa as proxys, cria pontes e mantém em execução.")
     ap.add_argument("--country", help="Filtra proxys aprovadas pelo país (nome ou código).")
+    ap.add_argument(
+        "--refresh-cache",
+        action="store_true",
+        help="Ignora resultados armazenados e força um novo teste das proxys.",
+    )
     args = ap.parse_args()
 
     if args.test and args.verify:
@@ -1048,7 +1292,7 @@ def main() -> None:
 
     if args.test:
         try:
-            manager.test()
+            manager.test(force_refresh=args.refresh_cache)
         except RuntimeError as exc:
             print(str(exc), file=sys.stderr)
             sys.exit(1)
@@ -1056,7 +1300,7 @@ def main() -> None:
 
     if args.verify:
         try:
-            manager.test()
+            manager.test(force_refresh=args.refresh_cache)
             manager.start(wait=True)
         except Exception as exc:
             print(str(exc), file=sys.stderr)
