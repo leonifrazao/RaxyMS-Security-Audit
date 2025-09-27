@@ -3,3 +3,4 @@ rich
 sqlalchemy
 random-user-agent
 v2ray2proxy
+flask

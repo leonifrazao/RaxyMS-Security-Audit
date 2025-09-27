@@ -8,12 +8,14 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from flask import Flask
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from raxy.core.rewards_api import APIRecompensas  # noqa: E402  pylint: disable=wrong-import-position
-from raxy.core.session import ParametrosManualSolicitacao  # noqa: E402  pylint: disable=wrong-import-position
+from raxy.api.rewards_api import APIRecompensas  # noqa: E402  pylint: disable=wrong-import-position
+from raxy.services.session_service import ParametrosManualSolicitacao  # noqa: E402  pylint: disable=wrong-import-position
 
 
 class _GerenciadorStub:
@@ -57,7 +59,7 @@ class TestAPIRecompensasRequests(unittest.TestCase):
             interativo=False,
         )
 
-    @patch("raxy.core.rewards_api.TemplateRequester")
+    @patch("raxy.api.rewards_api.TemplateRequester")
     def test_urlreward_utiliza_destino_normalizado(self, mock_template) -> None:
         """Garante que promos normais com ``url`` preencham ``destinationUrl``."""
 
@@ -85,12 +87,13 @@ class TestAPIRecompensasRequests(unittest.TestCase):
         args, kwargs = mock_template.return_value.executar.call_args
         self.assertEqual(args[0], api._TEMPLATE_EXECUTAR_TAREFA)
         data_extra = kwargs["data_extra"]
+        self.assertFalse(kwargs["bypass_request_token"])
         self.assertEqual(data_extra["destinationUrl"], destino)
         self.assertEqual(data_extra["type"], "urlreward")
         self.assertEqual(data_extra["id"], "promo-1")
         self.assertEqual(data_extra["hash"], "hash-1")
 
-    @patch("raxy.core.rewards_api.TemplateRequester")
+    @patch("raxy.api.rewards_api.TemplateRequester")
     def test_urlreward_usa_destino_dos_atributos(self, mock_template) -> None:
         """Confirma que o destino presente em ``attributes`` e aproveitado."""
 
@@ -123,11 +126,64 @@ class TestAPIRecompensasRequests(unittest.TestCase):
         self.assertEqual(resumo["executadas"], 1)
         mock_template.return_value.executar.assert_called_once()
         data_extra = mock_template.return_value.executar.call_args.kwargs["data_extra"]
+        self.assertFalse(mock_template.return_value.executar.call_args.kwargs["bypass_request_token"])
         self.assertEqual(data_extra["destinationUrl"], destino)
         self.assertEqual(data_extra["type"], "urlreward")
         self.assertEqual(data_extra["form"], "FORM-VALUE")
         self.assertEqual(data_extra["id"], "promo-atributo")
         self.assertEqual(data_extra["hash"], "hash-atributo")
+
+    def test_blueprint_execucao_basica(self) -> None:
+        """Valida que o endpoint Flask integra com o executor de templates."""
+
+        parametros = self._criar_parametros()
+
+        class _RequesterStub:
+            calls: list[dict[str, object]] = []
+
+            def __init__(self, gerenciador) -> None:  # pragma: no cover - init simples
+                self._gerenciador = gerenciador
+
+            def executar(
+                self,
+                template: str,
+                *,
+                data_extra: dict[str, object],
+                bypass_request_token: bool = False,
+            ) -> tuple[dict[str, object], object | None]:
+                registro = {
+                    "template": template,
+                    "data_extra": dict(data_extra),
+                    "bypass": bypass_request_token,
+                }
+                _RequesterStub.calls.append(registro)
+                return {}, None
+
+        _RequesterStub.calls.clear()
+
+        api = APIRecompensas(_GerenciadorStub(parametros), requester_cls=_RequesterStub)
+        app = Flask(__name__)
+        app.register_blueprint(api.blueprint, url_prefix="/api")
+
+        payload = {
+            "more_promotions": [
+                {
+                    "id": "promo-1",
+                    "hash": "hash-1",
+                    "type": "urlreward",
+                    "complete": False,
+                    "url": "https://exemplo.com/promo",
+                }
+            ]
+        }
+
+        resposta = app.test_client().post("/api/rewards/tasks", json=payload)
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta.get_json(), {"executadas": 1, "ignoradas": 0})
+        self.assertEqual(len(_RequesterStub.calls), 1)
+        self.assertEqual(_RequesterStub.calls[0]["template"], api._TEMPLATE_EXECUTAR_TAREFA)
+        self.assertFalse(_RequesterStub.calls[0]["bypass"])
 
 
 if __name__ == "__main__":  # pragma: no cover

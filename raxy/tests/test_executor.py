@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from raxy import ExecutorEmLote  # noqa: E402  pylint: disable=wrong-import-position
-from raxy.core.accounts import carregar_contas  # noqa: E402  pylint: disable=wrong-import-position
+from raxy.repositories.file_account_repository import carregar_contas  # noqa: E402  pylint: disable=wrong-import-position
 
 
 class TestExecutorEmLote(unittest.TestCase):

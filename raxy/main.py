@@ -2,43 +2,15 @@
 
 from __future__ import annotations
 
-from core.accounts import carregar_contas
-from core.profiles import GerenciadorPerfil
-from core.rewards import Rewards
-from core.logging import log
+from container import create_injector
+from interfaces.services import IExecutorEmLoteService
 
-def main():
-    # Carrega contas
-    contas = carregar_contas("users.txt")
-    
-    # Inicializa sistema
-    rewards = Rewards()
-    
-    for conta in contas:
-        try:
-            GerenciadorPerfil(conta.email).agente_usuario()
-            log.info(f"Processando conta: {conta.email}")
-            
-            # Faz login
-            sessao = rewards.login(
-                profile=conta.email,
-                data={"email": conta.email, "password": conta.senha}
-            )
-            # Obtém pontos
-            pontos_info = rewards.obter_pontos(base=sessao, bypass_request_token=True)
-            log.sucesso(f"Pontos disponíveis: {pontos_info}")
-            
-            # Obtém recompensas  
-            # recompensas = rewards.obter_recompensas(base=sessao)
-            # daily_sets = recompensas.get("daily_sets", [])
-            # log.info(str(daily_sets))
-            # log.sucesso(f"Recompensas obtidas", quantidade=len(daily_sets))
-            recompensas_pegas = rewards.pegar_recompensas(base=sessao, bypass_request_token=True)
-            log.sucesso(f"Recompensas pegas", quantidade=len(recompensas_pegas), detalhes=str(recompensas_pegas))
-            
-        except Exception as e:
-            print(f"Erro ao processar {conta.email}: {e}")
-            continue
+
+def main() -> None:
+    injector = create_injector()
+    executor = injector.get(IExecutorEmLoteService)
+    executor.executar()
+
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,76 @@
 # base_request.py
 
+from __future__ import annotations
+
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Mapping, TYPE_CHECKING
 from urllib.parse import urljoin
+
+from botasaurus.request import Request, request
 from botasaurus.soupify import soupify
-from botasaurus.request import request, Request
+
+if TYPE_CHECKING:  # pragma: no cover
+    from raxy.domain import Conta
+
+
+@dataclass(slots=True)
+class ParametrosManualSolicitacao:
+    """Agrupa parâmetros necessários para uma chamada manual de API."""
+
+    perfil: str
+    url_base: str
+    user_agent: str
+    headers: Mapping[str, str] = field(default_factory=dict)
+    cookies: Mapping[str, str] = field(default_factory=dict)
+    verification_token: str | None = None
+    palavras_erro: tuple[str, ...] = ()
+    interativo: bool = False
+
+
+@dataclass(slots=True)
+class SessaoSolicitacoes:
+    """Representa uma sessão autenticada pronta para requests manuais."""
+
+    conta: "Conta"
+    base_request: "BaseRequest"
+
+    @property
+    def perfil(self) -> str:
+        return getattr(self.base_request, "perfil", self.conta.id_perfil or self.conta.email)
+
+    @property
+    def user_agent(self) -> str:
+        return getattr(self.base_request, "user_agent", "")
+
+    @property
+    def cookies(self) -> Mapping[str, str]:
+        return getattr(self.base_request, "cookies", {})
+
+    @property
+    def verification_token(self) -> str | None:
+        return getattr(self.base_request, "token_antifalsificacao", None)
+
+    def parametros_manuais(
+        self,
+        *,
+        url_base: str | None = None,
+        headers: Mapping[str, str] | None = None,
+        cookies: Mapping[str, str] | None = None,
+        palavras_erro: tuple[str, ...] | None = None,
+        interativo: bool | None = None,
+    ) -> ParametrosManualSolicitacao:
+        return ParametrosManualSolicitacao(
+            perfil=self.perfil,
+            url_base=url_base or getattr(self.base_request, "url_base", "https://rewards.bing.com/"),
+            user_agent=self.user_agent,
+            headers=headers or {},
+            cookies=cookies or dict(self.cookies),
+            verification_token=self.verification_token,
+            palavras_erro=palavras_erro or (),
+            interativo=bool(interativo),
+        )
 
 
 def _extract_request_verification_token(html):
@@ -104,3 +170,10 @@ class BaseRequest:
             headers=args["headers"],
             cookies=args["cookies"],
         )
+
+
+__all__ = [
+    "BaseRequest",
+    "SessaoSolicitacoes",
+    "ParametrosManualSolicitacao",
+]

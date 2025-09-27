@@ -11,8 +11,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 try:
-    from Models import ModeloConta, ModeloBase  # noqa: E402  pylint: disable=wrong-import-position
-    from raxy.core.storage import BaseModelos  # noqa: E402  pylint: disable=wrong-import-position
+    from models import ModeloConta, ModeloBase  # noqa: E402  pylint: disable=wrong-import-position
+    from raxy.repositories.sqlalchemy_repository import BaseModelos  # noqa: E402  pylint: disable=wrong-import-position
     from sqlalchemy import Integer, String  # noqa: E402  pylint: disable=wrong-import-position
     from sqlalchemy.orm import Mapped, mapped_column  # noqa: E402  pylint: disable=wrong-import-position
 

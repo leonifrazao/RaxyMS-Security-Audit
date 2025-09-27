@@ -37,6 +37,8 @@ from rich.theme import Theme
 from rich.text import Text
 from rich.traceback import install as install_rich_traceback
 
+from interfaces.services import ILoggingService
+
 # Mapas auxiliares ---------------------------------------------------------
 
 _LEVEL_MAP: Dict[str, int] = {
@@ -124,7 +126,7 @@ class LoggerConfig:
         return cfg
 
 
-class FarmLogger:
+class FarmLogger(ILoggingService):
     """Implementacao principal do logger com API em portugues."""
 
     def __init__(self) -> None:
@@ -408,7 +410,7 @@ class FarmLogger:
         return [f"{chave}={cls.formatar_valor(valores[chave])}" for chave in sorted(valores)]
 
 
-class ScopedLogger:
+class ScopedLogger(ILoggingService):
     """Wrapper leve para adicionar contexto fixo em um logger existente."""
 
     def __init__(self, base: FarmLogger, contexto: Mapping[str, Any]) -> None:
