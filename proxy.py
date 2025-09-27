@@ -23,6 +23,7 @@ import tempfile
 import time
 import ipaddress
 import shutil
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -73,6 +74,7 @@ class Proxy:
         use_console: bool = False,
         use_cache: bool = True,
         cache_path: Optional[Union[str, os.PathLike]] = None,
+        command_output: bool = True,
         requests_session: Optional[Any] = None,
     ) -> None:
         self.country_filter = country
@@ -95,6 +97,10 @@ class Proxy:
         default_cache_path = Path(__file__).with_name(self.DEFAULT_CACHE_FILENAME)
         self.cache_path = Path(cache_path) if cache_path is not None else default_cache_path
         self._cache_entries: Dict[str, Dict[str, Any]] = {}
+        self._stop_event = threading.Event()
+        self._wait_thread: Optional[threading.Thread] = None
+        self.command_output = bool(command_output)
+        self._cache_available = False
 
         if self.use_cache:
             self._load_cache()
@@ -212,6 +218,7 @@ class Proxy:
     def _load_cache(self) -> None:
         if not self.use_cache:
             return
+        self._cache_available = False
         try:
             raw_cache = self.cache_path.read_text(encoding="utf-8")
         except FileNotFoundError:
@@ -240,6 +247,8 @@ class Proxy:
             cache_map[uri] = item
 
         self._cache_entries = cache_map
+        if cache_map:
+            self._cache_available = True
 
     def _save_cache(self, entries: List[Dict[str, Any]]) -> None:
         if not self.use_cache:
@@ -298,6 +307,7 @@ class Proxy:
             pass
         else:
             self._cache_entries = {item["uri"]: item for item in payload_entries}
+            self._cache_available = bool(payload_entries)
 
     @staticmethod
     def _b64decode_padded(value: str) -> bytes:
@@ -893,6 +903,15 @@ class Proxy:
             if cached_data:
                 entry = self._apply_cached_entry(entry, cached_data)
                 entry["country_match"] = self.matches_country(entry, country_filter)
+                if country_filter and entry.get("status") == "OK" and not entry["country_match"]:
+                    entry["status"] = "FILTRADO"
+                    detected_country = (
+                        entry.get("country")
+                        or entry.get("country_code")
+                        or entry.get("country_name")
+                        or "-"
+                    )
+                    entry["error"] = f"Filtro de país '{country_filter}': detectado {detected_country}"
                 entries.append(entry)
                 if emit_progress is not None:
                     destino = self._format_destination(entry.get("host"), entry.get("port"))
@@ -1116,12 +1135,17 @@ class Proxy:
             # reutiliza testes existentes, apenas reforça a filtragem
             self.country_filter = country_filter
 
+        if auto_test and self.use_cache and not self._cache_available:
+            self.test(country=country_filter, verbose=self.use_console, force_refresh=True)
+            country_filter = self.country_filter
+
         approved_entries = [entry for entry in self._entries if entry.get("status") == "OK"]
         if not approved_entries:
             raise RuntimeError("Nenhuma proxy aprovada para iniciar. Execute test() e verifique os resultados.")
 
         xray_bin = self._which_xray()
 
+        self._stop_event.clear()
         port = self.base_port
         bridges: List[Tuple[str, int, str]] = []
         processes: List[subprocess.Popen] = []
@@ -1154,16 +1178,36 @@ class Proxy:
             self.console.print()
             self.console.print("Pressione Ctrl+C para encerrar todas as pontes.")
 
+        http_proxies = [f"http://127.0.0.1:{port}" for (_, port, _) in bridges]
+
         if wait:
             self.wait()
+        else:
+            self._start_wait_thread()
 
-        return [f"http://127.0.0.1:{port}" for (_, port, _) in bridges]
+        return http_proxies
+
+    def _start_wait_thread(self) -> None:
+        if self._wait_thread and self._wait_thread.is_alive():
+            return
+        thread = threading.Thread(target=self._wait_loop_wrapper, name="ProxyWaitThread", daemon=True)
+        self._wait_thread = thread
+        thread.start()
+
+    def _wait_loop_wrapper(self) -> None:
+        try:
+            self.wait()
+        except RuntimeError:
+            # Nenhuma ponte ativa quando o wrapper inicia
+            pass
 
     def wait(self) -> None:
         if not self._running:
             raise RuntimeError("Nenhuma ponte ativa para aguardar.")
         try:
             while True:
+                if self._stop_event.is_set():
+                    break
                 alive = False
                 for proc in list(self._processes):
                     if proc.poll() is None:
@@ -1180,29 +1224,47 @@ class Proxy:
             self.stop()
 
     def stop(self) -> None:
-        if not self._running:
-            return
-        for proc in self._processes:
-            try:
-                proc.terminate()
-            except Exception:
-                pass
-        for proc in self._processes:
-            try:
-                proc.wait(timeout=3)
-            except Exception:
+        self._stop_event.set()
+
+        wait_thread = self._wait_thread
+        caller_thread = threading.current_thread()
+
+        if self._running:
+            for proc in self._processes:
                 try:
-                    proc.kill()
+                    proc.terminate()
                 except Exception:
                     pass
-        for cfg_path in self._cfg_paths:
-            try:
-                shutil.rmtree(cfg_path.parent, ignore_errors=True)
-            except Exception:
-                pass
-        self._processes = []
-        self._cfg_paths = []
-        self._bridges = []
+            for proc in self._processes:
+                try:
+                    proc.wait(timeout=3)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+            for cfg_path in self._cfg_paths:
+                try:
+                    shutil.rmtree(cfg_path.parent, ignore_errors=True)
+                except Exception:
+                    pass
+            self._processes = []
+            self._cfg_paths = []
+            self._bridges = []
+            self._running = False
+        else:
+            # Garante que as listas estejam sempre limpas, mesmo após múltiplas chamadas a stop()
+            self._processes = []
+            self._cfg_paths = []
+            self._bridges = []
+
+        if wait_thread and wait_thread is not caller_thread:
+            if wait_thread.is_alive():
+                try:
+                    wait_thread.join(timeout=1.0)
+                except Exception:
+                    pass
+        self._wait_thread = None
         self._running = False
 
     def get_http_proxy(self) -> List[str]:
@@ -1242,10 +1304,16 @@ class Proxy:
         tmpdir = Path(tempfile.mkdtemp(prefix=f"xray_{name}_"))
         cfg_path = tmpdir / "config.json"
         cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        if self.command_output:
+            stdout_target = subprocess.PIPE
+            stderr_target = subprocess.STDOUT
+        else:
+            stdout_target = subprocess.DEVNULL
+            stderr_target = subprocess.DEVNULL
         proc = subprocess.Popen(
             [xray_bin, "-config", str(cfg_path)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stdout=stdout_target,
+            stderr=stderr_target,
             text=True,
             bufsize=1
         )
@@ -1267,6 +1335,11 @@ def main() -> None:
         action="store_true",
         help="Ignora resultados armazenados e força um novo teste das proxys.",
     )
+    ap.add_argument(
+        "--no-command-output",
+        action="store_true",
+        help="Não exibe a saída dos processos Xray/V2Ray iniciados.",
+    )
     args = ap.parse_args()
 
     if args.test and args.verify:
@@ -1279,6 +1352,7 @@ def main() -> None:
         base_port=args.base_port,
         max_count=args.max,
         use_console=True,
+        command_output=not args.no_command_output,
     )
 
     if (not args.source) and not sys.stdin.isatty():
@@ -1317,8 +1391,7 @@ def main() -> None:
 
 if __name__ == "__main__":  # pragma: no cover - ponto de entrada CLI
     # main()
-    proxy = Proxy(sources=['https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/shadowsocks.txt'], use_console=True)
+    proxy = Proxy(country='US', sources=['https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/shadowsocks.txt'], use_console=True)
     # proxy.test()
-    proxy.start(wait=True)
+    proxy.start()
     print(proxy.get_http_proxy())
-    input()
