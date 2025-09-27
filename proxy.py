@@ -1072,4 +1072,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":  # pragma: no cover - ponto de entrada CLI
-    main()
+    # main()
+    proxy = Proxy(sources=['https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/shadowsocks.txt'], use_console=True)
+    # proxy.test()
+    proxy.start(wait=True)
+    print(proxy.get_http_proxy())
+    input()
