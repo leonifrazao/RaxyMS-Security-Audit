@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Ferramenta para testar e criar pontes HTTP locais para proxys V2Ray/Xray.
+"""Ferramenta orientada a biblioteca para testar e criar pontes HTTP para proxys V2Ray/Xray.
 
-Agora estruturada como biblioteca: a classe :class:`Proxy` gerencia carregamento,
-filtragem por país, testes e criação de pontes HTTP. Ainda há uma CLI compatível
-para uso direto via `python proxy.py`.
+O módulo expõe a classe :class:`Proxy`, que gerencia carregamento de links, testes
+com filtragem opcional por país e criação de túneis HTTP locais utilizando Xray ou
+V2Ray. Todo o comportamento é pensado para uso programático em outros módulos.
 """
 
 from __future__ import annotations
 
-import argparse
 import atexit
 import base64
 import json
 import os
 import re
-import signal
 import socket
 import subprocess
-import sys
 import tempfile
 import time
 import ipaddress
@@ -26,8 +23,11 @@ import shutil
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse, parse_qs, unquote, quote, urlsplit
+
+__all__ = ["Proxy"]
 
 try:
     import requests  # opcional: apenas se precisar de rede
@@ -58,10 +58,12 @@ class Proxy:
         "FILTRADO": "cyan",
     }
 
+    @dataclass(frozen=True)
     class Outbound:
-        def __init__(self, tag: str, config: Dict[str, Any]):
-            self.tag = tag
-            self.config = config
+        """Representa um outbound configurado para o Xray/V2Ray."""
+
+        tag: str
+        config: Dict[str, Any]
 
     def __init__(
         self,
@@ -77,6 +79,7 @@ class Proxy:
         command_output: bool = True,
         requests_session: Optional[Any] = None,
     ) -> None:
+        """Inicializa o gerenciador carregando proxys, fontes e cache se necessário."""
         self.country_filter = country
         self.base_port = base_port
         self.max_count = max_count
@@ -116,6 +119,7 @@ class Proxy:
     # ----------- utilidades básicas -----------
 
     def _make_base_entry(self, index: int, raw_uri: str, outbound: Proxy.Outbound) -> Dict[str, Any]:
+        """Monta o dicionário padrão com as informações mínimas de um outbound."""
         return {
             "index": index,
             "tag": outbound.tag,
@@ -136,6 +140,7 @@ class Proxy:
         }
 
     def _apply_cached_entry(self, entry: Dict[str, Any], cached: Dict[str, Any]) -> Dict[str, Any]:
+        """Mescla dados recuperados do cache ao registro corrente da proxy."""
         if not cached:
             return entry
         entry = dict(entry)
@@ -185,6 +190,7 @@ class Proxy:
         return entry
 
     def _register_new_outbound(self, raw_uri: str, outbound: Proxy.Outbound) -> None:
+        """Atualiza as estruturas internas quando um novo outbound é aceito."""
         index = len(self._outbounds) - 1
         entry = self._make_base_entry(index, raw_uri, outbound)
         if self.use_cache and self._cache_entries:
@@ -198,6 +204,7 @@ class Proxy:
             self._entries[index] = entry
 
     def _prime_entries_from_cache(self) -> None:
+        """Reconstrói os registros a partir do cache sem repetir parsing."""
         if not self.use_cache or not self._cache_entries:
             return
         rebuilt: List[Dict[str, Any]] = []
@@ -211,11 +218,13 @@ class Proxy:
         self._entries = rebuilt
 
     def _format_timestamp(self, ts: float) -> str:
+        """Retorna carimbo de data no formato ISO 8601 UTC sem microssegundos."""
         dt = datetime.fromtimestamp(ts, tz=timezone.utc)
         iso = dt.replace(microsecond=0).isoformat()
         return iso.replace("+00:00", "Z")
 
     def _load_cache(self) -> None:
+        """Carrega resultados persistidos anteriormente para acelerar novos testes."""
         if not self.use_cache:
             return
         self._cache_available = False
@@ -251,6 +260,7 @@ class Proxy:
             self._cache_available = True
 
     def _save_cache(self, entries: List[Dict[str, Any]]) -> None:
+        """Persiste a última bateria de testes para acelerar execuções futuras."""
         if not self.use_cache:
             return
         cache_dir = self.cache_path.parent
@@ -311,6 +321,7 @@ class Proxy:
 
     @staticmethod
     def _b64decode_padded(value: str) -> bytes:
+        """Decodifica base64 tolerando strings sem padding."""
         value = value.strip()
         missing = (-len(value)) % 4
         if missing:
@@ -319,6 +330,7 @@ class Proxy:
 
     @staticmethod
     def _sanitize_tag(tag: Optional[str], fallback: str) -> str:
+        """Normaliza tags para algo seguro de ser usado em arquivos ou logs."""
         if not tag:
             return fallback
         tag = re.sub(r"[^\w\-\.]+", "_", tag)
@@ -326,6 +338,7 @@ class Proxy:
 
     @staticmethod
     def _decode_bytes(data: bytes, *, encoding_hint: Optional[str] = None) -> str:
+        """Converte bytes em texto testando codificações comuns."""
         if not isinstance(data, (bytes, bytearray)):
             return str(data)
         encodings = []
@@ -344,6 +357,7 @@ class Proxy:
         return data.decode("utf-8", errors="replace")
 
     def _read_source_text(self, source: str) -> str:
+        """Obtém conteúdo bruto de um arquivo local ou URL contendo proxys."""
         if re.match(r"^https?://", source, re.I):
             if self.requests is None:
                 raise RuntimeError("O pacote requests não está disponível para baixar URLs de proxy.")
@@ -355,6 +369,7 @@ class Proxy:
 
     @staticmethod
     def _shutil_which(cmd: str) -> Optional[str]:
+        """Localiza um executável equivalente ao comportamento de shutil.which."""
         paths = os.environ.get("PATH", "").split(os.pathsep)
         exts = [""]
         if os.name == "nt":
@@ -373,6 +388,7 @@ class Proxy:
 
     @classmethod
     def _which_xray(cls) -> str:
+        """Descobre o binário do Xray/V2Ray respeitando variáveis de ambiente."""
         env_path = os.environ.get("XRAY_PATH")
         if env_path and Path(env_path).exists():
             return env_path
@@ -386,6 +402,7 @@ class Proxy:
 
     @staticmethod
     def _format_destination(host: Optional[str], port: Optional[int]) -> str:
+        """Monta representação amigável para host:porta exibida em tabelas."""
         if not host or host == "-":
             return "-"
         if port is None:
@@ -394,6 +411,7 @@ class Proxy:
 
     @staticmethod
     def matches_country(entry: Dict[str, Any], desired: Optional[str]) -> bool:
+        """Valida se o registro atende ao filtro de país solicitado."""
         if not desired:
             return True
         desired_norm = desired.strip().casefold()
@@ -422,7 +440,7 @@ class Proxy:
     # ----------- carregamento de proxys -----------
 
     def add_proxies(self, proxies: Iterable[str]) -> int:
-        """Adiciona proxys a partir de uma lista de links completos (ss://, vmess:// etc)."""
+        """Adiciona proxys a partir de URIs completos (ss, vmess, vless, trojan)."""
 
         added = 0
         for raw in proxies:
@@ -444,7 +462,7 @@ class Proxy:
         return added
 
     def add_sources(self, sources: Iterable[str]) -> int:
-        """Carrega proxys a partir de arquivos locais ou URLs contendo uma lista de links."""
+        """Carrega proxys de arquivos locais ou URLs linha a linha."""
 
         added = 0
         for src in sources:
@@ -456,6 +474,7 @@ class Proxy:
     # ----------- parsing -----------
 
     def _parse_uri_to_outbound(self, uri: str) -> Proxy.Outbound:
+        """Direciona o link para o parser adequado de acordo com o esquema."""
         uri = uri.strip()
         if not uri or uri.startswith("#") or uri.startswith("//"):
             raise ValueError("Linha vazia ou comentário.")
@@ -474,6 +493,7 @@ class Proxy:
         return parser(uri)
 
     def _parse_ss(self, uri: str) -> Proxy.Outbound:
+        """Normaliza um link ``ss://`` incluindo casos em JSON inline."""
         frag = urlsplit(uri).fragment
         tag = self._sanitize_tag(unquote(frag) if frag else None, "ss")
 
@@ -559,6 +579,7 @@ class Proxy:
         return self.Outbound(tag, config)
 
     def _parse_vmess(self, uri: str) -> Proxy.Outbound:
+        """Converte links ``vmess://`` com conteúdo base64 para outbounds."""
         payload = uri.strip()[8:]
         try:
             decoded = self._decode_bytes(self._b64decode_padded(payload))
@@ -571,6 +592,7 @@ class Proxy:
         return self._vmess_outbound_from_dict(data)
 
     def _vmess_outbound_from_dict(self, data: Dict[str, Any], *, tag_fallback: str = "vmess") -> Proxy.Outbound:
+        """Adapta o dicionário decodificado de vmess para a estrutura do Xray."""
         tag = self._sanitize_tag(data.get("ps"), tag_fallback)
 
         host = data.get("add") or data.get("address")
@@ -644,6 +666,7 @@ class Proxy:
         return self.Outbound(tag, outbound_config)
 
     def _parse_vless(self, uri: str) -> Proxy.Outbound:
+        """Converte links ``vless://`` adicionando suporte a transportes modernos."""
         p = urlparse(uri)
         tag = self._sanitize_tag(unquote(p.fragment) if p.fragment else None, "vless")
         uuid = p.username
@@ -703,6 +726,7 @@ class Proxy:
         return self.Outbound(tag, outbound)
 
     def _parse_trojan(self, uri: str) -> Proxy.Outbound:
+        """Converte links ``trojan://`` assegurando parâmetros TLS e transporte."""
         p = urlparse(uri)
         tag = self._sanitize_tag(unquote(p.fragment) if p.fragment else None, "trojan")
         password = unquote(p.username or "")
@@ -762,6 +786,7 @@ class Proxy:
     # ----------- verificação e filtros -----------
 
     def _outbound_host_port(self, outbound: Proxy.Outbound) -> Tuple[str, int]:
+        """Extrai host e porta reais do outbound conforme o protocolo."""
         proto = outbound.config.get("protocol")
         settings = outbound.config.get("settings", {})
         host = None
@@ -790,6 +815,7 @@ class Proxy:
 
     @staticmethod
     def _is_public_ip(ip: str) -> bool:
+        """Retorna ``True`` se o IP for público e roteável pela Internet."""
         try:
             addr = ipaddress.ip_address(ip)
         except ValueError:
@@ -799,6 +825,7 @@ class Proxy:
         )
 
     def _lookup_country(self, ip: Optional[str]) -> Optional[Dict[str, Optional[str]]]:
+        """Consulta informações de localização do IP usando ipinfo.io."""
         if not ip or self.requests is None or not self._is_public_ip(ip):
             return None
         try:
@@ -827,12 +854,14 @@ class Proxy:
 
     @staticmethod
     def _measure_tcp_ping(host: str, port: int, timeout: float = 5.0) -> float:
+        """Calcula o tempo de conexão TCP em milissegundos."""
         start = time.perf_counter()
         with socket.create_connection((host, port), timeout=timeout):
             end = time.perf_counter()
         return (end - start) * 1000.0
 
     def _test_outbound(self, raw_uri: str, outbound: Proxy.Outbound) -> Dict[str, Any]:
+        """Executa medições para um outbound específico retornando métricas."""
         result: Dict[str, Any] = {
             "tag": outbound.tag,
             "protocol": outbound.config.get("protocol"),
@@ -891,6 +920,7 @@ class Proxy:
         emit_progress: Optional[Any] = None,
         force_refresh: bool = False,
     ) -> List[Dict[str, Any]]:
+        """Percorre os outbounds testando conectividade, ping e país."""
         entries: List[Dict[str, Any]] = []
         total = len(outbounds)
         reuse_cache = self.use_cache and not force_refresh
@@ -1011,10 +1041,12 @@ class Proxy:
 
     @property
     def entries(self) -> List[Dict[str, Any]]:
+        """Retorna os registros carregados ou decorrentes dos últimos testes."""
         return self._entries
 
     @property
     def parse_errors(self) -> List[str]:
+        """Lista de linhas ignoradas ao interpretar os links informados."""
         return list(self._parse_errors)
 
     def test(
@@ -1024,6 +1056,7 @@ class Proxy:
         verbose: Optional[bool] = None,
         force_refresh: bool = False,
     ) -> List[Dict[str, Any]]:
+        """Executa medições de todos os outbounds e atualiza o cache local."""
         if not self._outbounds:
             raise RuntimeError("Nenhuma proxy carregada para testar.")
 
@@ -1046,6 +1079,7 @@ class Proxy:
         return entries
 
     def _render_test_summary(self, entries: List[Dict[str, Any]], country_filter: Optional[str]) -> None:
+        """Exibe relatório amigável via Rich quando disponível."""
         if not self.console or Table is None:
             return
         table_entries = entries
@@ -1088,6 +1122,7 @@ class Proxy:
 
     @staticmethod
     def _render_test_table(entries: List[Dict[str, Any]]):
+        """Gera uma tabela Rich com o resultado dos testes."""
         if Table is None:
             raise RuntimeError("render_test_table requer a biblioteca 'rich'.")
         table = Table(show_header=True, header_style="bold cyan", expand=True)
@@ -1123,6 +1158,7 @@ class Proxy:
         auto_test: bool = True,
         wait: bool = False,
     ) -> List[str]:
+        """Cria pontes HTTP locais para as proxys aprovadas opcionalmente testando antes."""
         if self._running:
             raise RuntimeError("As pontes já estão em execução. Chame stop() antes de iniciar novamente.")
         if not self._outbounds:
@@ -1188,6 +1224,7 @@ class Proxy:
         return http_proxies
 
     def _start_wait_thread(self) -> None:
+        """Dispara thread em segundo plano para monitorar processos iniciados."""
         if self._wait_thread and self._wait_thread.is_alive():
             return
         thread = threading.Thread(target=self._wait_loop_wrapper, name="ProxyWaitThread", daemon=True)
@@ -1195,6 +1232,7 @@ class Proxy:
         thread.start()
 
     def _wait_loop_wrapper(self) -> None:
+        """Executa ``wait`` capturando exceções para um término limpo da thread."""
         try:
             self.wait()
         except RuntimeError:
@@ -1202,6 +1240,7 @@ class Proxy:
             pass
 
     def wait(self) -> None:
+        """Bloqueia até que todas as pontes terminem ou ``stop`` seja chamado."""
         if not self._running:
             raise RuntimeError("Nenhuma ponte ativa para aguardar.")
         try:
@@ -1224,6 +1263,7 @@ class Proxy:
             self.stop()
 
     def stop(self) -> None:
+        """Finaliza processos Xray ativos e limpa arquivos temporários."""
         self._stop_event.set()
 
         wait_thread = self._wait_thread
@@ -1268,6 +1308,7 @@ class Proxy:
         self._running = False
 
     def get_http_proxy(self) -> List[str]:
+        """Retorna URLs HTTP locais das pontes em execução."""
         if not self._running:
             raise RuntimeError("Nenhuma ponte ativa. Chame start() primeiro.")
         return [f"http://127.0.0.1:{port}" for (_, port, _) in self._bridges]
@@ -1275,6 +1316,7 @@ class Proxy:
     # ----------- geração e execução de config -----------
 
     def _make_xray_config_http_inbound(self, port: int, outbound: Proxy.Outbound) -> Dict[str, Any]:
+        """Monta o arquivo de configuração do Xray para uma ponte HTTP local."""
         cfg = {
             "log": {"loglevel": "warning"},
             "inbounds": [{
@@ -1301,6 +1343,7 @@ class Proxy:
         return cfg
 
     def _launch_bridge(self, xray_bin: str, cfg: Dict[str, Any], name: str) -> Tuple[subprocess.Popen, Path]:
+        """Inicializa o processo Xray com configuração temporária para a ponte."""
         tmpdir = Path(tempfile.mkdtemp(prefix=f"xray_{name}_"))
         cfg_path = tmpdir / "config.json"
         cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1318,80 +1361,3 @@ class Proxy:
             bufsize=1
         )
         return proc, cfg_path
-
-
-# ----------- CLI -----------
-
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Gerencia pontes HTTP locais para links v2ray/ss/vmess/vless/trojan.")
-    ap.add_argument("--source", action="append", help="Arquivo local OU URL com proxys (pode usar múltiplas vezes).")
-    ap.add_argument("--base-port", type=int, default=54000, help="Porta inicial para as pontes (default: 54000).")
-    ap.add_argument("--max", type=int, default=0, help="Máximo de proxys a carregar (0 = todas).")
-    ap.add_argument("--test", action="store_true", help="Testa as proxys e encerra.")
-    ap.add_argument("--verify", action="store_true", help="Testa as proxys, cria pontes e mantém em execução.")
-    ap.add_argument("--country", help="Filtra proxys aprovadas pelo país (nome ou código).")
-    ap.add_argument(
-        "--refresh-cache",
-        action="store_true",
-        help="Ignora resultados armazenados e força um novo teste das proxys.",
-    )
-    ap.add_argument(
-        "--no-command-output",
-        action="store_true",
-        help="Não exibe a saída dos processos Xray/V2Ray iniciados.",
-    )
-    args = ap.parse_args()
-
-    if args.test and args.verify:
-        print("As opções --test e --verify são mutuamente exclusivas.", file=sys.stderr)
-        sys.exit(2)
-
-    manager = Proxy(
-        sources=args.source or [],
-        country=args.country,
-        base_port=args.base_port,
-        max_count=args.max,
-        use_console=True,
-        command_output=not args.no_command_output,
-    )
-
-    if (not args.source) and not sys.stdin.isatty():
-        stdin_buffer = getattr(sys.stdin, "buffer", sys.stdin)
-        stdin_text = Proxy._decode_bytes(stdin_buffer.read())
-        manager.add_proxies([ln.strip() for ln in stdin_text.splitlines()])
-
-    if not manager.entries and not manager._outbounds:
-        print("Nenhuma proxy carregada.", file=sys.stderr)
-        sys.exit(2)
-
-    if args.test:
-        try:
-            manager.test(force_refresh=args.refresh_cache)
-        except RuntimeError as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(1)
-        sys.exit(0)
-
-    if args.verify:
-        try:
-            manager.test(force_refresh=args.refresh_cache)
-            manager.start(wait=True)
-        except Exception as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(1)
-        return
-
-    # Sem --test ou --verify: apenas inicia imediatamente (sem filtro extra)
-    try:
-        manager.start(wait=True)
-    except Exception as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(1)
-
-
-if __name__ == "__main__":  # pragma: no cover - ponto de entrada CLI
-    # main()
-    proxy = Proxy(country='US', sources=['https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/shadowsocks.txt'], use_console=True)
-    # proxy.test()
-    proxy.start()
-    print(proxy.get_http_proxy())
