@@ -36,6 +36,7 @@ class IProxyService(ABC):
     def test(
         self,
         *,
+        threads: int | None = None,
         country: str | None = None,
         verbose: bool | None = None,
         force_refresh: bool = False,
@@ -47,6 +48,8 @@ class IProxyService(ABC):
     def start(
         self,
         *,
+        threads: int | None = None,
+        amounts: int | None = None,
         country: str | None = None,
         auto_test: bool = True,
         wait: bool = False,

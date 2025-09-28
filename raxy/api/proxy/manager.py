@@ -921,15 +921,18 @@ class Proxy(IProxyService):
         country_filter: Optional[str] = None,
         emit_progress: Optional[Any] = None,
         force_refresh: bool = False,
+        functional_test: bool = True,
+        functional_timeout: float = 10.0,
+        threads: int = 1,  # agora controlamos aqui
     ) -> List[Dict[str, Any]]:
-        """Percorre os outbounds testando conectividade, ping e país."""
+        """Percorre os outbounds testando conectividade, ping, país e funcionalidade, com suporte a threads."""
         entries: List[Dict[str, Any]] = []
-        total = len(outbounds)
+        results_lock = threading.Lock()
         reuse_cache = self.use_cache and not force_refresh
 
-        for idx, (raw, outbound) in enumerate(outbounds, start=1):
-            zero_index = idx - 1
-            entry = self._make_base_entry(zero_index, raw, outbound)
+        def worker(idx: int, raw: str, outbound: Proxy.Outbound):
+            """Testa uma única proxy e registra o resultado."""
+            entry = self._make_base_entry(idx, raw, outbound)
             cached_data = self._cache_entries.get(raw) if reuse_cache else None
 
             if cached_data:
@@ -944,100 +947,94 @@ class Proxy(IProxyService):
                         or "-"
                     )
                     entry["error"] = f"Filtro de país '{country_filter}': detectado {detected_country}"
-                entries.append(entry)
-                if emit_progress is not None:
-                    destino = self._format_destination(entry.get("host"), entry.get("port"))
-                    ping_preview = entry.get("ping")
-                    ping_fmt = f"{ping_preview:.1f} ms" if isinstance(ping_preview, (int, float)) else "-"
-                    should_display = not (country_filter and entry.get("status") == "FILTRADO")
-                    if should_display:
-                        status_fmt = {
-                            "OK": "[bold green]OK[/]",
-                            "ERRO": "[bold red]ERRO[/]",
-                            "TESTANDO": "[yellow]TESTANDO[/]",
-                            "AGUARDANDO": "[dim]AGUARDANDO[/]",
-                            "FILTRADO": "[cyan]FILTRADO[/]",
-                        }.get(entry["status"], entry["status"])
-                        cache_note = ""
-                        if entry.get("cached"):
-                            cache_note = " [dim](cache)[/]" if Console else " (cache)"
-                        emit_progress.print(
-                            f"[{idx}/{total}] {status_fmt}{cache_note} [bold]{entry['tag']}[/] -> "
-                            f"{destino} | IP: {entry.get('ip') or '-'} | "
-                            f"País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
-                        )
-                        if entry.get("error"):
-                            emit_progress.print(f"    [dim]Motivo: {entry['error']}[/]")
-                continue
-
-            try:
-                preview_host, preview_port = self._outbound_host_port(outbound)
-            except Exception:
-                preview_host = None
-                preview_port = None
-            if preview_host:
-                entry["host"] = preview_host
-            if preview_port is not None:
-                entry["port"] = preview_port
-
-            entry["status"] = "TESTANDO"
-
-            result = self._test_outbound(raw, outbound)
-            finished_at = time.time()
-            entry["host"] = result.get("host") or entry["host"]
-            if result.get("port") is not None:
-                entry["port"] = result.get("port")
-            entry["ip"] = result.get("ip") or entry["ip"]
-            entry["country"] = result.get("country") or entry["country"]
-            entry["country_code"] = result.get("country_code") or entry.get("country_code")
-            entry["country_name"] = result.get("country_name") or entry.get("country_name")
-            entry["ping"] = result.get("ping_ms")
-            entry["tested_at_ts"] = finished_at
-            entry["tested_at"] = self._format_timestamp(finished_at)
-
-            entry["country_match"] = self.matches_country(entry, country_filter)
-
-            if "ping_ms" in result:
-                entry["status"] = "OK"
-                entry["error"] = None
             else:
-                entry["status"] = "ERRO"
-                entry["error"] = result.get("error")
+                # Prepara preview
+                try:
+                    preview_host, preview_port = self._outbound_host_port(outbound)
+                except Exception:
+                    preview_host = None
+                    preview_port = None
+                if preview_host:
+                    entry["host"] = preview_host
+                if preview_port is not None:
+                    entry["port"] = preview_port
+                entry["status"] = "TESTANDO"
 
-            if country_filter and entry["status"] == "OK" and not entry["country_match"]:
-                entry["status"] = "FILTRADO"
-                detected_country = (
-                    entry.get("country")
-                    or entry.get("country_code")
-                    or entry.get("country_name")
-                    or "-"
-                )
-                entry["error"] = f"Filtro de país '{country_filter}': detectado {detected_country}"
+                # Teste básico TCP
+                result = self._test_outbound(raw, outbound)
+                finished_at = time.time()
 
-            entries.append(entry)
+                entry["host"] = result.get("host") or entry["host"]
+                if result.get("port") is not None:
+                    entry["port"] = result.get("port")
+                entry["ip"] = result.get("ip") or entry["ip"]
+                entry["country"] = result.get("country") or entry["country"]
+                entry["country_code"] = result.get("country_code") or entry.get("country_code")
+                entry["country_name"] = result.get("country_name") or entry.get("country_name")
+                entry["ping"] = result.get("ping_ms")
+                entry["tested_at_ts"] = finished_at
+                entry["tested_at"] = self._format_timestamp(finished_at)
+
+                if "ping_ms" in result:
+                    entry["status"] = "OK"
+                    entry["error"] = None
+                else:
+                    entry["status"] = "ERRO"
+                    entry["error"] = result.get("error")
+
+                # Teste funcional
+                if functional_test and entry["status"] == "OK":
+                    func_result = self._test_proxy_functionality(
+                        raw, outbound, timeout=functional_timeout
+                    )
+                    entry["functional"] = func_result.get("functional", False)
+                    entry["response_time"] = func_result.get("response_time")
+                    entry["external_ip"] = func_result.get("external_ip")
+                    if not entry["functional"]:
+                        entry["status"] = "ERRO"
+                        entry["error"] = func_result.get("error", "Teste funcional falhou")
+                    else:
+                        if func_result.get("external_ip") and func_result["external_ip"] != entry.get("ip"):
+                            entry["proxy_ip"] = func_result["external_ip"]
+                            proxy_country = self._lookup_country(func_result["external_ip"])
+                            if proxy_country:
+                                entry["proxy_country"] = proxy_country.get("label")
+                                entry["proxy_country_code"] = proxy_country.get("code")
+
+                entry["country_match"] = self.matches_country(entry, country_filter)
+                if country_filter and entry["status"] == "OK" and not entry["country_match"]:
+                    entry["status"] = "FILTRADO"
+                    detected_country = (
+                        entry.get("country")
+                        or entry.get("country_code")
+                        or entry.get("country_name")
+                        or "-"
+                    )
+                    entry["error"] = f"Filtro de país '{country_filter}': detectado {detected_country}"
+
+            # adiciona de forma thread-safe
+            with results_lock:
+                entries.append(entry)
 
             if emit_progress is not None:
-                destino = self._format_destination(entry.get("host"), entry.get("port"))
-                ping_preview = entry.get("ping")
-                ping_fmt = f"{ping_preview:.1f} ms" if isinstance(ping_preview, (int, float)) else "-"
-                should_display = not (country_filter and entry.get("status") == "FILTRADO")
-                if should_display:
-                    status_fmt = {
-                        "OK": "[bold green]OK[/]",
-                        "ERRO": "[bold red]ERRO[/]",
-                        "TESTANDO": "[yellow]TESTANDO[/]",
-                        "AGUARDANDO": "[dim]AGUARDANDO[/]",
-                        "FILTRADO": "[cyan]FILTRADO[/]",
-                    }.get(entry["status"], entry["status"])
-                    emit_progress.print(
-                        f"[{idx}/{total}] {status_fmt} [bold]{entry['tag']}[/] -> "
-                        f"{destino} | IP: {entry.get('ip') or '-'} | "
-                        f"País: {entry.get('country') or '-'} | Ping: {ping_fmt}"
-                    )
-                    if entry["error"]:
-                        emit_progress.print(f"    [dim]Motivo: {entry['error']}[/]")
+                self._emit_test_progress(entry, idx + 1, len(outbounds), emit_progress)
+
+        # --- Controle de threads ---
+        threads = max(1, threads)
+        tarefas = []
+        for idx, (raw, outbound) in enumerate(outbounds):
+            t = threading.Thread(target=worker, args=(idx, raw, outbound))
+            t.start()
+            tarefas.append(t)
+            # controla máximo de threads simultâneas
+            while threads > 0 and len([x for x in tarefas if x.is_alive()]) >= threads:
+                time.sleep(0.05)
+
+        for t in tarefas:
+            t.join()
 
         return entries
+
 
     # ----------- interface pública -----------
 
@@ -1051,34 +1048,208 @@ class Proxy(IProxyService):
         """Lista de linhas ignoradas ao interpretar os links informados."""
         return list(self._parse_errors)
 
+    def _test_proxy_functionality(
+        self, 
+        raw_uri: str, 
+        outbound: Proxy.Outbound,
+        timeout: float = 10.0,
+        test_url: str = "http://httpbin.org/ip"
+    ) -> Dict[str, Any]:
+        """Testa a funcionalidade real da proxy criando uma ponte temporária e fazendo uma requisição."""
+        result = {
+            "functional": False,
+            "response_time": None,
+            "external_ip": None,
+            "error": None
+        }
+        
+        if self.requests is None:
+            result["error"] = "requests não disponível para teste funcional"
+            return result
+        
+        # Encontra uma porta disponível
+        test_port = self._find_available_port(starting_from=self.base_port + 1000)
+        
+        # Cria configuração temporária
+        cfg = self._make_xray_config_http_inbound(test_port, outbound)
+        
+        # Inicia processo xray temporário
+        xray_bin = None
+        proc = None
+        cfg_path = None
+        
+        try:
+            xray_bin = self._which_xray()
+            proc, cfg_path = self._launch_bridge(xray_bin, cfg, f"test_{outbound.tag}")
+            
+            # Aguarda a ponte inicializar
+            time.sleep(1.0)
+            
+            # Verifica se o processo ainda está rodando
+            if proc.poll() is not None:
+                result["error"] = "Processo xray terminou inesperadamente"
+                return result
+            
+            # Configura proxy para requests
+            proxy_url = f"http://127.0.0.1:{test_port}"
+            proxies = {
+                "http": proxy_url,
+                "https": proxy_url
+            }
+            
+            # Faz requisição de teste
+            start_time = time.perf_counter()
+            try:
+                response = self.requests.get(
+                    test_url,
+                    proxies=proxies,
+                    timeout=timeout,
+                    verify=False  # Ignora certificados SSL para teste
+                )
+                response.raise_for_status()
+                end_time = time.perf_counter()
+                
+                result["functional"] = True
+                result["response_time"] = (end_time - start_time) * 1000  # em ms
+                
+                # Tenta extrair IP externo da resposta
+                try:
+                    data = response.json()
+                    if "origin" in data:
+                        result["external_ip"] = data["origin"].split(",")[0].strip()
+                    elif "ip" in data:
+                        result["external_ip"] = data["ip"]
+                except:
+                    pass
+                    
+            except self.requests.exceptions.Timeout:
+                result["error"] = f"Timeout após {timeout}s"
+            except self.requests.exceptions.ProxyError as e:
+                result["error"] = f"Erro de proxy: {str(e)[:100]}"
+            except self.requests.exceptions.ConnectionError as e:
+                result["error"] = f"Erro de conexão: {str(e)[:100]}"
+            except Exception as e:
+                result["error"] = f"Erro na requisição: {str(e)[:100]}"
+                
+        except Exception as e:
+            result["error"] = f"Erro ao configurar ponte: {str(e)[:100]}"
+        finally:
+            # Limpa recursos
+            if proc:
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=2)
+                except:
+                    try:
+                        proc.kill()
+                    except:
+                        pass
+            
+            if cfg_path:
+                try:
+                    shutil.rmtree(cfg_path.parent, ignore_errors=True)
+                except:
+                    pass
+        
+        return result
+
+    def _find_available_port(self, starting_from: int = 55000, max_attempts: int = 100) -> int:
+        """Encontra uma porta TCP disponível para uso temporário."""
+        for offset in range(max_attempts):
+            port = starting_from + offset
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                sock.bind(('127.0.0.1', port))
+                sock.close()
+                return port
+            except OSError:
+                continue
+            finally:
+                sock.close()
+        raise RuntimeError(f"Não foi possível encontrar porta disponível após {max_attempts} tentativas")
+
+    def _emit_test_progress(self, entry: Dict[str, Any], idx: int, total: int, emit_progress: Any) -> None:
+        """Emite informações de progresso do teste."""
+        destino = self._format_destination(entry.get("host"), entry.get("port"))
+        ping_preview = entry.get("ping")
+        ping_fmt = f"{ping_preview:.1f} ms" if isinstance(ping_preview, (int, float)) else "-"
+        
+        should_display = not (self.country_filter and entry.get("status") == "FILTRADO")
+        
+        if should_display:
+            status_fmt = {
+                "OK": "[bold green]OK[/]",
+                "ERRO": "[bold red]ERRO[/]",
+                "TESTANDO": "[yellow]TESTANDO[/]",
+                "AGUARDANDO": "[dim]AGUARDANDO[/]",
+                "FILTRADO": "[cyan]FILTRADO[/]",
+            }.get(entry["status"], entry["status"])
+            
+            cache_note = ""
+            if entry.get("cached"):
+                cache_note = " [dim](cache)[/]" if Console else " (cache)"
+            
+            functional_note = ""
+            if entry.get("functional") is not None:
+                if entry["functional"]:
+                    response_time = entry.get("response_time")
+                    if response_time:
+                        functional_note = f" | [green]Funcional ({response_time:.0f}ms)[/]"
+                    else:
+                        functional_note = " | [green]Funcional[/]"
+                else:
+                    functional_note = " | [red]Não funcional[/]"
+            
+            emit_progress.print(
+                f"[{idx}/{total}] {status_fmt}{cache_note} [bold]{entry['tag']}[/] -> "
+                f"{destino} | IP: {entry.get('ip') or '-'} | "
+                f"País: {entry.get('country') or '-'} | Ping: {ping_fmt}{functional_note}"
+            )
+            
+            if entry.get("proxy_ip") and entry["proxy_ip"] != entry.get("ip"):
+                emit_progress.print(
+                    f"    [dim]IP da Proxy: {entry['proxy_ip']} "
+                    f"({entry.get('proxy_country', '-')})[/]"
+                )
+            
+            if entry.get("error"):
+                emit_progress.print(f"    [dim]Motivo: {entry['error']}[/]")
+
     def test(
         self,
         *,
+        threads: Optional[int] = 1,
         country: Optional[str] = None,
         verbose: Optional[bool] = None,
         force_refresh: bool = False,
+        functional_test: bool = True,
+        timeout: float = 10.0,
     ) -> List[Dict[str, Any]]:
-        """Executa medições de todos os outbounds e atualiza o cache local."""
         if not self._outbounds:
             raise RuntimeError("Nenhuma proxy carregada para testar.")
 
         country_filter = country if country is not None else self.country_filter
         emit = self.console if (self.console is not None and (verbose is None or verbose)) else None
-        entries = self._perform_health_checks(
+
+        results = self._perform_health_checks(
             self._outbounds,
             country_filter=country_filter,
             emit_progress=emit,
             force_refresh=force_refresh,
+            functional_test=functional_test,
+            functional_timeout=timeout,
+            threads=threads,
         )
-        self._entries = entries
-        self.country_filter = country_filter
 
-        self._save_cache(entries)
+        self._entries = results
+        self.country_filter = country_filter
+        self._save_cache(results)
 
         if self.console is not None and (verbose is None or verbose):
-            self._render_test_summary(entries, country_filter)
+            self._render_test_summary(results, country_filter)
 
-        return entries
+        return results
+
 
     def _render_test_summary(self, entries: List[Dict[str, Any]], country_filter: Optional[str]) -> None:
         """Exibe relatório amigável via Rich quando disponível."""
@@ -1156,6 +1327,8 @@ class Proxy(IProxyService):
     def start(
         self,
         *,
+        threads: Optional[int] = None,
+        amounts: Optional[int] = None,
         country: Optional[str] = None,
         auto_test: bool = True,
         wait: bool = False,
@@ -1174,7 +1347,7 @@ class Proxy(IProxyService):
             self.country_filter = country_filter
 
         if auto_test and self.use_cache and not self._cache_available:
-            self.test(country=country_filter, verbose=self.use_console, force_refresh=True)
+            self.test(threads=threads, country=country_filter, verbose=self.use_console, force_refresh=True)
             country_filter = self.country_filter
 
         approved_entries = [entry for entry in self._entries if entry.get("status") == "OK"]
