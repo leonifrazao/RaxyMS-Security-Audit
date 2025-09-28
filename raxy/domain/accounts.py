@@ -12,3 +12,4 @@ class Conta:
     email: str
     senha: str
     id_perfil: str
+    proxy: str

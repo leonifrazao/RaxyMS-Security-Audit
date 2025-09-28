@@ -52,8 +52,8 @@ class RewardsBrowserService(IRewardsBrowserService):
     )
     def _login(driver: Driver, data: Mapping[str, object] | None = None) -> BaseRequest:
         dados = dict(data or {})
-        email_normalizado = str(dados.get("email") or "").strip()
-        senha_normalizada = str(dados.get("password") or dados.get("senha") or "").strip()
+        email_normalizado = str(driver.profile['email']).strip()
+        senha_normalizada = str(driver.profile['senha']).strip()
 
         network = NetWork(driver)
         network.limpar_respostas()
@@ -137,10 +137,10 @@ class RewardsBrowserService(IRewardsBrowserService):
 
         raise RuntimeError(f"Não foi possível confirmar o login para {email_normalizado}.")
 
-    def login(self, *, profile: str, data: Mapping[str, object] | None = None) -> BaseRequest:
+    def login(self, *, profile: str, proxy: str) -> BaseRequest:
         """Executa o fluxo de login via navegador e retorna a sessão autenticada."""
 
-        return self._login(profile=profile, data=dict(data or {}))
+        return self._login(profile=profile, proxy=proxy)
 
 
 __all__ = ["RewardsBrowserService"]

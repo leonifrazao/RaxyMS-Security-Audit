@@ -14,6 +14,7 @@ from interfaces.services import (
     IPerfilService,
     IRewardsBrowserService,
     IRewardsDataService,
+    IProxyService,
 )
 from repositories.file_account_repository import ArquivoContaRepository
 from services.auth_service import AutenticadorRewards, NavegadorRecompensas
@@ -21,6 +22,7 @@ from services.executor_service import ExecutorConfig, ExecutorEmLote
 from services.logging_service import log
 from services.perfil_service import GerenciadorPerfil
 from services.rewards_browser_service import RewardsBrowserService
+from api.proxy import Proxy
 from api.rewards_data_api import RewardsDataAPI
 
 
@@ -44,6 +46,7 @@ class SimpleInjector:
         self._registrar_bindings_padrao()
 
     def _registrar_bindings_padrao(self) -> None:
+        self.bind_singleton(IProxyService, lambda inj: Proxy(sources=['https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/vless.txt'], use_console=True))
         self.bind_instance(ExecutorConfig, self._config)
         self.bind_singleton(ILoggingService, lambda inj: log)
         self.bind_singleton(IPerfilService, lambda inj: GerenciadorPerfil())
@@ -70,6 +73,7 @@ class SimpleInjector:
                 rewards_data=inj.get(IRewardsDataService),
                 logger=inj.get(ILoggingService),
                 config=inj.get(ExecutorConfig),
+                proxy_service=inj.get(IProxyService)
             ),
         )
 

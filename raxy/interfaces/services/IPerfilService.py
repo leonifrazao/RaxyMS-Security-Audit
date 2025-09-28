@@ -15,3 +15,7 @@ class IPerfilService(ABC):
     @abstractmethod
     def argumentos_agente_usuario(self, perfil: str) -> list[str]:
         """Retorna os argumentos de linha de comando para o navegador."""
+        
+    @abstractmethod
+    def garantir_perfil(self, perfil: str, email: str, senha: str) -> None:
+        """Garante que o perfil exista."""

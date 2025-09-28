@@ -20,6 +20,7 @@ from interfaces.services import (
     ILoggingService,
     IPerfilService,
     IRewardsDataService,
+    IProxyService,
 )
 from interfaces.repositories import IContaRepository
 from services.session_service import BaseRequest
@@ -53,6 +54,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self,
         *,
         conta_repository: IContaRepository,
+        proxy_service: IProxyService,
         autenticador: IAutenticadorRewardsService,
         perfil_service: IPerfilService,
         rewards_data: IRewardsDataService,
@@ -61,6 +63,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         api_factory: Callable[[IGerenciadorSolicitacoesService], APIRecompensas] | None = None,
     ) -> None:
         self._config = config or ExecutorConfig()
+        self._proxy_service = proxy_service
         self._logger = logger
         self._autenticador = autenticador
         self._perfil_service = perfil_service
@@ -70,7 +73,13 @@ class ExecutorEmLote(IExecutorEmLoteService):
 
     def executar(self, acoes: Iterable[str] | None = None) -> None:
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
-        contas = self._conta_repository.listar()
+        try:
+            self._proxy_service.start()
+        except Exception as exc:  # pragma: no cover - logging auxiliar
+            self._logger.aviso("Falha ao iniciar serviço de proxy", erro=str(exc))
+            self._proxy_service.test()
+            self._proxy_service.start()
+        contas = self._conta_repository.listar(self._proxy_service.get_http_proxy())
 
         for conta in contas:
             self._processar_conta(conta, acoes_normalizadas)
@@ -78,8 +87,10 @@ class ExecutorEmLote(IExecutorEmLoteService):
     def _processar_conta(self, conta: Conta, acoes: Sequence[str]) -> None:
         scoped = self._logger.com_contexto(conta=conta.email)
         scoped.info("Iniciando processamento da conta")
+        scoped.info(conta.proxy)
 
         try:
+            self._perfil_service.garantir_perfil(conta.id_perfil, conta.email, conta.senha)
             sessao = self._autenticador.executar(conta) if "login" in acoes else None
 
             if sessao:

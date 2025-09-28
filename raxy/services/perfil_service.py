@@ -45,6 +45,15 @@ class GerenciadorPerfil(IPerfilService):
 
         agente = self.garantir_agente_usuario(perfil)
         return [f"--user-agent={agente}"]
+    
+    def garantir_perfil(self, perfil: str, email: str, senha: str) -> None:
+        """Garante que o perfil exista."""
+        if not perfil:
+            raise ValueError("Perfil deve ser informado")
+        # Profiles.get_profile(perfil)  # Isso cria o perfil se não existir
+        if not Profiles.get_profile(perfil):
+            # agente = self._provedor.get_random_user_agent()
+            Profiles.set_profile(perfil, {"email": email, "senha": senha})
 
 
 __all__ = ["GerenciadorPerfil"]

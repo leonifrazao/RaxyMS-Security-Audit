@@ -48,7 +48,7 @@ class AutenticadorRewards(IAutenticadorRewardsService):
 
         email, senha = self.validar_credenciais(conta.email, conta.senha)
         perfil = conta.id_perfil or conta.email
-        sessao_base = self._navegador.login(profile=perfil, data={"email": email, "password": senha})
+        sessao_base = self._navegador.login(profile=perfil, proxy=conta.proxy)
         sessao = SessaoSolicitacoes(conta=conta, base_request=sessao_base)
         return sessao
 

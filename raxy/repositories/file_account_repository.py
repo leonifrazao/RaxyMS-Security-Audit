@@ -9,13 +9,13 @@ from typing import Iterable, Sequence
 from domain import Conta
 
 
-def carregar_contas(caminho_arquivo: str | Path) -> list[Conta]:
+def carregar_contas(caminho_arquivo: str | Path, proxy_list: list) -> list[Conta]:
     caminho = Path(caminho_arquivo)
     if not caminho.exists():
         raise FileNotFoundError(f"Arquivo não encontrado: {caminho}")
 
     contas: list[Conta] = []
-    for linha in caminho.read_text(encoding="utf-8").splitlines():
+    for linha, proxy in zip(caminho.read_text(encoding="utf-8").splitlines(), proxy_list):
         linha = linha.strip()
         if not linha or linha.startswith("#") or ":" not in linha:
             continue
@@ -26,7 +26,7 @@ def carregar_contas(caminho_arquivo: str | Path) -> list[Conta]:
 
         base = email.lower().replace("@", "_at_")
         id_perfil = re.sub(r"[^a-z0-9._-]+", "_", base).strip("_") or "perfil"
-        contas.append(Conta(email=email, senha=senha, id_perfil=id_perfil))
+        contas.append(Conta(email=email, senha=senha, id_perfil=id_perfil, proxy=proxy))
 
     return contas
 
@@ -45,8 +45,8 @@ class ArquivoContaRepository(IContaRepository):
     def __init__(self, caminho_arquivo: str | Path) -> None:
         self._caminho = Path(caminho_arquivo)
 
-    def listar(self) -> list[Conta]:
-        return carregar_contas(self._caminho)
+    def listar(self, proxy_list: list) -> list[Conta]:
+        return carregar_contas(self._caminho, proxy_list=proxy_list)
 
     def salvar(self, conta: Conta) -> Conta:
         contas = {item.email: item for item in self.listar()}
