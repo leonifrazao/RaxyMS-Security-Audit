@@ -12,9 +12,9 @@ from interfaces.services import (
     ILoggingService,
     INavegadorRewardsService,
     IPerfilService,
+    IProxyService,
     IRewardsBrowserService,
     IRewardsDataService,
-    IProxyService,
 )
 from repositories.file_account_repository import ArquivoContaRepository
 from services.auth_service import AutenticadorRewards, NavegadorRecompensas
@@ -22,8 +22,10 @@ from services.executor_service import ExecutorConfig, ExecutorEmLote
 from services.logging_service import log
 from services.perfil_service import GerenciadorPerfil
 from services.rewards_browser_service import RewardsBrowserService
+from services.api_execution_service import RewardsAPIsService
 from api.proxy import Proxy
 from api.rewards_data_api import RewardsDataAPI
+from api.rewards_api import APIRecompensas
 
 
 _T = TypeVar("_T")
@@ -50,7 +52,7 @@ class SimpleInjector:
         self.bind_instance(ExecutorConfig, self._config)
         self.bind_singleton(ILoggingService, lambda inj: log)
         self.bind_singleton(IPerfilService, lambda inj: GerenciadorPerfil())
-        self.bind_singleton(IRewardsBrowserService, lambda inj: RewardsBrowserService())
+        self.bind_singleton(IRewardsBrowserService, lambda inj: RewardsBrowserService(proxy_service=inj.get(IProxyService)))
         self.bind_singleton(IRewardsDataService, lambda inj: RewardsDataAPI())
         self.bind_singleton(
             IAutenticadorRewardsService,
@@ -73,7 +75,14 @@ class SimpleInjector:
                 rewards_data=inj.get(IRewardsDataService),
                 logger=inj.get(ILoggingService),
                 config=inj.get(ExecutorConfig),
-                proxy_service=inj.get(IProxyService)
+                proxy_service=inj.get(IProxyService),
+                rewards_api_service_factory=lambda provider, gerenciador, scoped_logger: RewardsAPIsService(
+                    request_provider=provider,
+                    gerenciador=gerenciador,
+                    rewards_data=inj.get(IRewardsDataService),
+                    api_recompensas_factory=lambda g: APIRecompensas(g),
+                    logger=scoped_logger,
+                ),
             ),
         )
 

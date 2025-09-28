@@ -1,4 +1,4 @@
-"""Serviço responsável por orquestrar ações em múltiplas contas."""
+"""Servico responsavel por orquestrar acoes em multiplas contas."""
 
 from __future__ import annotations
 
@@ -19,21 +19,29 @@ from interfaces.services import (
     IGerenciadorSolicitacoesService,
     ILoggingService,
     IPerfilService,
-    IRewardsDataService,
     IProxyService,
+    IRewardsAPIsService,
+    IRewardsDataService,
 )
 from interfaces.repositories import IContaRepository
+from services.api_execution_service import BuscaPayloadConfig, RewardsAPIsService
 from services.session_service import BaseRequest
 from services.solicitacoes_service import GerenciadorSolicitacoesRewards
 
 
 def _missing_base_request() -> BaseRequest:
-    raise LookupError("BaseRequest não configurado")
+    raise LookupError("BaseRequest nao configurado")
+
+
+_BUSCA_PAYLOADS_PADRAO: tuple[BuscaPayloadConfig, ...] = (
+    BuscaPayloadConfig(nome="desktop", quantidade=5),
+    BuscaPayloadConfig(nome="mobile", quantidade=5),
+)
 
 
 @dataclass(slots=True)
 class ExecutorConfig:
-    """Configuração utilizada pelo executor em lote."""
+    """Configuracao utilizada pelo executor em lote."""
 
     users_file: str = DEFAULT_USERS_FILE
     actions: list[str] = field(default_factory=lambda: list(DEFAULT_ACTIONS))
@@ -61,6 +69,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         logger: ILoggingService,
         config: ExecutorConfig | None = None,
         api_factory: Callable[[IGerenciadorSolicitacoesService], APIRecompensas] | None = None,
+        rewards_api_service_factory: Callable[[Callable[[], BaseRequest], IGerenciadorSolicitacoesService, ILoggingService], IRewardsAPIsService] | None = None,
     ) -> None:
         self._config = config or ExecutorConfig()
         self._proxy_service = proxy_service
@@ -70,6 +79,15 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._conta_repository = conta_repository
         self._rewards_data = rewards_data
         self._api_factory = api_factory or (lambda ger: APIRecompensas(ger))
+        self._rewards_api_service_factory = rewards_api_service_factory or (
+            lambda provider, gerenciador, scoped_logger: RewardsAPIsService(
+                request_provider=provider,
+                gerenciador=gerenciador,
+                rewards_data=self._rewards_data,
+                api_recompensas_factory=self._api_factory,
+                logger=scoped_logger,
+            )
+        )
 
     def executar(self, acoes: Iterable[str] | None = None) -> None:
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
@@ -78,7 +96,6 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._proxy_service.start(amounts=len(contas), country='US')
 
         for conta, proxy in zip(contas, self._proxy_service.get_http_proxy()):
-            # conta.proxy = proxy
             self._processar_conta(conta, acoes_normalizadas, proxy=proxy)
 
     def _processar_conta(self, conta: Conta, acoes: Sequence[str], proxy: str) -> None:
@@ -91,37 +108,58 @@ class ExecutorEmLote(IExecutorEmLoteService):
             sessao = self._autenticador.executar(conta, proxy=proxy) if "login" in acoes else None
 
             if sessao:
+                def provider() -> BaseRequest:
+                    return sessao.base_request
 
-                self._rewards_data.set_request_provider(lambda base=sessao.base_request: base)
+                executar_recompensas = "rewards" in acoes
+                executar_solicitacoes = "solicitacoes" in acoes
+
+                api_service: IRewardsAPIsService | None = None
+                if executar_recompensas or executar_solicitacoes:
+                    gerenciador = GerenciadorSolicitacoesRewards(
+                        sessao,
+                        palavras_erro=tuple(self._config.api_error_words),
+                    )
+                    api_service = self._rewards_api_service_factory(provider, gerenciador, scoped)
+
+                self._rewards_data.set_request_provider(provider)
                 try:
-                    if "rewards" in acoes:
+                    if executar_recompensas and api_service:
                         try:
-                            pontos = self._rewards_data.obter_pontos(sessao.base_request, bypass_request_token=True)
-                            scoped.info("Pontos disponíveis coletados", pontos=pontos)
+                            pontos = api_service.obter_pontos(bypass_request_token=True)
+                            scoped.info("Pontos disponiveis coletados", pontos=pontos)
                         except Exception as exc:  # pragma: no cover - logging auxiliar
                             scoped.aviso("Falhou ao obter pontos", erro=str(exc))
 
-                        gerenciador = GerenciadorSolicitacoesRewards(
-                            sessao,
-                            palavras_erro=tuple(self._config.api_error_words),
-                        )
-                        api = self._api_factory(gerenciador)
-
                         try:
-                            dados_recompensas = self._rewards_data.obter_recompensas(
-                                sessao.base_request,
-                                bypass_request_token=True,
-                            )
+                            dados_recompensas = api_service.obter_recompensas(bypass_request_token=True)
                         except Exception as exc:  # pragma: no cover - logging auxiliar
                             scoped.aviso("Falhou ao obter recompensas", erro=str(exc))
                             dados_recompensas = {}
 
-                        resumo_execucao = api.executar_tarefas(dados_recompensas)
+                        resumo_execucao = api_service.executar_promocoes(
+                            dados_recompensas,
+                            bypass_request_token=True,
+                        )
                         scoped.info(
-                            "Execução de promoções finalizada",
+                            "Execucao de promocoes finalizada",
                             executadas=resumo_execucao.get("executadas"),
                             ignoradas=resumo_execucao.get("ignoradas"),
                         )
+
+                    if executar_solicitacoes and api_service:
+                        try:
+                            resultados = api_service.executar_pesquisas(_BUSCA_PAYLOADS_PADRAO)
+                            contagem: dict[str, int] = {}
+                            for resultado in resultados:
+                                contagem[resultado.payload] = contagem.get(resultado.payload, 0) + 1
+                            scoped.info(
+                                "Pesquisas Bing executadas",
+                                total=len(resultados),
+                                payloads=contagem,
+                            )
+                        except Exception as exc:  # pragma: no cover - logging auxiliar
+                            scoped.aviso("Falhou ao executar pesquisas Bing", erro=str(exc))
                 finally:
                     self._rewards_data.set_request_provider(_missing_base_request)
 
