@@ -73,25 +73,22 @@ class ExecutorEmLote(IExecutorEmLoteService):
 
     def executar(self, acoes: Iterable[str] | None = None) -> None:
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
-        try:
-            self._proxy_service.start()
-        except Exception as exc:  # pragma: no cover - logging auxiliar
-            self._logger.aviso("Falha ao iniciar serviço de proxy", erro=str(exc))
-            self._proxy_service.test()
-            self._proxy_service.start()
-        contas = self._conta_repository.listar(self._proxy_service.get_http_proxy())
+        contas = self._conta_repository.listar()
+        self._proxy_service.test(threads=5)
+        self._proxy_service.start(amounts=len(contas))
 
-        for conta in contas:
-            self._processar_conta(conta, acoes_normalizadas)
+        for conta, proxy in zip(contas, self._proxy_service.get_http_proxy()):
+            # conta.proxy = proxy
+            self._processar_conta(conta, acoes_normalizadas, proxy=proxy)
 
-    def _processar_conta(self, conta: Conta, acoes: Sequence[str]) -> None:
+    def _processar_conta(self, conta: Conta, acoes: Sequence[str], proxy: str) -> None:
         scoped = self._logger.com_contexto(conta=conta.email)
         scoped.info("Iniciando processamento da conta")
-        scoped.info(conta.proxy)
+        scoped.info(proxy)
 
         try:
             self._perfil_service.garantir_perfil(conta.id_perfil, conta.email, conta.senha)
-            sessao = self._autenticador.executar(conta) if "login" in acoes else None
+            sessao = self._autenticador.executar(conta, proxy=proxy) if "login" in acoes else None
 
             if sessao:
                 self._perfil_service.garantir_agente_usuario(sessao.perfil)

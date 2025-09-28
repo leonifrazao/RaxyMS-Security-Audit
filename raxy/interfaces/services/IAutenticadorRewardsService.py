@@ -18,5 +18,5 @@ class IAutenticadorRewardsService(ABC):
         """Normaliza e valida email/senha antes do login."""
 
     @abstractmethod
-    def executar(self, conta: "Conta") -> "SessaoSolicitacoes":
+    def executar(self, conta: "Conta", proxy: str) -> "SessaoSolicitacoes":
         """Realiza o login e retorna a sessão autenticada."""

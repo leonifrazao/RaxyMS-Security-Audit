@@ -43,12 +43,12 @@ class AutenticadorRewards(IAutenticadorRewardsService):
 
         return email_normalizado, senha_normalizada
 
-    def executar(self, conta: Conta) -> SessaoSolicitacoes:
+    def executar(self, conta: Conta, proxy: str) -> SessaoSolicitacoes:
         """Executa o login utilizando o serviço de navegador."""
 
         email, senha = self.validar_credenciais(conta.email, conta.senha)
         perfil = conta.id_perfil or conta.email
-        sessao_base = self._navegador.login(profile=perfil, proxy=conta.proxy)
+        sessao_base = self._navegador.login(profile=perfil, proxy=proxy)
         sessao = SessaoSolicitacoes(conta=conta, base_request=sessao_base)
         return sessao
 
