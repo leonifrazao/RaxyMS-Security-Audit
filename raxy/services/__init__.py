@@ -1,6 +1,5 @@
-"""Servicos de dominio e infraestrutura da aplicacao."""
+"""Serviços de domínio e infraestrutura da aplicação."""
 
-from .api_execution_service import BuscaPayloadConfig, ResultadoBusca, RewardsAPIsService
 from .auth_service import AutenticadorRewards, CredenciaisInvalidas, NavegadorRecompensas
 from .executor_service import ExecutorConfig, ExecutorEmLote
 from .logging_service import FarmLogger, LoggerConfig, configurar_logging, log
@@ -11,8 +10,6 @@ from .solicitacoes_service import GerenciadorSolicitacoesRewards
 
 __all__ = [
     "AutenticadorRewards",
-    "BaseRequest",
-    "BuscaPayloadConfig",
     "CredenciaisInvalidas",
     "ExecutorConfig",
     "ExecutorEmLote",
@@ -22,10 +19,9 @@ __all__ = [
     "LoggerConfig",
     "NavegadorRecompensas",
     "ParametrosManualSolicitacao",
-    "ResultadoBusca",
-    "RewardsAPIsService",
     "RewardsBrowserService",
     "SessaoSolicitacoes",
+    "BaseRequest",
     "configurar_logging",
     "log",
 ]
