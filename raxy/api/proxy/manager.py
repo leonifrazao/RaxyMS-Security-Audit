@@ -27,6 +27,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse, parse_qs, unquote, quote, urlsplit
 
+from interfaces.services import IProxyService
+
 __all__ = ["Proxy"]
 
 try:
@@ -44,7 +46,7 @@ except Exception:  # pragma: no cover - uso opcional de rich
     Text = None
 
 
-class Proxy:
+class Proxy(IProxyService):
     """Gerencia uma coleção de proxys, com suporte a testes e criação de pontes HTTP."""
 
     DEFAULT_CACHE_FILENAME: str = "proxy_cache.json"

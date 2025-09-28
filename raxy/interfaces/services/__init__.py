@@ -7,6 +7,7 @@ from .IGerenciadorSolicitacoesService import IGerenciadorSolicitacoesService
 from .ILoggingService import ILoggingService
 from .INavegadorRewardsService import INavegadorRewardsService
 from .IPerfilService import IPerfilService
+from .IProxyService import IProxyService
 from .IRewardsBrowserService import IRewardsBrowserService
 from .IRewardsDataService import IRewardsDataService
 
@@ -18,6 +19,7 @@ __all__ = [
     "ILoggingService",
     "INavegadorRewardsService",
     "IPerfilService",
+    "IProxyService",
     "IRewardsBrowserService",
     "IRewardsDataService",
 ]
