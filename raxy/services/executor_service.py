@@ -75,7 +75,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
         contas = self._conta_repository.listar()
         self._proxy_service.test(threads=5)
-        self._proxy_service.start(amounts=len(contas))
+        self._proxy_service.start(amounts=len(contas), country='US')
 
         for conta, proxy in zip(contas, self._proxy_service.get_http_proxy()):
             # conta.proxy = proxy
@@ -91,7 +91,6 @@ class ExecutorEmLote(IExecutorEmLoteService):
             sessao = self._autenticador.executar(conta, proxy=proxy) if "login" in acoes else None
 
             if sessao:
-                self._perfil_service.garantir_agente_usuario(sessao.perfil)
 
                 self._rewards_data.set_request_provider(lambda base=sessao.base_request: base)
                 try:

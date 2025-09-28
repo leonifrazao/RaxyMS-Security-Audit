@@ -26,20 +26,6 @@ class GerenciadorPerfil(IPerfilService):
             operating_systems=self._SISTEMAS_PADRAO,
         )
 
-    def garantir_agente_usuario(self, perfil: str) -> str:
-        """Retorna o user-agent associado ao perfil, criando se necessário."""
-
-        if not perfil:
-            raise ValueError("Perfil deve ser informado")
-
-        existente = Profiles.get_profile(perfil)
-        if existente and existente.get("UA"):
-            return existente["UA"]
-
-        agente = self._provedor.get_random_user_agent()
-        Profiles.set_profile(perfil, {"UA": agente})
-        return agente
-
     def argumentos_agente_usuario(self, perfil: str) -> list[str]:
         """Retorna a flag de linha de comando para o user-agent do perfil."""
 
@@ -50,10 +36,9 @@ class GerenciadorPerfil(IPerfilService):
         """Garante que o perfil exista."""
         if not perfil:
             raise ValueError("Perfil deve ser informado")
-        # Profiles.get_profile(perfil)  # Isso cria o perfil se não existir
         if not Profiles.get_profile(perfil):
-            # agente = self._provedor.get_random_user_agent()
-            Profiles.set_profile(perfil, {"email": email, "senha": senha})
+
+            Profiles.set_profile(perfil, {"UA": self._provedor.get_random_user_agent(), "email": email, "senha": senha})
 
 
 __all__ = ["GerenciadorPerfil"]

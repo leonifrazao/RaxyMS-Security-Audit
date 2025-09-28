@@ -40,6 +40,7 @@ class IProxyService(ABC):
         country: str | None = None,
         verbose: bool | None = None,
         force_refresh: bool = False,
+        force: bool = False,
     ) -> list[dict[str, Any]]:
         """Executa verificacoes de conectividade e retorna os registros atualizados."""
         raise NotImplementedError
