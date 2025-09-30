@@ -1,7 +1,7 @@
 """Client-side proxies for connecting to FastPIPE services via filesystem messaging."""
 from __future__ import annotations
 
-from ._json import dumps as json_dumps, loads as json_loads
+import orjson
 import os
 import time
 import uuid
@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 from .exceptions import RemoteExecutionError, ServiceNotFound
-from .registry import ServiceRecord, resolve_service
+from .registry import resolve_service
 
 
 class ServiceClient:
@@ -42,7 +42,7 @@ class ServiceClient:
         request_id = payload.setdefault("id", uuid.uuid4().hex)
         request_path = self._requests / f"{request_id}.json"
         tmp = request_path.with_suffix(".tmp")
-        tmp.write_text(json_dumps(payload), encoding="utf-8")
+        tmp.write_text(orjson.dumps(payload).decode("utf-8"))
         os.replace(tmp, request_path)
 
         response_path = self._responses / f"{request_id}.json"
@@ -54,7 +54,7 @@ class ServiceClient:
             if response_path.exists():
                 raw = response_path.read_text(encoding="utf-8")
                 try:
-                    response = json_loads(raw)
+                    response = orjson.loads(raw)
                 finally:
                     try:
                         response_path.unlink()

@@ -68,6 +68,8 @@ pkgs.mkShell {
 
     xray
 
+    code-cursor
+
   ]) ++ [
     burpsuite
   ];

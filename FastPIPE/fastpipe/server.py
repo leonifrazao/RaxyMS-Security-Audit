@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import atexit
-from ._json import dumps as json_dumps, loads as json_loads
+import orjson
 import multiprocessing
 import os
 import threading
@@ -13,7 +13,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
-
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 def _compute_worker_count() -> int:
     workers_env = os.environ.get("FASTPIPE_WORKERS")
@@ -27,14 +28,8 @@ def _compute_worker_count() -> int:
     return workers
 
 
-from .exceptions import FastPipeError, ServiceNotFound, RemoteExecutionError
-from .registry import (
-    ServiceRecord,
-    register_service,
-    resolve_service,
-    service_root,
-    unregister_service,
-)
+from .exceptions import FastPipeError, ServiceNotFound
+from .registry import ServiceRecord, register_service, resolve_service, service_root, unregister_service
 
 
 JsonDict = Dict[str, Any]
@@ -151,12 +146,6 @@ class RegisteredFunction:
             # Avoid nested event loops; execute the coroutine in a dedicated event loop
             return asyncio.run(result)
         return result
-
-
-# Require watchdog for filesystem events
-from watchdog.observers import Observer  # type: ignore
-from watchdog.events import FileSystemEventHandler  # type: ignore
-HAS_WATCHDOG = True
 
 
 class ServiceServer:
@@ -327,8 +316,7 @@ class ServiceServer:
 
     def _serve_loop(self) -> None:
         # Event-driven approach using watchdog
-        if HAS_WATCHDOG:
-            class _RequestHandler(FileSystemEventHandler):
+        class _RequestHandler(FileSystemEventHandler):
                 def __init__(self, server: "ServiceServer") -> None:
                     self._server = server
                 def _handle_path(self, path: str) -> None:
@@ -348,7 +336,7 @@ class ServiceServer:
                     if getattr(event, "is_directory", False):
                         return
                     self._handle_path(getattr(event, "src_path", ""))
-            try:
+        try:
                 observer = Observer()
                 handler = _RequestHandler(self)
                 observer.schedule(handler, str(self._requests), recursive=False)  # type: ignore[arg-type]
@@ -369,10 +357,10 @@ class ServiceServer:
                     except FileNotFoundError:
                         pass
                     time.sleep(0.02)
-            except Exception:
+        except Exception:
                 # Fallback to polling on any watchdog issues
                 self._observer = None
-            finally:
+        finally:
                 if self._observer is not None:
                     try:
                         self._observer.stop()
@@ -432,13 +420,13 @@ class ServiceServer:
             except FileNotFoundError:
                 pass
         try:
-            request = json_loads(raw)
+            request = orjson.loads(raw)
         except Exception:
             return
         response = self.handle_request(request)
         response_path = self._responses / f"{request.get('id', uuid.uuid4().hex)}.json"
         tmp = response_path.with_suffix(".tmp")
-        tmp.write_text(json_dumps(response), encoding="utf-8")
+        tmp.write_text(orjson.dumps(response).decode("utf-8"))
         os.replace(tmp, response_path)
 
     def handle_request(self, request: JsonDict) -> JsonDict:
@@ -466,7 +454,7 @@ class ServiceServer:
         try:
             result = callable_entry.invoke(args, kwargs, ctor_args, ctor_kwargs)
             # Ensure result is JSON serializable now to fail fast
-            json_dumps(result)
+            orjson.dumps(result)
         except TypeError as exc:
             return {
                 "status": "error",
