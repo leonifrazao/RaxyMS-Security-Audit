@@ -1,7 +1,7 @@
 """Client-side proxies for connecting to FastPIPE services via filesystem messaging."""
 from __future__ import annotations
 
-import json
+from ._json import dumps as json_dumps, loads as json_loads
 import os
 import time
 import uuid
@@ -20,7 +20,7 @@ class ServiceClient:
         name: str,
         *ctor_args: Any,
         timeout: float = 5.0,
-        poll_interval: float = 0.01,
+        poll_interval: float = 0.002,
         **ctor_kwargs: Any,
     ) -> None:
         self._name = name
@@ -42,23 +42,27 @@ class ServiceClient:
         request_id = payload.setdefault("id", uuid.uuid4().hex)
         request_path = self._requests / f"{request_id}.json"
         tmp = request_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(payload), encoding="utf-8")
+        tmp.write_text(json_dumps(payload), encoding="utf-8")
         os.replace(tmp, request_path)
 
         response_path = self._responses / f"{request_id}.json"
         deadline = time.perf_counter() + self._timeout
+        sleep = self._poll_interval
+        # Basic exponential backoff with cap
+        backoff_cap = 0.02
         while time.perf_counter() < deadline:
             if response_path.exists():
                 raw = response_path.read_text(encoding="utf-8")
                 try:
-                    response = json.loads(raw)
+                    response = json_loads(raw)
                 finally:
                     try:
                         response_path.unlink()
                     except FileNotFoundError:
                         pass
                 return response
-            time.sleep(self._poll_interval)
+            time.sleep(sleep)
+            sleep = min(backoff_cap, sleep * 1.5)
         raise RemoteExecutionError(
             f"Timeout waiting for response from service '{self._name}' after {self._timeout}s"
         )
@@ -97,7 +101,7 @@ def connect_service(
     name: str,
     *ctor_args: Any,
     timeout: float = 5.0,
-    poll_interval: float = 0.01,
+    poll_interval: float = 0.002,
     **ctor_kwargs: Any,
 ) -> ServiceClient:
     try:

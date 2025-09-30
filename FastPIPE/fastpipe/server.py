@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import atexit
-import json
+from ._json import dumps as json_dumps, loads as json_loads
 import multiprocessing
 import os
 import threading
@@ -12,8 +12,22 @@ import uuid
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor
 
-from .exceptions import FastPipeError, ServiceNotFound
+
+def _compute_worker_count() -> int:
+    workers_env = os.environ.get("FASTPIPE_WORKERS")
+    try:
+        workers = int(workers_env) if workers_env else 0
+    except Exception:
+        workers = 0
+    if workers <= 0:
+        cpu = os.cpu_count() or 1
+        workers = min(32, max(2, cpu * 2))
+    return workers
+
+
+from .exceptions import FastPipeError, ServiceNotFound, RemoteExecutionError
 from .registry import (
     ServiceRecord,
     register_service,
@@ -68,9 +82,20 @@ class _InstanceMethodFactory:
     def __init__(self, cls: type, attr_name: str) -> None:
         self._cls = cls
         self._attr_name = attr_name
+        self._cache: Dict[tuple, Any] = {}
+        self._lock = threading.Lock()
 
     def __call__(self, ctor_args: List[Any], ctor_kwargs: Dict[str, Any]) -> Callable[..., Any]:
-        instance = self._cls(*ctor_args, **ctor_kwargs)
+        # Reuse service instances per unique constructor signature to avoid
+        # paying instantiation cost on every call.
+        key = (tuple(ctor_args), tuple(sorted(ctor_kwargs.items())))
+        instance = self._cache.get(key)
+        if instance is None:
+            with self._lock:
+                instance = self._cache.get(key)
+                if instance is None:
+                    instance = self._cls(*ctor_args, **ctor_kwargs)
+                    self._cache[key] = instance
         return getattr(instance, self._attr_name)
 
 
@@ -105,12 +130,20 @@ class RegisteredFunction:
         target = self._factory(ctor_args, ctor_kwargs)
         result = target(*args, **kwargs)
         if asyncio.iscoroutine(result):
+            # Avoid nested event loops; execute the coroutine in a dedicated event loop
             return asyncio.run(result)
         return result
 
 
 class ServiceServer:
-    """Maintains a registry of functions and responds to filesystem requests."""
+    """Maintains a registry of functions and responds to filesystem requests.
+
+    Performance notes:
+    - Uses ThreadPoolExecutor for concurrent request handling; size can be tuned via FASTPIPE_WORKERS.
+    - Uses os.scandir and atomic os.replace to claim request files, reducing lock contention.
+    - JSON serialization uses orjson when available via fastpipe._json.
+    - Caches class instances per constructor signature for instance-method endpoints.
+    """
 
     def __init__(self, name: str) -> None:
         self._name = name
@@ -125,6 +158,17 @@ class ServiceServer:
         self._running = threading.Event()
         self._record: Optional[ServiceRecord] = None
         self._frozen = False
+        # Thread pool for concurrent request handling
+        self._executor: Optional[ThreadPoolExecutor] = None
+        self._create_executor()
+
+    def _create_executor(self) -> None:
+        if self._executor is None:
+            workers = _compute_worker_count()
+            self._executor = ThreadPoolExecutor(
+                max_workers=workers,
+                thread_name_prefix=f"FastPIPE-exec[{self._name}]",
+            )
 
     @property
     def name(self) -> str:
@@ -168,6 +212,7 @@ class ServiceServer:
         if self._server_thread and self._server_thread.is_alive():
             return
         self._running.set()
+        self._create_executor()
         self._server_thread = threading.Thread(
             target=self._serve_loop,
             name=f"FastPIPE[{self._name}]",
@@ -181,6 +226,13 @@ class ServiceServer:
         if thread and thread.is_alive():
             thread.join(timeout=1)
         self._server_thread = None
+        # Shutdown executor to stop accepting new work and free threads
+        try:
+            if self._executor is not None:
+                self._executor.shutdown(wait=False, cancel_futures=True)
+                self._executor = None
+        except Exception:
+            pass
         if self._record is not None:
             unregister_service(self._name, expected_pid=self._record.pid)
             self._record = None
@@ -220,17 +272,30 @@ class ServiceServer:
     def _serve_loop(self) -> None:
         while self._running.is_set():
             handled = False
-            for request_path in sorted(self._requests.glob("*.json")):
-                handled = True
-                try:
-                    self._process_request(request_path)
-                except Exception:
-                    try:
-                        request_path.unlink()
-                    except FileNotFoundError:
-                        pass
+            # Use os.scandir for faster directory iteration
+            try:
+                with os.scandir(self._requests) as it:
+                    for entry in it:
+                        if not entry.is_file() or not entry.name.endswith(".json"):
+                            continue
+                        handled = True
+                        path = Path(entry.path)
+                        # Atomically claim the file by renaming to .proc; if it fails, another worker took it
+                        proc_path = path.with_suffix(".proc")
+                        try:
+                            os.replace(path, proc_path)
+                        except FileNotFoundError:
+                            continue
+                        except PermissionError:
+                            continue
+                        except OSError:
+                            continue
+                        # Dispatch to thread pool for processing
+                        self._executor.submit(self._process_request, proc_path)
+            except FileNotFoundError:
+                pass
             if not handled:
-                time.sleep(0.01)
+                time.sleep(0.002)
 
     def _process_request(self, request_path: Path) -> None:
         try:
@@ -241,13 +306,13 @@ class ServiceServer:
             except FileNotFoundError:
                 pass
         try:
-            request = json.loads(raw)
-        except json.JSONDecodeError:
+            request = json_loads(raw)
+        except Exception:
             return
         response = self.handle_request(request)
         response_path = self._responses / f"{request.get('id', uuid.uuid4().hex)}.json"
         tmp = response_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(response), encoding="utf-8")
+        tmp.write_text(json_dumps(response), encoding="utf-8")
         os.replace(tmp, response_path)
 
     def handle_request(self, request: JsonDict) -> JsonDict:
@@ -274,7 +339,8 @@ class ServiceServer:
             }
         try:
             result = callable_entry.invoke(args, kwargs, ctor_args, ctor_kwargs)
-            json.dumps(result)
+            # Ensure result is JSON serializable now to fail fast
+            json_dumps(result)
         except TypeError as exc:
             return {
                 "status": "error",

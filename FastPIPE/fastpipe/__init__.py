@@ -181,7 +181,7 @@ def connect(
     name: str,
     *ctor_args: Any,
     timeout: float = 5.0,
-    poll_interval: float = 0.01,
+    poll_interval: float = 0.002,
     **ctor_kwargs: Any,
 ) -> ServiceClient:
     """Connect to a FastPIPE service previously declared with :func:`create`."""
