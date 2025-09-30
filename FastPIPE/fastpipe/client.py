@@ -75,21 +75,32 @@ class ServiceClient:
 
     def __getattr__(self, name: str) -> Callable[..., Any]:
         def call_remote(*args: Any, **kwargs: Any) -> Any:
-            payload = {
-                "type": "call",
-                "endpoint": name,
-                "args": args,
-                "kwargs": kwargs,
-                "ctor_args": self._ctor_args,
-                "ctor_kwargs": self._ctor_kwargs,
-            }
-            response = self._write_request(payload)
-            if response.get("status") == "ok":
-                return response.get("result")
-            error = response.get("error", {})
-            raise RemoteExecutionError(
-                f"Remote call to '{name}' failed: {error.get('type')}: {error.get('message')}"
-            )
+            try:
+                payload = {
+                    "type": "call",
+                    "endpoint": name,
+                    "args": args,
+                    "kwargs": kwargs,
+                    "ctor_args": self._ctor_args,
+                    "ctor_kwargs": self._ctor_kwargs,
+                }
+                response = self._write_request(payload)
+                if response.get("status") == "ok":
+                    return response.get("result")
+                error = response.get("error", {})
+                raise RemoteExecutionError(
+                    f"Remote call to '{self._name}.{name}' failed:\n"
+                    f"  Type: {error.get('type')}\n"
+                    f"  Message: {error.get('message')}\n"
+                    f"  Args: {args}\n"
+                    f"  Kwargs: {kwargs}"
+                )
+            except RemoteExecutionError:
+                raise
+            except Exception as exc:
+                raise RemoteExecutionError(
+                    f"Failed to call '{self._name}.{name}': {exc}"
+                ) from exc
 
         return call_remote
 

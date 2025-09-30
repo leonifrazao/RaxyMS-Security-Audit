@@ -5,3 +5,5 @@ random-user-agent
 v2ray2proxy
 flask
 wonderwords
+orjson>=3.9
+watchdog>=4

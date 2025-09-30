@@ -79,24 +79,42 @@ class _FunctionFactory:
 
 
 class _InstanceMethodFactory:
-    def __init__(self, cls: type, attr_name: str) -> None:
+    def __init__(self, cls: type, attr_name: str, max_size: int = 128) -> None:
+        from weakref import WeakValueDictionary
         self._cls = cls
         self._attr_name = attr_name
-        self._cache: Dict[tuple, Any] = {}
+        self._cache: "WeakValueDictionary[tuple, Any]" = WeakValueDictionary()
         self._lock = threading.Lock()
+        self._max_size = max_size
+        self._access_count: Dict[tuple, int] = {}
 
     def __call__(self, ctor_args: List[Any], ctor_kwargs: Dict[str, Any]) -> Callable[..., Any]:
-        # Reuse service instances per unique constructor signature to avoid
-        # paying instantiation cost on every call.
         key = (tuple(ctor_args), tuple(sorted(ctor_kwargs.items())))
         instance = self._cache.get(key)
         if instance is None:
             with self._lock:
                 instance = self._cache.get(key)
                 if instance is None:
+                    # Evict least used entries if needed
+                    if len(self._access_count) >= self._max_size:
+                        self._evict_least_used()
                     instance = self._cls(*ctor_args, **ctor_kwargs)
                     self._cache[key] = instance
+                    self._access_count[key] = 0
+        # bump usage
+        self._access_count[key] = self._access_count.get(key, 0) + 1
         return getattr(instance, self._attr_name)
+
+    def _evict_least_used(self) -> None:
+        if not self._access_count:
+            return
+        to_remove = max(1, len(self._access_count) // 4)
+        for key, _ in sorted(self._access_count.items(), key=lambda kv: kv[1])[:to_remove]:
+            self._access_count.pop(key, None)
+            try:
+                self._cache.pop(key)
+            except KeyError:
+                pass
 
 
 class _StaticLikeFactory:
@@ -135,6 +153,12 @@ class RegisteredFunction:
         return result
 
 
+# Require watchdog for filesystem events
+from watchdog.observers import Observer  # type: ignore
+from watchdog.events import FileSystemEventHandler  # type: ignore
+HAS_WATCHDOG = True
+
+
 class ServiceServer:
     """Maintains a registry of functions and responds to filesystem requests.
 
@@ -143,6 +167,7 @@ class ServiceServer:
     - Uses os.scandir and atomic os.replace to claim request files, reducing lock contention.
     - JSON serialization uses orjson when available via fastpipe._json.
     - Caches class instances per constructor signature for instance-method endpoints.
+    - Optional watchdog-based event handling to avoid polling when available.
     """
 
     def __init__(self, name: str) -> None:
@@ -158,9 +183,14 @@ class ServiceServer:
         self._running = threading.Event()
         self._record: Optional[ServiceRecord] = None
         self._frozen = False
+        # cleanup housekeeping
+        self._cleanup_interval = 300.0  # seconds
+        self._last_cleanup = time.time()
         # Thread pool for concurrent request handling
         self._executor: Optional[ThreadPoolExecutor] = None
         self._create_executor()
+        # Optional watchdog observer
+        self._observer = None
 
     def _create_executor(self) -> None:
         if self._executor is None:
@@ -220,16 +250,24 @@ class ServiceServer:
         )
         self._server_thread.start()
 
-    def stop(self) -> None:
+    def stop(self, timeout: float = 5.0) -> None:
         self._running.clear()
         thread = self._server_thread
         if thread and thread.is_alive():
-            thread.join(timeout=1)
+            thread.join(timeout=timeout)
         self._server_thread = None
-        # Shutdown executor to stop accepting new work and free threads
+        # Stop observer if any
+        if self._observer is not None:
+            try:
+                self._observer.stop()
+                self._observer.join()
+            except Exception:
+                pass
+            self._observer = None
+        # Shutdown executor gracefully to finish pending work
         try:
             if self._executor is not None:
-                self._executor.shutdown(wait=False, cancel_futures=True)
+                self._executor.shutdown(wait=True, cancel_futures=False)
                 self._executor = None
         except Exception:
             pass
@@ -269,33 +307,121 @@ class ServiceServer:
         with self._lock:
             return [(name, entry.func) for name, entry in self._registry.items()]
 
+    def _claim_and_dispatch(self, path: Path) -> None:
+        # Atomically claim the file by renaming to .proc; if it fails, another worker took it
+        proc_path = path.with_suffix(".proc")
+        try:
+            os.replace(path, proc_path)
+        except FileNotFoundError:
+            return
+        except PermissionError:
+            return
+        except OSError:
+            return
+        # Dispatch to thread pool for processing
+        if self._executor is not None:
+            self._executor.submit(self._process_request, proc_path)
+        else:
+            # Fallback: process inline
+            self._process_request(proc_path)
+
     def _serve_loop(self) -> None:
+        # Event-driven approach using watchdog
+        if HAS_WATCHDOG:
+            class _RequestHandler(FileSystemEventHandler):
+                def __init__(self, server: "ServiceServer") -> None:
+                    self._server = server
+                def _handle_path(self, path: str) -> None:
+                    if not str(path).endswith(".json"):
+                        return
+                    self._server._claim_and_dispatch(Path(path))
+                def on_created(self, event):  # type: ignore[override]
+                    if getattr(event, "is_directory", False):
+                        return
+                    self._handle_path(getattr(event, "src_path", ""))
+                def on_moved(self, event):  # type: ignore[override]
+                    if getattr(event, "is_directory", False):
+                        return
+                    dest = getattr(event, "dest_path", None) or getattr(event, "src_path", "")
+                    self._handle_path(dest)
+                def on_modified(self, event):  # type: ignore[override]
+                    if getattr(event, "is_directory", False):
+                        return
+                    self._handle_path(getattr(event, "src_path", ""))
+            try:
+                observer = Observer()
+                handler = _RequestHandler(self)
+                observer.schedule(handler, str(self._requests), recursive=False)  # type: ignore[arg-type]
+                observer.start()
+                self._observer = observer
+                while self._running.is_set():
+                    # periodic cleanup
+                    now = time.time()
+                    if now - self._last_cleanup > self._cleanup_interval:
+                        self._cleanup_old_files()
+                        self._last_cleanup = now
+                    # safety scan in case events were missed
+                    try:
+                        with os.scandir(self._requests) as it2:
+                            for entry2 in it2:
+                                if entry2.is_file() and entry2.name.endswith(".json"):
+                                    self._claim_and_dispatch(Path(entry2.path))
+                    except FileNotFoundError:
+                        pass
+                    time.sleep(0.02)
+            except Exception:
+                # Fallback to polling on any watchdog issues
+                self._observer = None
+            finally:
+                if self._observer is not None:
+                    try:
+                        self._observer.stop()
+                        self._observer.join()
+                    except Exception:
+                        pass
+                    self._observer = None
+                if self._running.is_set():
+                    # if still running, continue with polling fallback
+                    pass
+        # Polling fallback
         while self._running.is_set():
             handled = False
-            # Use os.scandir for faster directory iteration
+            # periodic cleanup
+            now = time.time()
+            if now - self._last_cleanup > self._cleanup_interval:
+                self._cleanup_old_files()
+                self._last_cleanup = now
             try:
                 with os.scandir(self._requests) as it:
                     for entry in it:
                         if not entry.is_file() or not entry.name.endswith(".json"):
                             continue
                         handled = True
-                        path = Path(entry.path)
-                        # Atomically claim the file by renaming to .proc; if it fails, another worker took it
-                        proc_path = path.with_suffix(".proc")
-                        try:
-                            os.replace(path, proc_path)
-                        except FileNotFoundError:
-                            continue
-                        except PermissionError:
-                            continue
-                        except OSError:
-                            continue
-                        # Dispatch to thread pool for processing
-                        self._executor.submit(self._process_request, proc_path)
+                        self._claim_and_dispatch(Path(entry.path))
             except FileNotFoundError:
                 pass
             if not handled:
                 time.sleep(0.002)
+
+    def _cleanup_old_files(self, max_age: float = 3600.0) -> None:
+        now = time.time()
+        for directory in (self._requests, self._responses):
+            try:
+                with os.scandir(directory) as it:
+                    for entry in it:
+                        if not entry.is_file():
+                            continue
+                        try:
+                            age = now - entry.stat().st_mtime
+                            if age > max_age:
+                                try:
+                                    os.unlink(entry.path)
+                                except FileNotFoundError:
+                                    pass
+                        except Exception:
+                            pass
+            except FileNotFoundError:
+                pass
 
     def _process_request(self, request_path: Path) -> None:
         try:
