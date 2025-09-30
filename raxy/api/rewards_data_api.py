@@ -9,75 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
-from flask import Blueprint, Response, current_app, jsonify, request
-from flask.views import MethodView
-
 from interfaces.services import IRewardsDataService
 from services.session_service import BaseRequest
 
 REQUESTS_DIR = Path(__file__).resolve().parents[1] / "requests"
-
-
-class _BaseRewardsView(MethodView):
-    """Base para views Rewards que dependem do serviço principal."""
-
-    def __init__(self, api: "RewardsDataAPI") -> None:
-        self._api = api
-
-    @staticmethod
-    def _resolver_base(api: "RewardsDataAPI") -> BaseRequest:
-        return api._base_request_from_provider()
-
-
-class _RewardsPointsView(_BaseRewardsView):
-    def get(self) -> Response:
-        bypass = self._api._parse_bool(request.args.get("bypass_request_token"))
-        try:
-            base = self._resolver_base(self._api)
-            pontos = self._api.obter_pontos(base, bypass_request_token=bypass)
-        except LookupError as exc:
-            return self._api._json_error(str(exc), 503)
-        except Exception:  # pragma: no cover - logging auxiliar
-            logger = getattr(current_app, "logger", None)
-            if logger:
-                logger.exception("Falha ao obter pontos do Rewards")
-            return self._api._json_error("Erro interno ao obter pontos.", 500)
-
-        return jsonify({"points": pontos})
-
-
-class _RewardsPromotionsView(_BaseRewardsView):
-    def get(self) -> Response:
-        bypass = self._api._parse_bool(request.args.get("bypass_request_token"))
-        try:
-            base = self._resolver_base(self._api)
-            dados = self._api.obter_recompensas(base, bypass_request_token=bypass)
-        except LookupError as exc:
-            return self._api._json_error(str(exc), 503)
-        except Exception:  # pragma: no cover - logging auxiliar
-            logger = getattr(current_app, "logger", None)
-            if logger:
-                logger.exception("Falha ao obter recompensas do Rewards")
-            return self._api._json_error("Erro interno ao obter recompensas.", 500)
-
-        return jsonify(dados)
-
-
-class _RewardsExecuteView(_BaseRewardsView):
-    def post(self) -> Response:
-        bypass = self._api._parse_bool(request.args.get("bypass_request_token"))
-        try:
-            base = self._resolver_base(self._api)
-            resultado = self._api.pegar_recompensas(base, bypass_request_token=bypass)
-        except LookupError as exc:
-            return self._api._json_error(str(exc), 503)
-        except Exception:  # pragma: no cover - logging auxiliar
-            logger = getattr(current_app, "logger", None)
-            if logger:
-                logger.exception("Falha ao executar promoções do Rewards")
-            return self._api._json_error("Erro interno ao executar promoções.", 500)
-
-        return jsonify(resultado)
 
 
 class RewardsDataAPI(IRewardsDataService):
@@ -93,17 +28,6 @@ class RewardsDataAPI(IRewardsDataService):
     ) -> None:
         self._palavras_erro = tuple(palavra.lower() for palavra in palavras_erro or ("captcha", "temporarily unavailable", "error"))
         self._request_provider = request_provider
-        self._blueprint = Blueprint("rewards_data", __name__)
-        points_view = _RewardsPointsView.as_view("rewards_data_points", api=self)
-        promotions_view = _RewardsPromotionsView.as_view("rewards_data_promotions", api=self)
-        execute_view = _RewardsExecuteView.as_view("rewards_data_execute", api=self)
-        self._blueprint.add_url_rule("/rewards/data/points", view_func=points_view, methods=["GET"])
-        self._blueprint.add_url_rule("/rewards/data/promotions", view_func=promotions_view, methods=["GET"])
-        self._blueprint.add_url_rule("/rewards/data/promotions/execute", view_func=execute_view, methods=["POST"])
-
-    @property
-    def blueprint(self) -> Blueprint:
-        return self._blueprint
 
     def set_request_provider(self, provider: Callable[[], BaseRequest]) -> None:
         """Define o provider padrão utilizado pelas rotas Flask."""
@@ -300,12 +224,6 @@ class RewardsDataAPI(IRewardsDataService):
             return False
         valor_normalizado = value.strip().lower()
         return valor_normalizado in {"1", "true", "t", "yes", "y", "on"}
-
-    @staticmethod
-    def _json_error(message: str, status_code: int) -> Response:
-        resposta = jsonify({"error": {"message": message}})
-        resposta.status_code = status_code
-        return resposta
 
     # -------------------------
     # Helpers

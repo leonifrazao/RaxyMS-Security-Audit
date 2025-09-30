@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import Iterable, Mapping, MutableMapping
 
-from flask import Blueprint, Response, current_app, jsonify, request
-from flask.views import MethodView
-
 from interfaces.services import IAPIRecompensasService, IGerenciadorSolicitacoesService
 
 
@@ -47,30 +44,6 @@ class TemplateRequester:
         return payload, None
 
 
-class _ExecutarTarefasView(MethodView):
-    """View Flask responsável por postar tarefas Rewards."""
-
-    def __init__(self, api: "APIRecompensas") -> None:
-        self._api = api
-
-    def post(self) -> Response:  # pragma: no cover - exercitado em testes específicos
-        payload = request.get_json(silent=True)
-        if not isinstance(payload, Mapping):
-            return self._api._json_error("Corpo JSON deve ser um objeto.", 400)
-
-        bypass_flag = self._api._parse_bool(request.args.get("bypass_request_token"))
-
-        try:
-            resultado = self._api.executar_tarefas(payload, bypass_request_token=bypass_flag)
-        except Exception:  # pragma: no cover - logging auxiliar
-            logger = getattr(current_app, "logger", None)
-            if logger:
-                logger.exception("Falha ao executar tarefas do Rewards")
-            return self._api._json_error("Erro interno ao executar tarefas.", 500)
-
-        return jsonify(resultado)
-
-
 class APIRecompensas(IAPIRecompensasService):
     """Processa dados do Rewards e aciona execução de tarefas."""
 
@@ -84,13 +57,6 @@ class APIRecompensas(IAPIRecompensasService):
     ) -> None:
         self._gerenciador = gerenciador
         self._requester_cls = requester_cls
-        self._blueprint = Blueprint("rewards_tasks", __name__)
-        view = _ExecutarTarefasView.as_view("rewards_tasks", api=self)
-        self._blueprint.add_url_rule("/rewards/tasks", view_func=view, methods=["POST"])
-
-    @property
-    def blueprint(self) -> Blueprint:
-        return self._blueprint
 
     def executar_tarefas(
         self,
@@ -163,12 +129,6 @@ class APIRecompensas(IAPIRecompensasService):
             return False
         valor_normalizado = value.strip().lower()
         return valor_normalizado in {"1", "true", "t", "yes", "y", "on"}
-
-    @staticmethod
-    def _json_error(message: str, status_code: int) -> Response:
-        resposta = jsonify({"error": {"message": message}})
-        resposta.status_code = status_code
-        return resposta
 
 
 __all__ = ["APIRecompensas", "TemplateRequester"]

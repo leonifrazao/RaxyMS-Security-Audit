@@ -10,8 +10,6 @@ from pathlib import Path
 from typing import Callable, Mapping, MutableMapping, Sequence
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from flask import Blueprint, Response, current_app, jsonify, request
-from flask.views import MethodView
 from wonderwords import RandomWord
 
 from services.session_service import BaseRequest
@@ -131,33 +129,6 @@ class _GeradorConsultas:
         return None
 
 
-# Endpoint principal da API de pesquisa
-class _BingSearchView(MethodView):
-    """View Flask responsável por iniciar pesquisas no Bing."""
-
-    def __init__(self, api: "BingSearchAPI") -> None:
-        self._api = api
-
-    def post(self) -> Response:  # pragma: no cover - exercitado em testes específicos
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, Mapping):
-            return self._api._json_error("Corpo JSON deve ser um objeto.", 400)
-
-        consulta = payload.get("query")
-        consulta = consulta if isinstance(consulta, str) and consulta.strip() else None
-
-        try:
-            resultado = self._api.pesquisar(query=consulta)
-        except LookupError as exc:
-            return self._api._json_error(str(exc), 503)
-        except Exception:  # pragma: no cover - logging auxiliar
-            logger = getattr(current_app, "logger", None)
-            if logger:
-                logger.exception("Falha ao realizar pesquisa no Bing")
-            return self._api._json_error("Erro interno ao realizar pesquisa.", 500)
-
-        return jsonify(resultado)
-
 
 class BingSearchAPI:
     """Executa pesquisas HTTP no Bing com base em templates."""
@@ -172,18 +143,6 @@ class BingSearchAPI:
         self._request_provider = request_provider
         self._gerador = gerador_consultas or _GeradorConsultas()
         self._palavras_erro = tuple(palavra.lower() for palavra in (palavras_erro or _ERRO_PADRAO))
-        self._blueprint = Blueprint("bing_search", __name__)
-        view = _BingSearchView.as_view("bing_search", api=self)
-        self._blueprint.add_url_rule("/bing/search", view_func=view, methods=["POST"])
-
-    @property
-    def blueprint(self) -> Blueprint:
-        return self._blueprint
-
-    def set_request_provider(self, provider: Callable[[], BaseRequest]) -> None:
-        """Define o provider padrão utilizado pelas rotas Flask."""
-
-        self._request_provider = provider
 
     def pesquisar(
         self,
@@ -309,12 +268,6 @@ class BingSearchAPI:
             "request": resumo_requisicao,
             "response": resumo_resposta,
         }
-
-    @staticmethod
-    def _json_error(message: str, status_code: int) -> Response:
-        resposta = jsonify({"error": {"message": message}})
-        resposta.status_code = status_code
-        return resposta
 
 
 __all__ = ["BingSearchAPI"]
