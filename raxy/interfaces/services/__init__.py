@@ -1,7 +1,6 @@
 """Interfaces relacionadas a serviços."""
 
 from .IAutenticadorRewardsService import IAutenticadorRewardsService
-from .IAPIRecompensasService import IAPIRecompensasService
 from .IExecutorEmLoteService import IExecutorEmLoteService
 from .IGerenciadorSolicitacoesService import IGerenciadorSolicitacoesService
 from .ILoggingService import ILoggingService
@@ -12,7 +11,6 @@ from .IRewardsBrowserService import IRewardsBrowserService
 from .IRewardsDataService import IRewardsDataService
 
 __all__ = [
-    "IAPIRecompensasService",
     "IAutenticadorRewardsService",
     "IExecutorEmLoteService",
     "IGerenciadorSolicitacoesService",

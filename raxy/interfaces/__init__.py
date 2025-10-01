@@ -1,7 +1,6 @@
 """Interfaces públicas utilizadas pelo container de injeção."""
 
 from .services import (
-    IAPIRecompensasService,
     IAutenticadorRewardsService,
     IExecutorEmLoteService,
     IGerenciadorSolicitacoesService,
@@ -14,7 +13,6 @@ from .services import (
 from .repositories import IContaRepository, IHistoricoPontuacaoRepository
 
 __all__ = [
-    "IAPIRecompensasService",
     "IAutenticadorRewardsService",
     "IContaRepository",
     "IExecutorEmLoteService",

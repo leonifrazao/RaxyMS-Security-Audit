@@ -1693,16 +1693,11 @@ class Proxy(IProxyService):
         tmpdir = Path(tempfile.mkdtemp(prefix=f"xray_{name}_"))
         cfg_path = tmpdir / "config.json"
         cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-        if self.command_output:
-            stdout_target = subprocess.PIPE
-            stderr_target = subprocess.STDOUT
-        else:
-            stdout_target = subprocess.DEVNULL
-            stderr_target = subprocess.DEVNULL
+
         proc = subprocess.Popen(
             [xray_bin, "-config", str(cfg_path)],
-            stdout=stdout_target,
-            stderr=stderr_target,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             bufsize=1
         )
