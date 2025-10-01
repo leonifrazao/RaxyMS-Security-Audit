@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Sequence
 
-from api.rewards_api import APIRecompensas
 from config import (
     DEFAULT_ACTIONS,
     DEFAULT_API_ERROR_WORDS,
@@ -16,7 +15,6 @@ from domain import Conta
 from interfaces.services import (
     IAutenticadorRewardsService,
     IExecutorEmLoteService,
-    IGerenciadorSolicitacoesService,
     ILoggingService,
     IPerfilService,
     IRewardsDataService,
@@ -24,7 +22,6 @@ from interfaces.services import (
 )
 from interfaces.repositories import IContaRepository
 from services.session_service import BaseRequest
-from services.solicitacoes_service import GerenciadorSolicitacoesRewards
 
 
 def _missing_base_request() -> BaseRequest:
@@ -60,7 +57,6 @@ class ExecutorEmLote(IExecutorEmLoteService):
         rewards_data: IRewardsDataService,
         logger: ILoggingService,
         config: ExecutorConfig | None = None,
-        api_factory: Callable[[IGerenciadorSolicitacoesService], APIRecompensas] | None = None,
     ) -> None:
         self._config = config or ExecutorConfig()
         self._proxy_service = proxy_service
@@ -69,7 +65,6 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._perfil_service = perfil_service
         self._conta_repository = conta_repository
         self._rewards_data = rewards_data
-        self._api_factory = api_factory or (lambda ger: APIRecompensas(ger))
 
     def executar(self, acoes: Iterable[str] | None = None) -> None:
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
@@ -102,27 +97,21 @@ class ExecutorEmLote(IExecutorEmLoteService):
                         except Exception as exc:  # pragma: no cover - logging auxiliar
                             scoped.aviso("Falhou ao obter pontos", erro=str(exc))
 
-                        gerenciador = GerenciadorSolicitacoesRewards(
-                            sessao,
-                            palavras_erro=tuple(self._config.api_error_words),
-                        )
-                        api = self._api_factory(gerenciador)
-
                         try:
-                            dados_recompensas = self._rewards_data.obter_recompensas(
+                            self._rewards_data.pegar_recompensas(
                                 sessao.base_request,
                                 bypass_request_token=True,
                             )
                         except Exception as exc:  # pragma: no cover - logging auxiliar
                             scoped.aviso("Falhou ao obter recompensas", erro=str(exc))
-                            dados_recompensas = {}
+                            
 
-                        resumo_execucao = api.executar_tarefas(dados_recompensas)
-                        scoped.info(
-                            "Execução de promoções finalizada",
-                            executadas=resumo_execucao.get("executadas"),
-                            ignoradas=resumo_execucao.get("ignoradas"),
-                        )
+                        # resumo_execucao = api.executar_tarefas(dados_recompensas)
+                        # scoped.info(
+                        #     "Execução de promoções finalizada",
+                        #     executadas=resumo_execucao.get("executadas"),
+                        #     ignoradas=resumo_execucao.get("ignoradas"),
+                        # )
                 finally:
                     self._rewards_data.set_request_provider(_missing_base_request)
 
