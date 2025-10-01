@@ -75,7 +75,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
         contas = self._conta_repository.listar()
         self._proxy_service.start(threads=5, amounts=len(contas), auto_test=True)
-        input("Pressione Enter após iniciar o servidor de API de proxies...")
+        # input("Pressione Enter após iniciar o servidor de API de proxies...")
         # self._proxy_service.test(threads=5)
 
         for conta, proxy in zip(contas, self._proxy_service.get_http_proxy()):
