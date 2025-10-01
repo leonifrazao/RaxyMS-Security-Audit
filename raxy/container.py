@@ -15,6 +15,7 @@ from interfaces.services import (
     IRewardsBrowserService,
     IRewardsDataService,
     IProxyService,
+    IAPIRecompensasService
 )
 from repositories.file_account_repository import ArquivoContaRepository
 from services.auth_service import AutenticadorRewards, NavegadorRecompensas
@@ -24,6 +25,7 @@ from services.perfil_service import GerenciadorPerfil
 from services.rewards_browser_service import RewardsBrowserService
 from api.proxy import Proxy
 from api.rewards_data_api import RewardsDataAPI
+from api.rewards_tasks import RewardsTasksAPI
 
 
 _T = TypeVar("_T")
@@ -52,6 +54,7 @@ class SimpleInjector:
         self.bind_singleton(IPerfilService, lambda inj: GerenciadorPerfil())
         self.bind_singleton(IRewardsBrowserService, lambda inj: RewardsBrowserService(proxy_service=inj.get(IProxyService)))
         self.bind_singleton(IRewardsDataService, lambda inj: RewardsDataAPI())
+        self.bind_singleton(IAPIRecompensasService, lambda inj: RewardsTasksAPI())
         self.bind_singleton(
             IAutenticadorRewardsService,
             lambda inj: AutenticadorRewards(navegador=inj.get(IRewardsBrowserService)),

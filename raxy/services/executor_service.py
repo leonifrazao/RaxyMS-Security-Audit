@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Sequence
 
-from api.rewards_api import APIRecompensas
 from config import (
     DEFAULT_ACTIONS,
     DEFAULT_API_ERROR_WORDS,
@@ -21,6 +20,7 @@ from interfaces.services import (
     IPerfilService,
     IRewardsDataService,
     IProxyService,
+    IRewardsTasksAPIService
 )
 from interfaces.repositories import IContaRepository
 from services.session_service import BaseRequest
@@ -102,12 +102,6 @@ class ExecutorEmLote(IExecutorEmLoteService):
                         except Exception as exc:  # pragma: no cover - logging auxiliar
                             scoped.aviso("Falhou ao obter pontos", erro=str(exc))
 
-                        gerenciador = GerenciadorSolicitacoesRewards(
-                            sessao,
-                            palavras_erro=tuple(self._config.api_error_words),
-                        )
-                        api = self._api_factory(gerenciador)
-
                         try:
                             dados_recompensas = self._rewards_data.obter_recompensas(
                                 sessao.base_request,
@@ -117,12 +111,12 @@ class ExecutorEmLote(IExecutorEmLoteService):
                             scoped.aviso("Falhou ao obter recompensas", erro=str(exc))
                             dados_recompensas = {}
 
-                        resumo_execucao = api.executar_tarefas(dados_recompensas)
-                        scoped.info(
-                            "Execução de promoções finalizada",
-                            executadas=resumo_execucao.get("executadas"),
-                            ignoradas=resumo_execucao.get("ignoradas"),
-                        )
+                        # resumo_execucao = api.executar_tarefas(dados_recompensas)
+                        # scoped.info(
+                        #     "Execução de promoções finalizada",
+                        #     executadas=resumo_execucao.get("executadas"),
+                        #     ignoradas=resumo_execucao.get("ignoradas"),
+                        # )
                 finally:
                     self._rewards_data.set_request_provider(_missing_base_request)
 
