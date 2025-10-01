@@ -46,11 +46,11 @@ class SimpleInjector:
         self._registrar_bindings_padrao()
 
     def _registrar_bindings_padrao(self) -> None:
-        self.bind_singleton(IProxyService, lambda inj: Proxy(sources=['https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/vless.txt'], use_console=True))
+        self.bind_singleton(IProxyService, lambda inj: Proxy(country="US", sources=['https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/vless.txt'], use_console=True))
         self.bind_instance(ExecutorConfig, self._config)
         self.bind_singleton(ILoggingService, lambda inj: log)
         self.bind_singleton(IPerfilService, lambda inj: GerenciadorPerfil())
-        self.bind_singleton(IRewardsBrowserService, lambda inj: RewardsBrowserService())
+        self.bind_singleton(IRewardsBrowserService, lambda inj: RewardsBrowserService(proxy_service=inj.get(IProxyService)))
         self.bind_singleton(IRewardsDataService, lambda inj: RewardsDataAPI())
         self.bind_singleton(
             IAutenticadorRewardsService,
@@ -73,7 +73,7 @@ class SimpleInjector:
                 rewards_data=inj.get(IRewardsDataService),
                 logger=inj.get(ILoggingService),
                 config=inj.get(ExecutorConfig),
-                proxy_service=inj.get(IProxyService)
+                proxy_service=inj.get(IProxyService),
             ),
         )
 

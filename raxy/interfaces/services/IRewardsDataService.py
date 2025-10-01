@@ -5,8 +5,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Callable, Mapping, TYPE_CHECKING
 
-from flask import Blueprint
-
 if TYPE_CHECKING:  # pragma: no cover
     from raxy.services.session_service import BaseRequest
 
@@ -14,10 +12,6 @@ if TYPE_CHECKING:  # pragma: no cover
 class IRewardsDataService(ABC):
     """Opera sobre a API HTTP do Rewards sem interação com navegador."""
 
-    @property
-    @abstractmethod
-    def blueprint(self) -> Blueprint:
-        """Retorna o blueprint Flask com os endpoints HTTP."""
 
     @abstractmethod
     def set_request_provider(self, provider: Callable[[], "BaseRequest"]) -> None:

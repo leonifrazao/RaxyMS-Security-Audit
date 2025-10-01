@@ -45,8 +45,7 @@ class AutenticadorRewards(IAutenticadorRewardsService):
 
     def executar(self, conta: Conta, proxy: str) -> SessaoSolicitacoes:
         """Executa o login utilizando o serviço de navegador."""
-
-        email, senha = self.validar_credenciais(conta.email, conta.senha)
+        
         perfil = conta.id_perfil or conta.email
         sessao_base = self._navegador.login(profile=perfil, proxy=proxy)
         sessao = SessaoSolicitacoes(conta=conta, base_request=sessao_base)

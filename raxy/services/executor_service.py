@@ -74,17 +74,18 @@ class ExecutorEmLote(IExecutorEmLoteService):
     def executar(self, acoes: Iterable[str] | None = None) -> None:
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
         contas = self._conta_repository.listar()
-        self._proxy_service.test(threads=5)
-        self._proxy_service.start(amounts=len(contas), country='US')
+        self._proxy_service.start(threads=5, amounts=len(contas), auto_test=True)
+        input("Pressione Enter após iniciar o servidor de API de proxies...")
+        # self._proxy_service.test(threads=5)
 
         for conta, proxy in zip(contas, self._proxy_service.get_http_proxy()):
             # conta.proxy = proxy
             self._processar_conta(conta, acoes_normalizadas, proxy=proxy)
 
-    def _processar_conta(self, conta: Conta, acoes: Sequence[str], proxy: str) -> None:
+    def _processar_conta(self, conta: Conta, acoes: Sequence[str], proxy) -> None:
         scoped = self._logger.com_contexto(conta=conta.email)
         scoped.info("Iniciando processamento da conta")
-        scoped.info(proxy)
+        scoped.info(mensagem="Proxy atual: ", uri=proxy["uri"])
 
         try:
             self._perfil_service.garantir_perfil(conta.id_perfil, conta.email, conta.senha)

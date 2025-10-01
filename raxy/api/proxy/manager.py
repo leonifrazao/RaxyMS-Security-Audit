@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import atexit
 import base64
+import random
 import json
 import os
 import re
@@ -986,6 +987,9 @@ class Proxy(IProxyService):
             if reuse_cache and raw in self._cache_entries:
                 # Proxy já está no cache - apenas aplica os dados salvos
                 cached_data = self._cache_entries[raw]
+                if cached_data.get("invalid"):
+                    # Pula proxy inválida
+                    continue
                 entry = self._apply_cached_entry(entry, cached_data)
                 entry["country_match"] = self.matches_country(entry, country_filter)
                 if country_filter and entry.get("status") == "OK" and not entry["country_match"]:
@@ -1117,7 +1121,7 @@ class Proxy(IProxyService):
         raw_uri: str, 
         outbound: Proxy.Outbound,
         timeout: float = 10.0,
-        test_url: str = "http://httpbin.org/ip"
+        test_url: str = "http://google.com/"
     ) -> Dict[str, Any]:
         """Testa a funcionalidade real da proxy criando uma ponte temporária e fazendo uma requisição."""
         result = {
@@ -1427,10 +1431,14 @@ class Proxy(IProxyService):
         country: Optional[str] = None,
         auto_test: bool = True,
         wait: bool = False,
-    ) -> List[str]:
+    ) -> List[Dict[str, Any]]:
         """Cria pontes HTTP locais para as proxys aprovadas opcionalmente testando antes.
         amounts: se for int > 0, limita o número de pontes criadas a esse valor.
         As proxies são automaticamente ordenadas por ping (menor primeiro).
+
+        Returns:
+            Uma lista de dicionários, onde cada um contém o 'id' da ponte (de 0 a n-1),
+            a 'url' da ponte e a 'uri' da proxy original.
         """
         if self._running:
             raise RuntimeError("As pontes já estão em execução. Chame stop() antes de iniciar novamente.")
@@ -1439,7 +1447,6 @@ class Proxy(IProxyService):
 
         country_filter = country if country is not None else self.country_filter
         
-        # Testa se necessário
         if auto_test and (not self._entries or country_filter != self.country_filter):
             self.test(threads=threads, country=country_filter, verbose=self.use_console)
             country_filter = self.country_filter
@@ -1447,19 +1454,17 @@ class Proxy(IProxyService):
             self.test(threads=threads, country=country_filter, verbose=self.use_console, force_refresh=True)
             country_filter = self.country_filter
 
-        # Filtra proxies aprovadas e que correspondem ao país
         approved_entries = [
-            entry for entry in self._entries 
-            if entry.get("status") == "OK" and self.matches_country(entry, country_filter)
+            entry for entry in self._entries
+            if entry.get("status") == "OK" 
+            and not entry.get("invalid")
+            and self.matches_country(entry, country_filter)
         ]
         
-        # NOVA FUNCIONALIDADE: Ordena por ping (menor primeiro)
-        # Proxies sem ping vão para o final
         def get_ping_for_sort(entry: Dict[str, Any]) -> float:
-            """Retorna o ping para ordenação. Se não houver ping, retorna valor alto."""
             ping = entry.get("ping")
             if ping is None:
-                return float('inf')  # Proxies sem ping vão para o final
+                return float('inf')
             try:
                 return float(ping)
             except (TypeError, ValueError):
@@ -1468,7 +1473,6 @@ class Proxy(IProxyService):
         approved_entries.sort(key=get_ping_for_sort)
         
         if not approved_entries:
-            # Mensagem mais informativa quando não há proxies do país desejado
             if country_filter:
                 raise RuntimeError(
                     f"Nenhuma proxy aprovada para o país '{country_filter}'. "
@@ -1477,17 +1481,14 @@ class Proxy(IProxyService):
             else:
                 raise RuntimeError("Nenhuma proxy aprovada para iniciar. Execute test() e verifique os resultados.")
 
-        # valida e aplica limitador amounts
         if amounts is not None:
             if not isinstance(amounts, int):
                 raise TypeError("amounts deve ser um inteiro ou None.")
             if amounts <= 0:
                 raise ValueError("amounts deve ser um inteiro positivo.")
             if amounts < len(approved_entries):
-                # reduz para a quantidade pedida (pegando as melhores por ping)
                 approved_entries = approved_entries[:amounts]
             elif amounts > len(approved_entries):
-                # pede mais pontes do que há proxies aprovadas -> reduz para o máximo disponível
                 if self.console is not None:
                     self.console.print(
                         f"Atenção: solicitado amounts={amounts} mas só existem {len(approved_entries)} "
@@ -1499,40 +1500,33 @@ class Proxy(IProxyService):
 
         self._stop_event.clear()
         port = self.base_port
-        bridges: List[Tuple[str, int, str]] = []
+        bridges: List[Tuple[str, int, str, str, float]] = []
         processes: List[subprocess.Popen] = []
         cfg_paths: List[Path] = []
 
-        # Log informativo sobre a ordenação
         if self.console is not None and approved_entries:
             best_ping = get_ping_for_sort(approved_entries[0])
-            worst_ping = get_ping_for_sort(approved_entries[-1])
-            
             if best_ping != float('inf'):
                 self.console.print()
                 self.console.print(
-                    f"[green]Iniciando {len(approved_entries)} proxies ordenadas por ping[/] "
-                    f"([bold green]{best_ping:.1f}ms[/] até "
-                    f"[yellow]{worst_ping:.1f}ms[/] se worst_ping != float('inf') else '[dim]sem ping[/]')"
+                    f"[green]Iniciando {len(approved_entries)} proxies ordenadas por ping[/]"
                 )
 
         for entry in approved_entries:
-            raw, outbound = self._outbounds[entry["index"]]
+            raw_uri, outbound = self._outbounds[entry["index"]]
             cfg = self._make_xray_config_http_inbound(port, outbound)
             proc, cfg_path = self._launch_bridge(xray_bin, cfg, outbound.tag)
             processes.append(proc)
             cfg_paths.append(cfg_path)
-            scheme = raw.split("://", 1)[0].lower()
+            scheme = raw_uri.split("://", 1)[0].lower()
             
-            # Adiciona informação de ping na tupla para exibição
             ping_value = get_ping_for_sort(entry)
-            bridges.append((outbound.tag, port, scheme, ping_value))
+            bridges.append((outbound.tag, port, scheme, raw_uri, ping_value))
             port += 1
 
         self._processes = processes
         self._cfg_paths = cfg_paths
-        # Mantém compatibilidade removendo o ping da tupla armazenada
-        self._bridges = [(tag, port, scheme) for tag, port, scheme, _ in bridges]
+        self._bridges = [(tag, prt, scheme, uri) for tag, prt, scheme, uri, _ in bridges]
         self._running = True
 
         if not self._atexit_registered:
@@ -1543,23 +1537,28 @@ class Proxy(IProxyService):
             self.console.print()
             self.console.rule(f"Pontes HTTP ativas{f' - País: {country_filter}' if country_filter else ''} - Ordenadas por Ping")
             
-            # Exibe as pontes com informação de ping
-            for tag, prt, scheme, ping in bridges:
+            for idx, (_, prt, scheme, _, ping) in enumerate(bridges):
                 ping_str = f"{ping:6.1f}ms" if ping != float('inf') else "   -   "
-                self.console.print(f"[{scheme:6}] http://127.0.0.1:{prt}  ->  [{ping_str}] '{tag}'")
+                self.console.print(f"[bold cyan]ID {idx:<2}[/] [{scheme:6}] http://127.0.0.1:{prt}  ->  [{ping_str}]")
             
             self.console.print()
             self.console.print("Pressione Ctrl+C para encerrar todas as pontes.")
-
-        http_proxies = [f"http://127.0.0.1:{prt}" for (_, prt, _) in self._bridges]
+        
+        bridges_with_id = [
+            {
+                "id": idx,
+                "url": f"http://127.0.0.1:{prt}",
+                "uri": uri
+            }
+            for idx, (_, prt, _, uri) in enumerate(self._bridges)
+        ]
 
         if wait:
             self.wait()
         else:
             self._start_wait_thread()
 
-        return http_proxies
-
+        return bridges_with_id
 
     def _start_wait_thread(self) -> None:
         """Dispara thread em segundo plano para monitorar processos iniciados."""
@@ -1645,11 +1644,20 @@ class Proxy(IProxyService):
         self._wait_thread = None
         self._running = False
 
-    def get_http_proxy(self) -> List[str]:
-        """Retorna URLs HTTP locais das pontes em execução."""
+    def get_http_proxy(self) -> List[Dict[str, Any]]:
+        """Retorna ID, URL local e URI de cada ponte em execução."""
         if not self._running:
             raise RuntimeError("Nenhuma ponte ativa. Chame start() primeiro.")
-        return [f"http://127.0.0.1:{port}" for (_, port, _) in self._bridges]
+        
+        valid_proxies = []
+        for idx, (_, port, _, uri) in enumerate(self._bridges):
+            valid_proxies.append({
+                "id": idx,
+                "url": f"http://127.0.0.1:{port}",
+                "uri": uri
+            })
+        
+        return valid_proxies
 
     # ----------- geração e execução de config -----------
 
@@ -1699,3 +1707,115 @@ class Proxy(IProxyService):
             bufsize=1
         )
         return proc, cfg_path
+
+    def _remove_bridge(self, tag: str) -> None:
+        """Remove uma ponte ativa pelo tag, encerrando o processo e limpando estruturas."""
+        for idx, (b_tag, port, scheme) in enumerate(self._bridges):
+            if b_tag == tag:
+                # encerra processo
+                proc = self._processes[idx]
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=2)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                # limpa arquivos temporários
+                cfg_path = self._cfg_paths[idx]
+                try:
+                    shutil.rmtree(cfg_path.parent, ignore_errors=True)
+                except Exception:
+                    pass
+
+                # remove das listas
+                self._bridges.pop(idx)
+                self._processes.pop(idx)
+                self._cfg_paths.pop(idx)
+                break
+
+    
+    def rotate_proxy(self, bridge_id: int) -> bool:
+        """Troca a proxy de uma ponte em execução por outra proxy aleatória e funcional.
+
+        A ponte continuará escutando na mesma porta, mas o tráfego será
+        redirecionado através da nova proxy selecionada.
+
+        Args:
+            bridge_id: O ID numérico (índice) da ponte que você deseja trocar.
+
+        Returns:
+            True se a troca foi bem-sucedida, False caso contrário (ex: ID inválido,
+            nenhuma outra proxy disponível para troca).
+        """
+        if not self._running:
+            return False
+
+        # 1. Valida o ID da ponte
+        if not (0 <= bridge_id < len(self._bridges)):
+            if self.console:
+                self.console.print(f"[red]Erro: ID de ponte inválido: {bridge_id}. IDs válidos são de 0 a {len(self._bridges) - 1}.[/]")
+            return False
+
+        # Obtém informações da ponte atual
+        _, current_port, _, uri_to_replace = self._bridges[bridge_id]
+
+        # 2. Encontra uma nova proxy candidata (OK, do país certo e que não seja a atual)
+        candidates = [
+            entry for entry in self._entries
+            if entry.get("status") == "OK"
+            and self.matches_country(entry, self.country_filter)
+            and entry.get("uri") != uri_to_replace
+        ]
+
+        if not candidates:
+            if self.console:
+                self.console.print(f"[yellow]Aviso: Nenhuma outra proxy disponível para rotacionar a ponte com ID {bridge_id}.[/]")
+            return False
+
+        # 3. Escolhe uma nova proxy aleatoriamente
+        new_entry = random.choice(candidates)
+        new_raw_uri, new_outbound = self._outbounds[new_entry["index"]]
+        new_scheme = new_raw_uri.split("://", 1)[0].lower()
+
+        # 4. Para o processo antigo da ponte (usando o bridge_id como índice)
+        old_proc = self._processes[bridge_id]
+        old_cfg_path = self._cfg_paths[bridge_id]
+        try:
+            old_proc.terminate()
+            old_proc.wait(timeout=2)
+        except Exception:
+            try:
+                old_proc.kill()
+            except Exception:
+                pass
+        try:
+            shutil.rmtree(old_cfg_path.parent, ignore_errors=True)
+        except Exception:
+            pass
+
+        # 5. Inicia a nova ponte na mesma porta
+        try:
+            xray_bin = self._which_xray()
+            cfg = self._make_xray_config_http_inbound(current_port, new_outbound)
+            new_proc, new_cfg_path = self._launch_bridge(xray_bin, cfg, new_outbound.tag)
+        except Exception as e:
+            if self.console:
+                self.console.print(f"[red]Falha ao reiniciar a ponte (ID {bridge_id}) na porta {current_port} com a nova proxy: {e}[/]")
+            # Limpa o estado para evitar inconsistência
+            self._processes[bridge_id] = None
+            self._cfg_paths[bridge_id] = None
+            return False
+
+        # 6. Atualiza as estruturas internas com as informações da nova ponte
+        self._bridges[bridge_id] = (new_outbound.tag, current_port, new_scheme, new_raw_uri)
+        self._processes[bridge_id] = new_proc
+        self._cfg_paths[bridge_id] = new_cfg_path
+
+        if self.console:
+            self.console.print(
+                f"[green]Sucesso:[/green] Ponte com [bold]ID {bridge_id}[/] (porta {current_port}) rotacionada para a proxy '[bold]{new_outbound.tag}[/]'"
+            )
+
+        return True
