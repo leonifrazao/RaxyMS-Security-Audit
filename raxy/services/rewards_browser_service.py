@@ -7,17 +7,27 @@ from typing import Mapping
 from botasaurus.browser import Driver, Wait, browser
 
 from interfaces.services import IRewardsBrowserService
+from interfaces.services import IProxyService
 from services.logging_service import log
 
 from .network_service import NetWork
 from .session_service import BaseRequest
 
 
+class ProxyRotationRequiredException(Exception):
+    """Exceção lançada quando é necessário rotacionar a proxy devido a erro HTTP 400+."""
+    
+    def __init__(self, status_code: int, proxy_id: str):
+        self.status_code = status_code
+        self.proxy_id = proxy_id
+        super().__init__(f"Erro HTTP {status_code} detectado. Rotação de proxy necessária (ID: {proxy_id})")
+
+
 class RewardsBrowserService(IRewardsBrowserService):
     """Encapsula operações que dependem do navegador controlado pelo Botasaurus."""
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, proxy_service: IProxyService) -> None:
+        self._proxy_service = proxy_service
 
     # -------------------------
     # Fluxos com navegador
@@ -38,7 +48,6 @@ class RewardsBrowserService(IRewardsBrowserService):
 
     def open_rewards_page(self, *, profile: str, data: Mapping[str, object] | None = None) -> None:
         """Abre a página de Rewards utilizando o perfil informado."""
-
         self._open_rewards_page(profile=profile, data=dict(data or {}))
 
     @staticmethod
@@ -54,6 +63,7 @@ class RewardsBrowserService(IRewardsBrowserService):
         dados = dict(data or {})
         email_normalizado = str(driver.profile['email']).strip()
         senha_normalizada = str(driver.profile['senha']).strip()
+        proxy_id = dados.get("proxy", {}).get("id")
 
         network = NetWork(driver)
         network.limpar_respostas()
@@ -128,7 +138,7 @@ class RewardsBrowserService(IRewardsBrowserService):
         status = network.get_status()
         if status and status >= 400:
             registro.erro(f"Erro HTTP detectado: {status}")
-            raise RuntimeError(f"Erro HTTP durante login: {status}")
+            raise ProxyRotationRequiredException(status, proxy_id)
 
         if status is not None:
             registro.erro("Login não confirmado mesmo após tentativa", status=status)
@@ -137,10 +147,29 @@ class RewardsBrowserService(IRewardsBrowserService):
 
         raise RuntimeError(f"Não foi possível confirmar o login para {email_normalizado}.")
 
-    def login(self, *, profile: str, proxy: str) -> BaseRequest:
-        """Executa o fluxo de login via navegador e retorna a sessão autenticada."""
+    def login(self, *, profile: str, proxy: dict) -> BaseRequest:
+        """Executa o fluxo de login via navegador e retorna a sessão autenticada.
+        
+        Rotaciona a proxy automaticamente em caso de erro HTTP 400+ até conseguir login bem-sucedido.
+        """
+        registro = log.com_contexto(fluxo="login_com_rotacao", perfil=profile)
+        proxy_atual = proxy
+        tentativas = 0
+        
+        while True:
+            tentativas += 1
+            try:
+                registro.debug(f"Tentativa #{tentativas} de login", proxy_id=proxy_atual["id"])
+                return self._login(profile=profile, proxy=proxy_atual["url"], data={"proxy": proxy_atual})
+            except ProxyRotationRequiredException as e:
+                registro.aviso(
+                    f"Tentativa #{tentativas} falhou com status {e.status_code}",
+                    proxy_id=proxy_atual["id"]
+                )
+                
+                # Rotaciona a proxy mantendo o mesmo ID
+                proxy_atual = self._proxy_service.rotate_proxy(proxy_atual["id"])
+                registro.info(f"Proxy rotacionada - Nova tentativa com URL: {proxy_atual['url']}")
 
-        return self._login(profile=profile, proxy=proxy)
 
-
-__all__ = ["RewardsBrowserService"]
+__all__ = ["RewardsBrowserService", "ProxyRotationRequiredException"]
