@@ -80,7 +80,18 @@ class RewardsBrowserService(IRewardsBrowserService):
         driver.google_get("https://rewards.bing.com/")
         driver.short_random_sleep()
 
-        if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
+        # if driver.is_element_present("h1[ng-bind-html='$ctrl.nameHeader']", wait=Wait.VERY_LONG):
+        #     registro.sucesso("Conta já autenticada")
+        #     driver.prompt()
+        #     base_request = BaseRequest(driver.config.profile, driver)
+        #     registro.debug(
+        #         "Sessão pronta para requests",
+        #         perfil=driver.config.profile,
+        #         total_cookies=len(driver.get_cookies_dict()),
+        #     )
+        #     return base_request
+        
+        if driver.run_js("return document.title").lower() == "microsoft rewards":
             registro.sucesso("Conta já autenticada")
             driver.prompt()
             base_request = BaseRequest(driver.config.profile, driver)
@@ -99,6 +110,9 @@ class RewardsBrowserService(IRewardsBrowserService):
         driver.type("input[type='email']", email_normalizado, wait=Wait.VERY_LONG)
         driver.click("button[type='submit']")
         driver.short_random_sleep()
+        
+        if driver.run_js("return document.title").lower() == "verify your email" and driver.is_element_present("#view > div > span:nth-child(6) > div > span", wait=Wait.VERY_LONG):
+            driver.click("#view > div > span:nth-child(6) > div > span")
 
         if not driver.is_element_present("input[type='password']", wait=Wait.VERY_LONG):
             registro.erro("Campo de senha não encontrado após informar email")
@@ -110,7 +124,7 @@ class RewardsBrowserService(IRewardsBrowserService):
         driver.short_random_sleep()
 
         try:
-            driver.click("button[aria-label='Yes']", wait=Wait.SHORT)
+            driver.click("button[data-testid='primaryButton']", wait=Wait.SHORT)
         except Exception:
             pass
         else:
