@@ -1,4 +1,4 @@
-"""API para obter sugestões de pesquisa do Bing utilizando templates."""
+aaaa"""API para obter sugestões de pesquisa do Bing utilizando templates."""
 
 from __future__ import annotations
 
