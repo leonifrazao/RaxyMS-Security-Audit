@@ -93,7 +93,7 @@ class RewardsBrowserService(IRewardsBrowserService):
         
         if driver.run_js("return document.title").lower() == "microsoft rewards":
             registro.sucesso("Conta já autenticada")
-            driver.prompt()
+            # driver.prompt()
             base_request = BaseRequest(driver.config.profile, driver)
             registro.debug(
                 "Sessão pronta para requests",
