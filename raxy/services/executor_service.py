@@ -19,6 +19,7 @@ from interfaces.services import (
     IPerfilService,
     IRewardsDataService,
     IProxyService,
+    IBingSuggestion,
 )
 from interfaces.repositories import IContaRepository
 from services.session_service import BaseRequest
@@ -50,6 +51,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
     def __init__(
         self,
         *,
+        bing_search: IBingSuggestion,
         conta_repository: IContaRepository,
         proxy_service: IProxyService,
         autenticador: IAutenticadorRewardsService,
@@ -65,6 +67,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._perfil_service = perfil_service
         self._conta_repository = conta_repository
         self._rewards_data = rewards_data
+        self._bing_search = bing_search
 
     def executar(self, acoes: Iterable[str] | None = None) -> None:
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
@@ -72,10 +75,12 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._proxy_service.start(threads=5, amounts=len(contas), auto_test=True)
         # input("Pressione Enter após iniciar o servidor de API de proxies...")
         # self._proxy_service.test(threads=5)
+        # input()
 
         for conta, proxy in zip(contas, self._proxy_service.get_http_proxy()):
             # conta.proxy = proxy
             self._processar_conta(conta, acoes_normalizadas, proxy=proxy)
+        
 
     def _processar_conta(self, conta: Conta, acoes: Sequence[str], proxy) -> None:
         scoped = self._logger.com_contexto(conta=conta.email)
@@ -87,33 +92,31 @@ class ExecutorEmLote(IExecutorEmLoteService):
             sessao = self._autenticador.executar(conta, proxy=proxy) if "login" in acoes else None
 
             if sessao:
+                
+                if "rewards" in acoes:
 
-                self._rewards_data.set_request_provider(lambda base=sessao.base_request: base)
-                try:
-                    if "rewards" in acoes:
-                        try:
-                            pontos = self._rewards_data.obter_pontos(sessao.base_request, bypass_request_token=True)
-                            scoped.info("Pontos disponíveis coletados", pontos=pontos)
-                        except Exception as exc:  # pragma: no cover - logging auxiliar
-                            scoped.aviso("Falhou ao obter pontos", erro=str(exc))
+                    try:
+                        self._rewards_data.pegar_recompensas(
+                            sessao.base_request,
+                            bypass_request_token=True,
+                        )
+                        
+                        pontos = self._rewards_data.obter_pontos(sessao.base_request, bypass_request_token=True)
+                        scoped.sucesso("Recompensas disponíveis coletadas", pontos=pontos)
+                    except Exception as exc:  # pragma: no cover - logging auxiliar
+                        scoped.aviso("Falhou ao obter recompensas", erro=str(exc))
+                    
+                    quantidade_moteis = self._bing_search.get_all(sessao.base_request, "Motel" )
+            
+                    scoped.info(f"Coletado Sugestões para pesquisa bing.", total=len(quantidade_moteis), query="Motel")
+                        
 
-                        try:
-                            self._rewards_data.pegar_recompensas(
-                                sessao.base_request,
-                                bypass_request_token=True,
-                            )
-                        except Exception as exc:  # pragma: no cover - logging auxiliar
-                            scoped.aviso("Falhou ao obter recompensas", erro=str(exc))
-                            
-
-                        # resumo_execucao = api.executar_tarefas(dados_recompensas)
-                        # scoped.info(
-                        #     "Execução de promoções finalizada",
-                        #     executadas=resumo_execucao.get("executadas"),
-                        #     ignoradas=resumo_execucao.get("ignoradas"),
-                        # )
-                finally:
-                    self._rewards_data.set_request_provider(_missing_base_request)
+                    # resumo_execucao = api.executar_tarefas(dados_recompensas)
+                    # scoped.info(
+                    #     "Execução de promoções finalizada",
+                    #     executadas=resumo_execucao.get("executadas"),
+                    #     ignoradas=resumo_execucao.get("ignoradas"),
+                    # )
 
             scoped.sucesso("Conta processada com sucesso")
         except Exception as exc:  # pragma: no cover - fluxo de log

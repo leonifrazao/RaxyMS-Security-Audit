@@ -12,11 +12,6 @@ if TYPE_CHECKING:  # pragma: no cover
 class IRewardsDataService(ABC):
     """Opera sobre a API HTTP do Rewards sem interação com navegador."""
 
-
-    @abstractmethod
-    def set_request_provider(self, provider: Callable[[], "BaseRequest"]) -> None:
-        """Configura o provider utilizado pelos endpoints Flask."""
-
     @abstractmethod
     def obter_pontos(self, base: "BaseRequest", *, bypass_request_token: bool = False) -> int:
         """Retorna o total de pontos disponíveis."""

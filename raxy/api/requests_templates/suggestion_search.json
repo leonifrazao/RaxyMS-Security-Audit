@@ -1,0 +1,25 @@
+{
+    "method": "GET",
+    "url": "https://www.bing.com/AS/Suggestions?pt=page.home&qry={definir}&cp=0&csr=1&pths=1&cvid=EF82CA4B58084927BFC4ABC893DE5E9E",
+    "headers": {
+        "Host": "www.bing.com",
+        "Sec-Ch-Ua-Full-Version-List": "",
+        "Sec-Ch-Ua-Platform": "\"Linux\"",
+        "Ect": "4g",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Ch-Ua": "\"Chromium\";v=\"133\", \"Not(A:Brand\";v=\"99\"",
+        "Sec-Ch-Ua-Model": "\"\"",
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Bitness": "\"\"",
+        "Sec-Ch-Ua-Arch": "\"\"",
+        "Sec-Ch-Ua-Full-Version": "\"\"",
+        "Sec-Ch-Ua-Platform-Version": "\"\"",
+        "Accept": "*/*",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Dest": "empty",
+        "Referer": "https://www.bing.com/?cc=br",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Priority": "u=1, i"
+    }
+}
