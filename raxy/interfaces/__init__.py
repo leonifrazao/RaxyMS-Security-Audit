@@ -9,6 +9,7 @@ from .services import (
     IPerfilService,
     IRewardsBrowserService,
     IRewardsDataService,
+    IBingSuggestion
 )
 from .repositories import IContaRepository, IHistoricoPontuacaoRepository
 
@@ -23,4 +24,5 @@ __all__ = [
     "IPerfilService",
     "IRewardsBrowserService",
     "IRewardsDataService",
+    "IBingSuggestion",
 ]
