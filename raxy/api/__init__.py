@@ -1,10 +1,10 @@
 """APIs públicas do Microsoft Rewards."""
 
-from .bing_search_api import BingSearchAPI
+from .bing_suggestion_api import BingSuggestionAPI
 from .rewards_data_api import RewardsDataAPI
 
 __all__ = [
-    "BingSearchAPI",
+    "BingSuggestionAPI",
     "RewardsDataAPI",
     "ProxyAPI",
 ]

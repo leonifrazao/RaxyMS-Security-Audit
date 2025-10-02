@@ -19,6 +19,7 @@ from interfaces.services import (
     IPerfilService,
     IRewardsDataService,
     IProxyService,
+    IBingSuggestion,
 )
 from interfaces.repositories import IContaRepository
 from services.session_service import BaseRequest
@@ -50,6 +51,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
     def __init__(
         self,
         *,
+        bing_search: IBingSuggestion,
         conta_repository: IContaRepository,
         proxy_service: IProxyService,
         autenticador: IAutenticadorRewardsService,
@@ -65,6 +67,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._perfil_service = perfil_service
         self._conta_repository = conta_repository
         self._rewards_data = rewards_data
+        self._bing_search = bing_search
 
     def executar(self, acoes: Iterable[str] | None = None) -> None:
         acoes_normalizadas = self._normalizar_acoes(acoes or self._config.actions)
@@ -72,10 +75,12 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._proxy_service.start(threads=5, amounts=len(contas), auto_test=True)
         # input("Pressione Enter após iniciar o servidor de API de proxies...")
         # self._proxy_service.test(threads=5)
+        # input()
 
         for conta, proxy in zip(contas, self._proxy_service.get_http_proxy()):
             # conta.proxy = proxy
             self._processar_conta(conta, acoes_normalizadas, proxy=proxy)
+        
 
     def _processar_conta(self, conta: Conta, acoes: Sequence[str], proxy) -> None:
         scoped = self._logger.com_contexto(conta=conta.email)
@@ -83,6 +88,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         scoped.info(mensagem="Proxy atual: ", uri=proxy["uri"])
 
         try:
+            print(self._bing_search.get_all("Motel"))
             self._perfil_service.garantir_perfil(conta.id_perfil, conta.email, conta.senha)
             sessao = self._autenticador.executar(conta, proxy=proxy) if "login" in acoes else None
 
