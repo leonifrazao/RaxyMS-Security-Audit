@@ -1,4 +1,4 @@
-aaaa"""API para obter sugestões de pesquisa do Bing utilizando templates."""
+"""API para obter sugestões de pesquisa do Bing utilizando templates."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 # Supondo que o serviço de sessão esteja acessível a partir daqui
 # Ajuste o import se sua estrutura for diferente
 from services.session_service import BaseRequest
+from interfaces.services import IBingSuggestion
 
 # Caminho corrigido com base na estrutura de pastas fornecida
 REQUESTS_DIR = Path(__file__).resolve().parent / "requests_templates"
@@ -19,12 +20,12 @@ _TEMPLATE_SUGGESTION_BING = "suggestion_search.json"
 _ERRO_PADRAO = ("captcha", "temporarily unavailable", "error")
 
 
-class BingSuggestionAPI:
+class BingSuggestionAPI(IBingSuggestion):
     """Executa buscas por sugestões no Bing com base em templates."""
 
     def __init__(
         self,
-        request_provider: Callable[[], BaseRequest],
+        request_provider: Callable[[], BaseRequest] = None,
         *,
         palavras_erro: Sequence[str] | None = None,
     ) -> None:
@@ -38,7 +39,7 @@ class BingSuggestionAPI:
         self._request_provider = request_provider
         self._palavras_erro = tuple(palavra.lower() for palavra in (palavras_erro or _ERRO_PADRAO))
 
-    def get_all(self, keyword: str) -> list[dict[str, Any]]:
+    def get_all(self, base: BaseRequest, keyword: str) -> list[dict[str, Any]]:
         """
         Busca todas as sugestões de pesquisa para uma determinada palavra-chave.
 
@@ -54,8 +55,11 @@ class BingSuggestionAPI:
         """
         if not isinstance(keyword, str) or not keyword.strip():
             raise ValueError("A palavra-chave não pode ser vazia.")
+        
+        if not base:
+            raise LookupError("BaseRequest não configurado.")
 
-        response_data = self._executar_requisicao(keyword.strip())
+        response_data = self._executar_requisicao(base, keyword.strip())
         
         # O JSON de resposta contém uma chave "s" com a lista de sugestões
         suggestions = response_data.get("s")
@@ -65,7 +69,7 @@ class BingSuggestionAPI:
 
         return suggestions
 
-    def get_random(self, keyword: str) -> dict[str, Any]:
+    def get_random(self, base: BaseRequest, keyword: str) -> dict[str, Any]:
         """
         Busca uma sugestão de pesquisa aleatória para a palavra-chave.
 
@@ -78,20 +82,18 @@ class BingSuggestionAPI:
         Raises:
             ValueError: Se nenhuma sugestão for encontrada.
         """
-        all_suggestions = self.get_all(keyword)
+        all_suggestions = self.get_all(base, keyword)
         if not all_suggestions:
             raise ValueError(f"Nenhuma sugestão encontrada para a palavra-chave: {keyword}")
         return random.choice(all_suggestions)
 
-    def _executar_requisicao(self, keyword: str) -> dict[str, Any]:
+    def _executar_requisicao(self, base: BaseRequest,  keyword: str) -> dict[str, Any]:
         """Método central para preparar, enviar e validar a requisição."""
-        requisicao_base = self._base_request_from_provider()
         template = self._carregar_template()
         template_personalizado = self._aplicar_consulta(template, keyword)
 
         # Assumindo que a sua classe BaseRequest tem os métodos _montar e _enviar
-        argumentos = requisicao_base._montar(template_personalizado, False)  # type: ignore[attr-defined]
-        resposta = requisicao_base._enviar(argumentos)  # type: ignore[attr-defined]
+        resposta = base.executar(template_personalizado, bypass_request_token=False, use_cookies=False)# type: ignore[attr-defined]
         
         self._validar_resposta(resposta)
 
@@ -99,15 +101,6 @@ class BingSuggestionAPI:
             return resposta.json()
         except json.JSONDecodeError as e:
             raise RuntimeError("Falha ao decodificar a resposta JSON do Bing.") from e
-
-    def _base_request_from_provider(self) -> BaseRequest:
-        """Obtém uma instância de BaseRequest a partir do provider configurado."""
-        if not self._request_provider:
-            raise LookupError("Provider de requisições não configurado.")
-        requisicao = self._request_provider()
-        if not isinstance(requisicao, BaseRequest):
-            raise LookupError("Provider retornou objeto inválido para requisições.")
-        return requisicao
 
     def _carregar_template(self) -> MutableMapping[str, object]:
         """Carrega o arquivo de template JSON para a requisição."""

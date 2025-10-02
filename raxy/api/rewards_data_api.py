@@ -10,22 +10,10 @@ from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
 # Supondo que estas interfaces existam em algum lugar do seu projeto
-# from interfaces.services import IRewardsDataService
-# from services.session_service import BaseRequest
+from interfaces.services import IRewardsDataService
+from services.session_service import BaseRequest
 
 # Para o código ser autônomo, vamos criar classes dummy
-class BaseRequest:
-    """Classe de exemplo para BaseRequest."""
-    def __init__(self, token_antifalsificacao=None):
-        self.token_antifalsificacao = token_antifalsificacao
-        self.perfil = "default_profile"
-    def executar(self, *args, **kwargs): pass
-    def _montar(self, *args, **kwargs): pass
-    def _enviar(self, *args, **kwargs): pass
-
-class IRewardsDataService:
-    """Classe de exemplo para IRewardsDataService."""
-    pass
 
 
 REQUESTS_DIR = Path(__file__).resolve().parent / "requests_templates"
@@ -40,14 +28,9 @@ class RewardsDataAPI(IRewardsDataService):
     def __init__(
         self,
         palavras_erro: Iterable[str] | None = None,
-        request_provider: Callable[[], BaseRequest] | None = None,
     ) -> None:
         self._palavras_erro = tuple(palavra.lower() for palavra in palavras_erro or ("captcha", "temporarily unavailable", "error"))
-        self._request_provider = request_provider
 
-    def set_request_provider(self, provider: Callable[[], BaseRequest]) -> None:
-        """Define o provider padrão utilizado pelas rotas Flask."""
-        self._request_provider = provider
 
     def obter_pontos(self, base: BaseRequest, *, bypass_request_token: bool = False) -> int:
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
@@ -230,15 +213,6 @@ class RewardsDataAPI(IRewardsDataService):
             "daily_sets": resultados_daily_sets,
             "more_promotions": resultados_more_promotions,
         }
-
-    def _base_request_from_provider(self) -> BaseRequest:
-        if self._request_provider is None:
-            raise LookupError("Provider de BaseRequest ausente")
-
-        base = self._request_provider()
-        if base is None:
-            raise LookupError("Provider de BaseRequest retornou None")
-        return base
 
     @staticmethod
     def _parse_bool(value: str | None) -> bool:

@@ -5,6 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Callable, Mapping, TYPE_CHECKING
 
+from services.session_service import BaseRequest
+
 if TYPE_CHECKING:  # pragma: no cover
     from raxy.services.session_service import BaseRequest
 
@@ -14,7 +16,7 @@ class IBingSuggestion(ABC):
 
 
     @abstractmethod
-    def get_all(self, keyword: str):
+    def get_all(self, base: BaseRequest ,keyword: str):
         """
         Busca todas as sugestões de pesquisa para uma determinada palavra-chave.
 
@@ -30,7 +32,7 @@ class IBingSuggestion(ABC):
         """
 
     @abstractmethod
-    def get_random(self, keyword: str):
+    def get_random(self, base: BaseRequest, keyword: str):
         """
         Busca uma sugestão de pesquisa aleatória para a palavra-chave.
 

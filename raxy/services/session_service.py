@@ -103,9 +103,12 @@ class BaseRequest:
             html = None
         self.token_antifalsificacao = _extract_request_verification_token(html)
 
-    def executar(self, diretorio_template, bypass_request_token=False):
-        template = self._carregar(diretorio_template)
-        args = self._montar(template, bypass_request_token)
+    def executar(self, diretorio_template, bypass_request_token=False, use_ua = True, use_cookies = True):
+        if not isinstance(diretorio_template, dict):  
+            template = self._carregar(diretorio_template)
+        else:
+            template = diretorio_template
+        args = self._montar(template, bypass_request_token, use_ua, use_cookies)
         return self._enviar(args)
 
     def _carregar(self, diretorio_template):
@@ -113,7 +116,7 @@ class BaseRequest:
         with open(caminho, encoding="utf-8") as f:
             return json.load(f)
 
-    def _montar(self, template, bypass_request_token):
+    def _montar(self, template, bypass_request_token, use_ua=True, use_cookies=True):
         metodo = str(template.get("method", "GET")).upper()
 
         # URL
@@ -125,11 +128,14 @@ class BaseRequest:
 
         # headers
         headers = dict(template.get("headers") or {})
-        headers.setdefault("User-Agent", self.user_agent)
+        if use_ua:
+            headers.setdefault("User-Agent", self.user_agent)
 
         # cookies
-        cookies = dict(self.cookies)
-        cookies.update(template.get("cookies") or {})
+        cookies = {}
+        if use_cookies:
+            cookies = dict(self.cookies)
+            cookies.update(template.get("cookies") or {})
 
         params = template.get("params")
         data = template.get("data")
