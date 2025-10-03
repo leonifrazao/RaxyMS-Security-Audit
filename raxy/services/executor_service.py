@@ -110,14 +110,17 @@ class ExecutorEmLote(IExecutorEmLoteService):
             
             sessao = self._autenticador.executar(conta, proxy=proxy) if "login" in acoes else None
             
+            pontos_iniciais = self._rewards_data.obter_pontos(sessao.base_request)
             pontos_finais = 0
 
             if sessao:
                 if "rewards" in acoes:
                     self._rewards_data.pegar_recompensas(sessao.base_request)
-                    pontos = self._rewards_data.obter_pontos(sessao.base_request)
-                    pontos_finais = pontos
-                    scoped_logger.info("Pontos atuais", pontos=pontos)
+                    pontos_finais = self._rewards_data.obter_pontos(sessao.base_request)
+                    if pontos_finais > pontos_iniciais:
+                        scoped_logger.info("Pontos atuais", pontos=pontos_finais)
+                    else:
+                        scoped_logger.aviso("Nenhum ponto adicional foi ganho após pegar recompensas.", pontos=pontos_finais)
 
                 if "solicitacoes" in acoes:
                     sugestoes = self._bing_search.get_all(sessao.base_request, "Brasil")
