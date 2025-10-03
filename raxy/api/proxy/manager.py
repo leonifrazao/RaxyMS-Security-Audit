@@ -22,11 +22,15 @@ import time
 import ipaddress
 import shutil
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse, parse_qs, unquote, quote, urlsplit
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from interfaces.services import IProxyService
 
@@ -972,12 +976,13 @@ class Proxy(IProxyService):
         functional_timeout: float = 10.0,
         threads: int = 1,
     ) -> List[Dict[str, Any]]:
-        """Percorre os outbounds testando conectividade real através da proxy."""
+        """Percorre os outbounds testando conectividade real de forma concorrente."""
         entries: List[Dict[str, Any]] = []
         results_lock = threading.Lock()
         reuse_cache = self.use_cache and not force_refresh
 
-        # Separa proxies em dois grupos: com cache e sem cache
+        # 1. Separa proxies que precisam de teste daquelas que podem usar o cache
+        # (Esta lógica original está mantida, pois é eficiente)
         to_test = []
         from_cache = []
         
@@ -985,10 +990,8 @@ class Proxy(IProxyService):
             entry = self._make_base_entry(idx, raw, outbound)
             
             if reuse_cache and raw in self._cache_entries:
-                # Proxy já está no cache - apenas aplica os dados salvos
                 cached_data = self._cache_entries[raw]
                 if cached_data.get("invalid"):
-                    # Pula proxy inválida
                     continue
                 entry = self._apply_cached_entry(entry, cached_data)
                 entry["country_match"] = self.matches_country(entry, country_filter)
@@ -1003,106 +1006,90 @@ class Proxy(IProxyService):
                     entry["error"] = f"Filtro de país '{country_filter}': detectado {detected_country}"
                 from_cache.append(entry)
                 
-                # Emite progresso para proxy do cache
                 if emit_progress is not None:
                     self._emit_test_progress(entry, idx + 1, len(outbounds), emit_progress)
             else:
-                # Proxy nova ou force_refresh=True - precisa testar
                 to_test.append((idx, raw, outbound))
         
-        # Adiciona todas as entradas do cache primeiro
         entries.extend(from_cache)
         
-        # Agora testa apenas as proxies que precisam ser testadas
+        # 2. Executa os testes em paralelo usando ThreadPoolExecutor
         if to_test:
+            # A função 'worker' interna é a mesma, pois já é thread-safe
             def worker(idx: int, raw: str, outbound: Proxy.Outbound):
-                """Testa uma única proxy usando rota real e registra o resultado."""
+                """Testa uma única proxy e registra o resultado de forma segura."""
                 entry = self._make_base_entry(idx, raw, outbound)
                 
-                # Prepara preview
                 try:
                     preview_host, preview_port = self._outbound_host_port(outbound)
+                    entry.update({"host": preview_host, "port": preview_port})
                 except Exception:
-                    preview_host = None
-                    preview_port = None
-                if preview_host:
-                    entry["host"] = preview_host
-                if preview_port is not None:
-                    entry["port"] = preview_port
+                    pass
                 entry["status"] = "TESTANDO"
 
-                # Teste com rota real (inclui ping real)
                 result = self._test_outbound(raw, outbound, timeout=functional_timeout)
                 finished_at = time.time()
 
-                entry["host"] = result.get("host") or entry["host"]
-                if result.get("port") is not None:
-                    entry["port"] = result.get("port")
-                entry["ip"] = result.get("ip") or entry["ip"]
-                entry["country"] = result.get("country") or entry["country"]
-                entry["country_code"] = result.get("country_code") or entry.get("country_code")
-                entry["country_name"] = result.get("country_name") or entry.get("country_name")
-                entry["ping"] = result.get("ping_ms")  # Agora é o ping REAL através da proxy
-                entry["tested_at_ts"] = finished_at
-                entry["tested_at"] = self._format_timestamp(finished_at)
-                entry["functional"] = result.get("functional", False)
-                
-                # Adiciona informações extras se disponíveis
-                if result.get("external_ip"):
-                    entry["external_ip"] = result["external_ip"]
-                if result.get("proxy_ip"):
-                    entry["proxy_ip"] = result["proxy_ip"]
-                if result.get("proxy_country"):
-                    entry["proxy_country"] = result["proxy_country"]
-                if result.get("proxy_country_code"):
-                    entry["proxy_country_code"] = result["proxy_country_code"]
+                # Atualiza o entry com os resultados detalhados
+                entry.update({
+                    "host": result.get("host") or entry["host"],
+                    "port": result.get("port") if result.get("port") is not None else entry["port"],
+                    "ip": result.get("ip") or entry["ip"],
+                    "country": result.get("country") or entry["country"],
+                    "country_code": result.get("country_code") or entry.get("country_code"),
+                    "country_name": result.get("country_name") or entry.get("country_name"),
+                    "ping": result.get("ping_ms"),
+                    "tested_at_ts": finished_at,
+                    "tested_at": self._format_timestamp(finished_at),
+                    "functional": result.get("functional", False),
+                    "external_ip": result.get("external_ip"),
+                    "proxy_ip": result.get("proxy_ip"),
+                    "proxy_country": result.get("proxy_country"),
+                    "proxy_country_code": result.get("proxy_country_code"),
+                })
 
-                # Define status baseado no resultado funcional
-                if result.get("functional") and "ping_ms" in result:
+                if entry["functional"]:
                     entry["status"] = "OK"
                     entry["error"] = None
                 else:
                     entry["status"] = "ERRO"
                     entry["error"] = result.get("error", "Teste falhou")
 
-                # Aplica filtro de país
                 entry["country_match"] = self.matches_country(entry, country_filter)
                 if country_filter and entry["status"] == "OK" and not entry["country_match"]:
                     entry["status"] = "FILTRADO"
-                    detected_country = (
-                        entry.get("country")
-                        or entry.get("country_code")
-                        or entry.get("country_name")
-                        or "-"
-                    )
-                    entry["error"] = f"Filtro de país '{country_filter}': detectado {detected_country}"
+                    detected = entry.get("country") or entry.get("country_code") or "-"
+                    entry["error"] = f"Filtro '{country_filter}': detectado {detected}"
 
-                # adiciona de forma thread-safe
                 with results_lock:
                     entries.append(entry)
 
                 if emit_progress is not None:
                     self._emit_test_progress(entry, idx + 1, len(outbounds), emit_progress)
 
-            # --- Controle de threads apenas para proxies que precisam teste ---
-            threads = max(1, threads)
-            tarefas = []
-            for idx, raw, outbound in to_test:
-                t = threading.Thread(target=worker, args=(idx, raw, outbound))
-                t.start()
-                tarefas.append(t)
-                # controla máximo de threads simultâneas
-                while threads > 0 and len([x for x in tarefas if x.is_alive()]) >= threads:
-                    time.sleep(0.05)
+            # Bloco que substitui o gerenciamento manual de threads
+            if self.console:
+                self.console.print(f"\n[yellow]Iniciando teste de {len(to_test)} proxies com até {threads} workers...[/]")
+            
+            with ThreadPoolExecutor(max_workers=threads) as executor:
+                # Submete todas as tarefas de uma vez
+                futuros = {
+                    executor.submit(worker, idx, raw, outbound)
+                    for idx, raw, outbound in to_test
+                }
 
-            for t in tarefas:
-                t.join()
+                # Processa os resultados à medida que ficam prontos
+                for futuro in as_completed(futuros):
+                    try:
+                        futuro.result()  # Captura exceções inesperadas da thread
+                    except Exception as exc:
+                        if self.console:
+                            self.console.print(f"[bold red]Erro fatal em uma thread de teste: {exc}[/]")
         
-        # Ordena as entradas pelo índice original para manter a ordem
-        entries.sort(key=lambda x: x["index"])
+        # 3. Ordena os resultados finais para manter a consistência
+        entries.sort(key=lambda x: x.get("index", float('inf')))
         
         return entries
-
 
     # ----------- interface pública -----------
 
@@ -1121,7 +1108,7 @@ class Proxy(IProxyService):
         raw_uri: str, 
         outbound: Proxy.Outbound,
         timeout: float = 10.0,
-        test_url: str = "http://google.com/"
+        test_url: str = "http://login.live.com/"
     ) -> Dict[str, Any]:
         """Testa a funcionalidade real da proxy criando uma ponte temporária e fazendo uma requisição."""
         result = {

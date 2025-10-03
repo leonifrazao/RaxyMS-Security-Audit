@@ -11,7 +11,7 @@ from typing import Callable, Iterable, Mapping
 
 # Supondo que estas interfaces existam em algum lugar do seu projeto
 from interfaces.services import IRewardsDataService
-from services.session_service import BaseRequest
+from core.session_service import BaseRequest
 
 # Para o código ser autônomo, vamos criar classes dummy
 

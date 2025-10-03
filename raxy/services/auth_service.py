@@ -12,8 +12,10 @@ from interfaces.services import (
     INavegadorRewardsService,
 )
 
+from services.logging_service import log
 from .rewards_browser_service import RewardsBrowserService
-from .session_service import SessaoSolicitacoes
+from core.session_service import SessaoSolicitacoes, BaseRequest
+from core.network_service import NetWork
 
 
 class CredenciaisInvalidas(ValueError):
@@ -25,8 +27,9 @@ class AutenticadorRewards(IAutenticadorRewardsService):
 
     _EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-    def __init__(self, navegador: Optional[IRewardsBrowserService] = None) -> None:
-        self._navegador = navegador or RewardsBrowserService()
+    def __init__(self, navegador: IRewardsBrowserService) -> None:
+        self._navegador = navegador
+        self._logger = log
 
     @classmethod
     def validar_credenciais(cls, email: str, senha: str) -> tuple[str, str]:
@@ -43,13 +46,30 @@ class AutenticadorRewards(IAutenticadorRewardsService):
 
         return email_normalizado, senha_normalizada
 
-    def executar(self, conta: Conta, proxy: str) -> SessaoSolicitacoes:
-        """Executa o login utilizando o serviço de navegador."""
-        
+    def executar(self, conta: Conta, proxy: dict | None = None) -> SessaoSolicitacoes:
+        """
+        Executa o login e cria uma SESSÃO COMPLETA, isolada para esta conta.
+        Esta é a "fábrica" de objetos de sessão.
+        """
         perfil = conta.id_perfil or conta.email
-        sessao_base = self._navegador.login(profile=perfil, proxy=proxy)
-        sessao = SessaoSolicitacoes(conta=conta, base_request=sessao_base)
-        return sessao
+        logger_scoped = self._logger.com_contexto(conta=conta.email)
+        logger_scoped.info("Iniciando autenticação e criação de sessão.")
+
+        # 1. Login retorna a instância de BaseRequest (com cookies do rewards)
+        sessao_base: BaseRequest = self._navegador.login(profile=perfil, proxy=proxy)
+
+        # 3. Criamos um monitor de rede exclusivo para esta sessão.
+        network_monitor = NetWork(driver=sessao_base.driver)
+        
+        # 4. Empacotamos tudo em um objeto de Sessão limpo e completo.
+        sessao_completa = SessaoSolicitacoes(
+            conta=conta,
+            base_request=sessao_base,
+            network_monitor=network_monitor
+        )
+        
+        logger_scoped.sucesso("Sessão criada com sucesso.")
+        return sessao_completa
 
 
 class NavegadorRecompensas(INavegadorRewardsService):

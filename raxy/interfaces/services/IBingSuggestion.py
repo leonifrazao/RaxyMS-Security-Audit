@@ -5,10 +5,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Callable, Mapping, TYPE_CHECKING
 
-from services.session_service import BaseRequest
+from core.session_service import BaseRequest
 
 if TYPE_CHECKING:  # pragma: no cover
-    from raxy.services.session_service import BaseRequest
+    from raxy.core.session_service import BaseRequest
 
 
 class IBingSuggestion(ABC):

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from interfaces.services import IGerenciadorSolicitacoesService
-from services.session_service import ParametrosManualSolicitacao, SessaoSolicitacoes
+from core.session_service import ParametrosManualSolicitacao, SessaoSolicitacoes
 
 
 @dataclass(slots=True)

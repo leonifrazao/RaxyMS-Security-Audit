@@ -48,7 +48,7 @@ class SimpleInjector:
         self._registrar_bindings_padrao()
 
     def _registrar_bindings_padrao(self) -> None:
-        self.bind_singleton(IProxyService, lambda inj: Proxy(country="US", sources=['https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/vless.txt'], use_console=True))
+        self.bind_singleton(IProxyService, lambda inj: Proxy(country="US", sources=['https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/ss_configs.txt'], use_console=True))
         self.bind_instance(ExecutorConfig, self._config)
         self.bind_singleton(ILoggingService, lambda inj: log)
         self.bind_singleton(IPerfilService, lambda inj: GerenciadorPerfil())
