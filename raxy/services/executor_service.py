@@ -9,7 +9,7 @@ from typing import Iterable, Sequence
 
 from config import DEFAULT_ACTIONS, DEFAULT_MAX_WORKERS, DEFAULT_USERS_FILE
 from domain import Conta
-from interfaces.repositories import IContaRepository
+from interfaces.repositories import IContaRepository, IDatabaseRepository
 from interfaces.services import (
     IAutenticadorRewardsService,
     IExecutorEmLoteService,
@@ -49,6 +49,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         perfil_service: IPerfilService,
         rewards_data: IRewardsDataService,
         logger: ILoggingService,
+        db_repository: IDatabaseRepository, # Recebe a nova dependência
         config: ExecutorConfig | None = None,
     ) -> None:
         self._config = config or ExecutorConfig()
@@ -59,6 +60,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._conta_repository = conta_repository
         self._rewards_data = rewards_data
         self._bing_search = bing_search
+        self._db_repository = db_repository # Armazena a dependência
 
     def executar(self, acoes: Iterable[str] | None = None) -> None:
         """
@@ -79,18 +81,14 @@ class ExecutorEmLote(IExecutorEmLoteService):
             max_workers=self._config.max_workers
         )
 
-        # Utiliza um ThreadPoolExecutor para gerenciar a execução concorrente
         with ThreadPoolExecutor(max_workers=self._config.max_workers) as executor:
-            # Submete cada tarefa de processamento de conta para o pool de threads
             futuros = {
                 executor.submit(self._processar_conta, conta, acoes_normalizadas, proxy)
                 for conta, proxy in zip(contas, self._proxy_service.get_http_proxy())
             }
 
-            # Aguarda a conclusão de cada thread
             for futuro in as_completed(futuros):
                 try:
-                    # .result() irá propagar exceções que ocorreram dentro da thread
                     futuro.result()
                 except Exception as exc:
                     self._logger.erro(
@@ -102,8 +100,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
 
     def _processar_conta(self, conta: Conta, acoes: Sequence[str], proxy: dict) -> None:
         """
-        Este método é executado por cada thread de forma isolada.
-        É seguro porque a 'sessao' é um objeto local, não compartilhado.
+        Este método é executado por cada thread de forma isolada para processar uma única conta.
         """
         scoped_logger = self._logger.com_contexto(conta=conta.email)
         scoped_logger.info("Thread iniciada para processamento da conta.")
@@ -111,29 +108,34 @@ class ExecutorEmLote(IExecutorEmLoteService):
         try:
             self._perfil_service.garantir_perfil(conta.id_perfil, conta.email, conta.senha)
             
-            # A chave da segurança: cada thread obtém sua própria sessão isolada.
-            # A sessão contém BaseRequest, NetWork, cookies, etc., exclusivos para esta conta.
             sessao = self._autenticador.executar(conta, proxy=proxy) if "login" in acoes else None
+            
+            pontos_finais = 0
 
             if sessao:
-                # A partir daqui, a 'sessao' completa pode ser usada com segurança
-                # para interagir com os serviços singleton.
                 if "rewards" in acoes:
-                    # Exemplo de uso
                     self._rewards_data.pegar_recompensas(sessao.base_request)
                     pontos = self._rewards_data.obter_pontos(sessao.base_request)
+                    pontos_finais = pontos
                     scoped_logger.info("Pontos atuais", pontos=pontos)
 
                 if "solicitacoes" in acoes:
-                    # Exemplo de uso
                     sugestoes = self._bing_search.get_all(sessao.base_request, "Brasil")
                     scoped_logger.info("Sugestões de busca encontradas", total=len(sugestoes))
+            
+                # AO FINAL DE TODO O PROCESSO, ADICIONA AS INFORMAÇÕES NO BANCO
+                if pontos_finais > 0:
+                    self._db_repository.adicionar_registro_farm(
+                        email=conta.email,
+                        pontos=pontos_finais
+                    )
+                else:
+                    scoped_logger.aviso("Pontuação final não foi determinada, registro no banco de dados ignorado.")
 
             scoped_logger.sucesso("Conta processada com sucesso pela thread.")
 
         except Exception as exc:
             scoped_logger.erro("Falha ao processar conta na thread.", erro=str(exc))
-            # Lança a exceção para que o loop principal em 'executar' possa capturá-la
             raise
 
     @staticmethod
