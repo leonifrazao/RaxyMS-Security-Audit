@@ -1,3 +1,5 @@
+# raxy/services/executor_service.py
+
 """Serviço que orquestra ações em múltiplas contas de forma concorrente."""
 
 from __future__ import annotations
