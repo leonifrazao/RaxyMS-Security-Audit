@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Type, TypeVar
 
-from interfaces.repositories import IContaRepository
+from interfaces.repositories import IContaRepository, IDatabaseRepository
 from interfaces.services import (
     IAutenticadorRewardsService,
     IExecutorEmLoteService,
@@ -26,6 +26,7 @@ from services.rewards_browser_service import RewardsBrowserService
 from api.proxy import Proxy
 from api.rewards_data_api import RewardsDataAPI
 from api.bing_suggestion_api import BingSuggestionAPI
+from api.db import SupabaseRepository
 
 
 _T = TypeVar("_T")
@@ -55,6 +56,10 @@ class SimpleInjector:
         self.bind_singleton(IRewardsBrowserService, lambda inj: RewardsBrowserService(proxy_service=inj.get(IProxyService)))
         self.bind_singleton(IRewardsDataService, lambda inj: RewardsDataAPI())
         self.bind_singleton(IBingSuggestion, lambda inj: BingSuggestionAPI())
+        
+        # Vincula a nova interface à sua implementação Supabase
+        self.bind_singleton(IDatabaseRepository, lambda inj: SupabaseRepository())
+        
         self.bind_singleton(
             IAutenticadorRewardsService,
             lambda inj: AutenticadorRewards(navegador=inj.get(IRewardsBrowserService)),
@@ -78,12 +83,12 @@ class SimpleInjector:
                 logger=inj.get(ILoggingService),
                 config=inj.get(ExecutorConfig),
                 proxy_service=inj.get(IProxyService),
+                # Passa a nova dependência para o executor
+                db_repository=inj.get(IDatabaseRepository),
             ),
         )
 
-    # ------------------------------------------------------------------
-    # Métodos públicos de binding
-    # ------------------------------------------------------------------
+    # ... (o resto do arquivo permanece o mesmo)
     def bind_instance(self, chave: Type[_T], instancia: _T) -> None:
         self._bindings[chave] = _Binding(factory=lambda _: instancia, singleton=True, instance=instancia, has_instance=True)
 
@@ -93,9 +98,6 @@ class SimpleInjector:
     def bind_factory(self, chave: Type[_T], fabrica: Callable[["SimpleInjector"], _T]) -> None:
         self._bindings[chave] = _Binding(factory=fabrica, singleton=False)
 
-    # ------------------------------------------------------------------
-    # Resolução
-    # ------------------------------------------------------------------
     def get(self, chave: Type[_T]) -> _T:
         if chave not in self._bindings:
             raise KeyError(f"Nenhum binding registrado para {chave!r}")
@@ -104,13 +106,12 @@ class SimpleInjector:
             if not binding.has_instance:
                 binding.instance = binding.factory(self)
                 binding.has_instance = True
-            return binding.instance  # type: ignore[return-value]
+            return binding.instance
         return binding.factory(self)
 
 
 def create_injector(config: ExecutorConfig | None = None) -> SimpleInjector:
     """Cria o container padrão da aplicação."""
-
     return SimpleInjector(config)
 
 
