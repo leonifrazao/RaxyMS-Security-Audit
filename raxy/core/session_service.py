@@ -7,6 +7,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping, TYPE_CHECKING
 from urllib.parse import urljoin
+from botasaurus.browser import Driver
+
+# Importa NetWork da sua nova localização
+from .network_service import NetWork
+import traceback
 
 from botasaurus.request import Request, request
 from botasaurus.soupify import soupify
@@ -35,6 +40,7 @@ class SessaoSolicitacoes:
 
     conta: "Conta"
     base_request: "BaseRequest"
+    network_monitor: "NetWork"
 
     @property
     def perfil(self) -> str:
@@ -87,12 +93,14 @@ def _extract_request_verification_token(html):
 
 
 class BaseRequest:
-    """Carrega templates JSON e executa requests autenticadas."""
-
-    def __init__(self, perfil, driver, url_base="https://rewards.bing.com/"):
+    """Carrega templates JSON e executa requests autenticadas para UMA SESSÃO."""
+    def __init__(self, perfil: str, driver: Driver, url_base="https://rewards.bing.com/"):
+        from services.logging_service import log
+        
         self.perfil = perfil
         self.driver = driver
         self.url_base = url_base
+        self._logger = log.com_contexto(perfil=perfil)
 
         self.cookies = self.driver.get_cookies_dict()
         self.user_agent = self.driver.profile.get("UA")
@@ -102,6 +110,21 @@ class BaseRequest:
         except Exception:
             html = None
         self.token_antifalsificacao = _extract_request_verification_token(html)
+        
+    
+    def atualizar_cookies_para_dominio(self, url: str) -> None:
+        """Navega para uma nova URL e adiciona os cookies desse domínio à sessão."""
+        self._logger.info(f"Atualizando cookies para o domínio: {url}")
+        try:
+            # Usa o driver para visitar a URL e carregar os cookies no navegador
+            self.driver.get(url) 
+            # Pega TODOS os cookies que o driver conhece agora e atualiza o dicionário
+            novos_cookies = self.driver.get_cookies_dict()
+            self.cookies.update(novos_cookies)
+            self._logger.info(f"Cookies atualizados. Total de cookies agora: {len(self.cookies)}")
+        except Exception:
+            full_error = traceback.format_exc()
+            self._logger.erro(f"Falha ao atualizar cookies para {url}", erro=full_error)
 
     def executar(self, diretorio_template, bypass_request_token=False, use_ua = True, use_cookies = True):
         if not isinstance(diretorio_template, dict):  

@@ -11,7 +11,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 # Supondo que o serviço de sessão esteja acessível a partir daqui
 # Ajuste o import se sua estrutura for diferente
-from services.session_service import BaseRequest
+from core.session_service import BaseRequest
 from interfaces.services import IBingSuggestion
 
 # Caminho corrigido com base na estrutura de pastas fornecida

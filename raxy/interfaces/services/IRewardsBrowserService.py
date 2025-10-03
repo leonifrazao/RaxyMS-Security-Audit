@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Mapping, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from raxy.services.session_service import BaseRequest
+    from raxy.core.session_service import BaseRequest
 
 
 class IRewardsBrowserService(ABC):

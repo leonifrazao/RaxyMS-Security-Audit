@@ -1,6 +1,4 @@
 """API pública do pacote Raxy."""
-
-from raxy.api.rewards_api import APIRecompensas
 from raxy.api.rewards_data_api import RewardsDataAPI
 from raxy.container import create_injector
 from raxy.domain import Conta
@@ -13,7 +11,7 @@ from raxy.services.auth_service import AutenticadorRewards, CredenciaisInvalidas
 from raxy.services.executor_service import ExecutorConfig, ExecutorEmLote
 from raxy.services.logging_service import FarmLogger, LoggerConfig, configurar_logging, log
 from raxy.services.perfil_service import GerenciadorPerfil
-from raxy.services.session_service import BaseRequest, ParametrosManualSolicitacao, SessaoSolicitacoes
+from raxy.core.session_service import BaseRequest, ParametrosManualSolicitacao, SessaoSolicitacoes
 from raxy.services.solicitacoes_service import GerenciadorSolicitacoesRewards
 from raxy.services.rewards_browser_service import RewardsBrowserService
 
