@@ -1,15 +1,16 @@
 """Utilitário para inspecionar respostas de rede emitidas pelo botasaurus."""
 
+from __future__ import annotations
 import re
 from botasaurus.browser import Driver, cdp
 
-
 class NetWork:
-    def __init__(self, driver=None):
-        self.respostas = []
-        self.driver = None
+    """Captura e permite a inspeção de respostas de rede de uma instância de Driver."""
+    def __init__(self, driver: Driver | None = None):
+        self.respostas: list[dict] = []
+        self.driver: Driver | None = None
         self._handler_registrado = False
-        self._regex_cache = {}
+        self._regex_cache: dict[str, re.Pattern] = {}
 
         if driver:
             self.inicializar(driver)
@@ -21,42 +22,37 @@ class NetWork:
         self.driver = driver
         self.respostas.clear()
 
-        if not self._handler_registrado:
+        if not self._handler_registrado and self.driver:
             self.driver.after_response_received(self.registrar_resposta)
             self._handler_registrado = True
 
-    def get_status(self, url_pattern=None):
+    def get_status(self, url_pattern: str | re.Pattern | None = None) -> int | None:
         if not self.respostas:
             return None
 
         for resp in reversed(self.respostas):
             url = resp["url"]
 
-            # nenhum filtro -> última resposta
             if url_pattern is None:
                 return resp["status"]
 
-            # regex pronta
             if isinstance(url_pattern, re.Pattern):
                 if url_pattern.search(url):
                     return resp["status"]
                 continue
 
-            # substring direta
             if isinstance(url_pattern, str) and url_pattern in url:
                 return resp["status"]
 
-            # string interpretada como regex
             try:
                 regex = self._regex_cache.get(url_pattern)
                 if regex is None:
-                    regex = re.compile(url_pattern)
-                    self._regex_cache[url_pattern] = regex
+                    regex = re.compile(str(url_pattern))
+                    self._regex_cache[str(url_pattern)] = regex
                 if regex.search(url):
                     return resp["status"]
             except re.error:
                 return None
-
         return None
 
     def limpar_respostas(self):
@@ -72,6 +68,5 @@ class NetWork:
                 "headers": response.headers,
             }
         )
-
 
 __all__ = ["NetWork"]

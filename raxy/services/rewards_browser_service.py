@@ -5,13 +5,14 @@ from __future__ import annotations
 from typing import Mapping
 
 from botasaurus.browser import Driver, Wait, browser
+from botasaurus.lang import Lang
 
 from interfaces.services import IRewardsBrowserService
 from interfaces.services import IProxyService
 from services.logging_service import log
 
-from .network_service import NetWork
-from .session_service import BaseRequest
+from core.network_service import NetWork
+from core.session_service import BaseRequest
 
 
 class ProxyRotationRequiredException(Exception):
@@ -34,7 +35,7 @@ class RewardsBrowserService(IRewardsBrowserService):
     # -------------------------
 
     @staticmethod
-    @browser(reuse_driver=False)
+    @browser(reuse_driver=False, lang=Lang.English)
     def _open_rewards_page(driver: Driver, data: Mapping[str, object] | None = None) -> None:
         dados = dict(data or {})
         url = str(dados.get("url") or "https://rewards.bing.com/")
@@ -54,10 +55,11 @@ class RewardsBrowserService(IRewardsBrowserService):
     @browser(
         reuse_driver=False,
         remove_default_browser_check_argument=True,
-        wait_for_complete_page_load=True,
+        wait_for_complete_page_load=False,
         block_images=True,
         output=None,
         tiny_profile=True,
+        lang=Lang.English
     )
     def _login(driver: Driver, data: Mapping[str, object] | None = None) -> BaseRequest:
         dados = dict(data or {})
@@ -67,6 +69,7 @@ class RewardsBrowserService(IRewardsBrowserService):
 
         network = NetWork(driver)
         network.limpar_respostas()
+        
 
         if not email_normalizado or "@" not in email_normalizado:
             raise ValueError("Email ausente ou inválido para login do Rewards")
@@ -94,6 +97,11 @@ class RewardsBrowserService(IRewardsBrowserService):
         if driver.run_js("return document.title").lower() == "microsoft rewards":
             registro.sucesso("Conta já autenticada")
             # driver.prompt()
+            registro.info("Coletando cookies do domínio de pesquisa...")
+            driver.google_get("https://www.bing.com") 
+            
+            driver.short_random_sleep()
+            registro.info("Cookies coletados.")
             base_request = BaseRequest(driver.config.profile, driver)
             registro.debug(
                 "Sessão pronta para requests",
@@ -140,6 +148,9 @@ class RewardsBrowserService(IRewardsBrowserService):
                 registro.aviso(f"Login concluído mas com status inesperado: {status_final}")
             else:
                 registro.debug("Nenhum status HTTP registrado após login")
+            
+            registro.info("Coletando cookies do domínio de pesquisa...")
+            driver.google_get("https://www.bing.com")
 
             base_request = BaseRequest(driver.config.profile, driver)
             registro.debug(
