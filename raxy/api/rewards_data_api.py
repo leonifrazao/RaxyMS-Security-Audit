@@ -32,7 +32,7 @@ class RewardsDataAPI(IRewardsDataService):
         self._palavras_erro = tuple(palavra.lower() for palavra in palavras_erro or ("captcha", "temporarily unavailable", "error"))
 
 
-    def obter_pontos(self, base: BaseRequest, *, bypass_request_token: bool = False) -> int:
+    def obter_pontos(self, base: BaseRequest, *, bypass_request_token: bool = True) -> int:
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
         resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token)
 
@@ -71,7 +71,7 @@ class RewardsDataAPI(IRewardsDataService):
         self,
         base: BaseRequest,
         *,
-        bypass_request_token: bool = False,
+        bypass_request_token: bool = True,
     ) -> Mapping[str, object]:
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
         resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token)
@@ -118,7 +118,7 @@ class RewardsDataAPI(IRewardsDataService):
         self,
         base: BaseRequest,
         *,
-        bypass_request_token: bool = False,
+        bypass_request_token: bool = True,
     ) -> Mapping[str, object]:
         recompensas = self.obter_recompensas(base, bypass_request_token=bypass_request_token)
 

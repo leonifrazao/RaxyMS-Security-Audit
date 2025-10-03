@@ -11,6 +11,7 @@ let
     libglvnd           # OpenGL loader (often needed by Chrome/Qt)
     libGLU
     xorg.libX11
+    webkitgtk_4_1      # <-- ADICIONADO: Fornece a biblioteca para o shotgun-code
   ];
 in
 pkgs.mkShell {
@@ -69,6 +70,10 @@ pkgs.mkShell {
     xray
 
     code-cursor
+
+    # Dependências para Shotgun Code
+    steam-run          # <-- ADICIONADO: O wrapper para executar o app
+    webkitgtk_4_1      # <-- ADICIONADO: A biblioteca que estava faltando
 
   ]) ++ [
     burpsuite

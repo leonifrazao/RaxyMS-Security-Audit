@@ -166,7 +166,7 @@ class BaseRequest:
 
         # injeta token se necessário
         if (
-            not bypass_request_token
+            bypass_request_token
             and self.token_antifalsificacao
             and metodo in {"POST", "PUT", "PATCH", "DELETE"}
         ):
