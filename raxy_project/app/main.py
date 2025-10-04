@@ -1,8 +1,10 @@
+# raxy_project/app/main.py
+
 """Ponto de entrada FastAPI que atua como API Gateway para a biblioteca raxy."""
 
 from __future__ import annotations
 
-import uvicorn  # 1. Adicione esta linha
+import uvicorn  # Garanta que esta linha esteja presente
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -80,7 +82,7 @@ app.include_router(executor_router, prefix=PREFIX)
 __all__ = ["app"]
 
 
-# 2. Adicione este bloco no final do arquivo
+# Adicione este bloco no final do arquivo para torná-lo executável
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",

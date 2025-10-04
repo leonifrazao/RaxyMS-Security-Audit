@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2025-10-02T22:09:29Z",
+  "generated_at": "2025-10-04T22:12:29Z",
   "entries": [
     {
       "uri": "ss://1afvv73vv73vv73vv73vv73vv70777-977-9NXtv77-977-977-977-977-9HO-_ve-_vR_vv715OtWn77-977-977-977-977-977-9O--_ve-_vTV7b--_ve-_ve-_ve-_ve-_vRzvv73vv70f77-9eQ@172.64.157.124:80 # 🔒 [By EbraSha]",
@@ -378,6 +378,21 @@
       "tested_at_ts": 1759442931.4400816
     },
     {
+      "uri": "ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206NUNYNWRGUnpRMjlYMUNUeEhDL3ZzQjM1aTdsTGU4MkhlbG9aM0xCQmJSdz06bFZXRDVqd0swWjJyN1NvZFBYNDFnaXViUGFEaTRJcmdrVGZRK2VqVWFGdz0=@91.205.158.2:2053 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "91.205.158.2",
+      "port": 2053,
+      "ip": "91.205.158.2",
+      "country": "United Kingdom",
+      "country_code": "GB",
+      "country_name": "United Kingdom",
+      "ping": 1416.8044840007497,
+      "error": "Filtro 'US': detectado United Kingdom",
+      "tested_at": "2025-10-04T22:12:07Z",
+      "tested_at_ts": 1759615927.37424
+    },
+    {
       "uri": "ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206NUNYNWRGUnpRMjlYMUNUeEhDL3ZzQjM1aTdsTGU4MkhlbG9aM0xCQmJSdz06bFZXRDVqd0swWjJyN1NvZFBYNDFnaXViUGFEaTRJcmdrVGZRK2VqVWFGdz0=@adas-polo-ba-mahi.kotlet.org:2053 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "FILTRADO",
@@ -618,21 +633,6 @@
       "tested_at_ts": 1759442941.249447
     },
     {
-      "uri": "ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206WFFNa3BiNUpJZnZyUXRhOU81dEVGY1dxeFBtbE1iamQ5V1VhTjdCVUlOYz06RWl4cXlhblFDUktBMjhEWW5qeEF4Q3ljbDJvSVROenY5eFl0N0ZMUUNxaz0=@193.176.190.162:1001 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "193.176.190.162",
-      "port": 1001,
-      "ip": "193.176.190.162",
-      "country": "The Netherlands",
-      "country_code": "NL",
-      "country_name": "The Netherlands",
-      "ping": null,
-      "error": "Erro na requisição: 503 Server Error: Service Unavailable for url: http://login.live.com/",
-      "tested_at": "2025-10-02T22:08:56Z",
-      "tested_at_ts": 1759442936.0545635
-    },
-    {
       "uri": "ss://MjAyMi1ibGFrZTMtYWVzLTI1Ni1nY206cFo0K1p1c2FnaG9rc0NVUjc1TDJUVlEwekZQdWdXd2dwdURweVh6eG1jYz06VC9BVXMvcHdNM0FkcXdYbG4wclAwWWlKdDdlcU0rZ0huVUFsVUpsUWFEQT0=@188.34.194.165:80 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -706,21 +706,6 @@
       "error": "Timeout após 10.0s",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.8116012
-    },
-    {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo0MjAwMGUwMi02YjRkLTQ2YWQtYTU3Mi04MGRiN2RiMmE5Y2U=@185.55.240.101:8080 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "185.55.240.101",
-      "port": 8080,
-      "ip": "185.55.240.101",
-      "country": "France",
-      "country_code": "FR",
-      "country_name": "France",
-      "ping": null,
-      "error": "Timeout após 10.0s",
-      "tested_at": "2025-10-02T22:09:01Z",
-      "tested_at_ts": 1759442941.076905
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo0MjAwMGUwMi02YjRkLTQ2YWQtYTU3Mi04MGRiN2RiMmE5Y2U=@23.94.67.166:8080 # 🔒 [By EbraSha]",
@@ -1038,21 +1023,6 @@
       "tested_at_ts": 1759442941.3127346
     },
     {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo0Y2IxVklQaUNCOFhob0IxMVM2bXJm@62.210.88.22:443 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "FILTRADO",
-      "host": "62.210.88.22",
-      "port": 443,
-      "ip": "62.210.88.22",
-      "country": "France",
-      "country_code": "FR",
-      "country_name": "France",
-      "ping": 2621.3363500000924,
-      "error": "Filtro 'US': detectado France",
-      "tested_at": "2025-10-02T22:08:53Z",
-      "tested_at_ts": 1759442933.7409935
-    },
-    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo0YTJyZml4b3BoZGpmZmE4S1ZBNEFh@151.242.251.144:8080 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "FILTRADO",
@@ -1291,21 +1261,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:08:52Z",
       "tested_at_ts": 1759442932.6054232
-    },
-    {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo0YTJyZml4b3BoZGpmZmE4S1ZBNEFh@vip.nl-16-07.galaxymc-ssh.ir:8080 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "vip.nl-16-07.galaxymc-ssh.ir",
-      "port": 8080,
-      "ip": "45.87.175.178",
-      "country": "United States",
-      "country_code": "US",
-      "country_name": "United States",
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:08:52Z",
-      "tested_at_ts": 1759442932.5955386
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo0Ynh3c1lTM24weXB0YlcwZmZKZWtu@193.233.207.191:16381 # 🔒 [By EbraSha]",
@@ -3093,21 +3048,6 @@
       "tested_at_ts": 1759442932.8548563
     },
     {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo3V0tldEw2cWpMNGZJV1JmU1pKYlBw@78.129.140.11:443 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "78.129.140.11",
-      "port": 443,
-      "ip": "78.129.140.11",
-      "country": "United Kingdom",
-      "country_code": "GB",
-      "country_name": "United Kingdom",
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:08:52Z",
-      "tested_at_ts": 1759442932.8691611
-    },
-    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo3VUVDbXo4T29jNUhseGhkdTNoNWJ3@103.167.234.75:8443 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -3196,6 +3136,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:08:52Z",
       "tested_at_ts": 1759442932.9119534
+    },
+    {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo3emU1M1NucmxvU0hIaE5TZ0wxQ2Z3@91.107.172.48:1080 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "91.107.172.48",
+      "port": 1080,
+      "ip": "91.107.172.48",
+      "country": "Germany",
+      "country_code": "DE",
+      "country_name": "Germany",
+      "ping": 1917.3221769997326,
+      "error": "Filtro 'US': detectado Germany",
+      "tested_at": "2025-10-04T22:12:07Z",
+      "tested_at_ts": 1759615927.7402809
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTo4MTllMzhkMWQ2ZGIxNGI0@157.173.109.231:11107 # 🔒 [By EbraSha]",
@@ -4413,21 +4368,6 @@
       "tested_at_ts": 1759442934.2770612
     },
     {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxNElUdjdHV0U4RnZoNUFHRzU1YWNt@212.113.106.76:29149 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "212.113.106.76",
-      "port": 29149,
-      "ip": "212.113.106.76",
-      "country": "Austria",
-      "country_code": "AT",
-      "country_name": "Austria",
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:08:54Z",
-      "tested_at_ts": 1759442934.282564
-    },
-    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxNzFwRWFGZjVISnRkQUFJM0w3cjZB@46.32.186.234:1080 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -4741,21 +4681,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:08:54Z",
       "tested_at_ts": 1759442934.4250994
-    },
-    {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxa1ZyMEtBVElKSTdtd09G@4.250.177.127:443 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "4.250.177.127",
-      "port": 443,
-      "ip": "4.250.177.127",
-      "country": "United Kingdom",
-      "country_code": "GB",
-      "country_name": "United Kingdom",
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:08:54Z",
-      "tested_at_ts": 1759442934.4349713
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxa1ZyMEtBVElKSTdtd09G@admin.c1.havij.co:443 # 🔒 [By EbraSha]",
@@ -5566,21 +5491,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:08:57Z",
       "tested_at_ts": 1759442937.1267426
-    },
-    {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTozNjBlMjFkMjE5NzdkYzEx@lv.vpnsparta.pro:57456 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "lv.vpnsparta.pro",
-      "port": 57456,
-      "ip": "216.173.70.187",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:08:57Z",
-      "tested_at_ts": 1759442937.0784023
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTozNjBlMjFkMjE5NzdkYzEx@pl.vpnsparta.pro:57456 # 🔒 [By EbraSha]",
@@ -7818,6 +7728,21 @@
       "tested_at_ts": 1759442937.9145095
     },
     {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTp6ZGQ4VW1JbEp1bjgyWnNtdWFkcHlr@90.156.231.238:11048 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "90.156.231.238",
+      "port": 11048,
+      "ip": "90.156.231.238",
+      "country": "Germany",
+      "country_code": "DE",
+      "country_name": "Germany",
+      "ping": null,
+      "error": "Timeout após 10.0s",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.012695
+    },
+    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTp6dG40UHcyWFF1eS9xS0d2SGZ2Vjlzd2U2NFJtZ0UzUXlhbVRxZmY5ZGhBPQ==@165.22.49.146:57905 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -8238,21 +8163,6 @@
       "tested_at_ts": 1759442938.1649966
     },
     {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpDaVd5azV5aFlpT0VvdHphZjJYTVcz@104.192.227.162:443 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "104.192.227.162",
-      "port": 443,
-      "ip": "104.192.227.162",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:08:58Z",
-      "tested_at_ts": 1759442938.196869
-    },
-    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpDeGdSVFpSRTV1clZmYmJuR1N5cg@217.138.209.122:8389 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -8418,21 +8328,6 @@
       "tested_at_ts": 1759442938.2905138
     },
     {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpEZmQ5RnBqa0FVSHRYbVdJMEhtVXZx@94.159.96.245:11902 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "94.159.96.245",
-      "port": 11902,
-      "ip": "94.159.96.245",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:08:58Z",
-      "tested_at_ts": 1759442938.2997117
-    },
-    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpEa0E3T3hTYWJSdHRQSnpPOUNjZjdM@162.243.245.151:31100 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -8566,21 +8461,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:08:58Z",
       "tested_at_ts": 1759442938.4237862
-    },
-    {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpFYWNaSU1Gd21NQ1I2ZFdxTjVBaDBj@194.135.46.13:1419 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "194.135.46.13",
-      "port": 1419,
-      "ip": "194.135.46.13",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:08:58Z",
-      "tested_at_ts": 1759442938.430263
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpFbEtIMUhLdVF1VzZ1UlR0c2VMWUI4@94.159.96.245:11902 # 🔒 [By EbraSha]",
@@ -19488,6 +19368,21 @@
       "tested_at_ts": 1759442942.82024
     },
     {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpPcVJpOUc2YXpURGp3ZnBYV0M2MWZW@104.192.227.162:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "OK",
+      "host": "104.192.227.162",
+      "port": 443,
+      "ip": "104.192.227.162",
+      "country": "United States",
+      "country_code": "US",
+      "country_name": "United States",
+      "ping": 2970.6069489984657,
+      "error": null,
+      "tested_at": "2025-10-04T22:12:08Z",
+      "tested_at_ts": 1759615928.9217772
+    },
+    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpPcWlXejlTVWRVeUhBZnk0cXM4Sld1@h110vpntr.outlinekeys.net:65262 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -20358,21 +20253,6 @@
       "tested_at_ts": 1759442943.1406722
     },
     {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpTRDhFOEE1enh5TG5YakV5aEhYekZU@94.159.96.245:11902 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "94.159.96.245",
-      "port": 11902,
-      "ip": "94.159.96.245",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:03Z",
-      "tested_at_ts": 1759442943.1393998
-    },
-    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpTZzNreHVJejZHdlozZEllNFFsUUhq@h110vpnch.outlinekeys.net:4248 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -20491,6 +20371,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:05Z",
       "tested_at_ts": 1759442945.5642185
+    },
+    {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpUaWJHaTd2TE9sZXJ4aDhtYlk3Umlx@78.129.140.11:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "78.129.140.11",
+      "port": 443,
+      "ip": "78.129.140.11",
+      "country": "United Kingdom",
+      "country_code": "GB",
+      "country_name": "United Kingdom",
+      "ping": 2525.0623390020337,
+      "error": "Filtro 'US': detectado United Kingdom",
+      "tested_at": "2025-10-04T22:12:08Z",
+      "tested_at_ts": 1759615928.350312
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpVM0lsZ0l2Z0FrQWthQkNuMFNVQXNY@77.239.117.121:28694 # 🔒 [By EbraSha]",
@@ -20748,6 +20643,21 @@
       "tested_at_ts": 1759442943.338258
     },
     {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpWMjNSYUZrUnpQOGM4OHkwVnpPajBG@5.129.231.197:46024 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "5.129.231.197",
+      "port": 46024,
+      "ip": "5.129.231.197",
+      "country": "The Netherlands",
+      "country_code": "NL",
+      "country_name": "The Netherlands",
+      "ping": null,
+      "error": "Timeout após 10.0s",
+      "tested_at": "2025-10-04T22:12:15Z",
+      "tested_at_ts": 1759615935.8616726
+    },
+    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpWMjlCcGJ0a2hXWnI@185.204.1.253:443 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -20958,21 +20868,6 @@
       "tested_at_ts": 1759442943.6656818
     },
     {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpXNzRYRkFMTEx1dzZtNUlB@145.133.44.86:443 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "145.133.44.86",
-      "port": 443,
-      "ip": "145.133.44.86",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:03Z",
-      "tested_at_ts": 1759442943.5427773
-    },
-    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpXNzRYRkFMTEx1dzZtNUlB@2FreakConfig.usecharge.ir:443 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -21046,6 +20941,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:03Z",
       "tested_at_ts": 1759442943.5539844
+    },
+    {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpXNzRYRkFMTEx1dzZtNUlB@4.250.240.126:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "4.250.240.126",
+      "port": 443,
+      "ip": "4.250.240.126",
+      "country": "United Kingdom",
+      "country_code": "GB",
+      "country_name": "United Kingdom",
+      "ping": 1411.7220499974792,
+      "error": "Filtro 'US': detectado United Kingdom",
+      "tested_at": "2025-10-04T22:12:07Z",
+      "tested_at_ts": 1759615927.3743622
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpXNzRYRkFMTEx1dzZtNUlB@4.250.248.143:443 # 🔒 [By EbraSha]",
@@ -22713,6 +22623,21 @@
       "tested_at_ts": 1759442943.1996925
     },
     {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpjM2ZmZDYwNS1kOWZiLTQyYjctOThmMi1hMjlmYjk5OWU1YjY=@mm.huawei-api.top:19583 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "mm.huawei-api.top",
+      "port": 19583,
+      "ip": "183.240.138.208",
+      "country": "China",
+      "country_code": "CN",
+      "country_name": "China",
+      "ping": null,
+      "error": "Timeout após 10.0s",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.4562864
+    },
+    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpjMDRiYjNkNC03MDE0LTQ4MzAtYTg1OS05NTJmNDUzYTdlZjU@183.240.222.80:2001 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -23521,6 +23446,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:04Z",
       "tested_at_ts": 1759442944.916591
+    },
+    {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpkQUhNMXBtOGFnN0tkbHJVeWxRaTZ0@promo18v.bystrivpn.ru:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "promo18v.bystrivpn.ru",
+      "port": 443,
+      "ip": "38.244.136.233",
+      "country": "Finland",
+      "country_code": "FI",
+      "country_name": "Finland",
+      "ping": null,
+      "error": "Timeout após 10.0s",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.9453173
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpkTDF2eFhsd3VzV3NhVjlyVTJaSVB6@fox-usa.outlinekeys.net:34868 # 🔒 [By EbraSha]",
@@ -24573,6 +24513,21 @@
       "tested_at_ts": 1759442945.6387067
     },
     {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpmTjl3eG85blBINGR3WVhQY2hJanBT@62.210.88.22:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "62.210.88.22",
+      "port": 443,
+      "ip": "62.210.88.22",
+      "country": "France",
+      "country_code": "FR",
+      "country_name": "France",
+      "ping": 2493.6319520020334,
+      "error": "Filtro 'US': detectado France",
+      "tested_at": "2025-10-04T22:12:08Z",
+      "tested_at_ts": 1759615928.3164186
+    },
+    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpmU0VQdFlEbXVCdTdabkZZWGRITXQx@89.185.84.185:12575 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -24586,21 +24541,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:05Z",
       "tested_at_ts": 1759442945.7396815
-    },
-    {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpmVDhlNU9mbnZRSWd2VlltUVNKTlg1@212.113.106.76:29149 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "212.113.106.76",
-      "port": 29149,
-      "ip": "212.113.106.76",
-      "country": "Austria",
-      "country_code": "AT",
-      "country_name": "Austria",
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:05Z",
-      "tested_at_ts": 1759442945.6757722
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpmZFJBbDRzY1dEVGc=@164.90.234.85:18492 # 🔒 [By EbraSha]",
@@ -25771,6 +25711,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:05Z",
       "tested_at_ts": 1759442945.9555564
+    },
+    {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTptcHMzRndtRGpMcldhT1Zn@13.41.13.171:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "13.41.13.171",
+      "port": 443,
+      "ip": "13.41.13.171",
+      "country": "United Kingdom",
+      "country_code": "GB",
+      "country_name": "United Kingdom",
+      "ping": null,
+      "error": "Erro na requisição: 503 Server Error: Service Unavailable for url: http://login.live.com/",
+      "tested_at": "2025-10-04T22:12:08Z",
+      "tested_at_ts": 1759615928.9508073
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTptcHMzRndtRGpMcldhT1Zn@131.145.123.5:443 # 🔒 [By EbraSha]",
@@ -27873,21 +27828,6 @@
       "tested_at_ts": 1759442946.9889193
     },
     {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zjphc2QxMjM0NTY=@103.149.182.191:8388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.149.182.191",
-      "port": 8388,
-      "ip": "103.149.182.191",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:07Z",
-      "tested_at_ts": 1759442947.0098183
-    },
-    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zjphc2QxMjM0NTY=@103.149.183.154:8388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -27916,21 +27856,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:06Z",
       "tested_at_ts": 1759442946.9225671
-    },
-    {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zjphc2QxMjM0NTY=@103.36.91.32:8388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.36.91.32",
-      "port": 8388,
-      "ip": "103.36.91.32",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:06Z",
-      "tested_at_ts": 1759442946.9459634
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zjphc2QxMjM0NTY@103.141.221.200:8388 # 🔒 [By EbraSha]",
@@ -31698,21 +31623,6 @@
       "tested_at_ts": 1759442950.5563111
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6Qk5tQVhYeEFIWXBUUmR6dQ==@5.188.181.201:9020 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "5.188.181.201",
-      "port": 9020,
-      "ip": "5.188.181.201",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.5614572
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6Qk5tQVhYeEFIWXBUUmR6dQ@185.135.86.173:9020 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -33406,21 +33316,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:09Z",
       "tested_at_ts": 1759442949.5895588
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6TTN0MlpFUWNNR1JXQmpSYQ==@45.89.52.66:9011 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "45.89.52.66",
-      "port": 9011,
-      "ip": "45.89.52.66",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:09Z",
-      "tested_at_ts": 1759442949.6069777
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6TTN0MlpFUWNNR1JXQmpSYQ==@80.92.204.106:9011 # 🔒 [By EbraSha]",
@@ -35163,21 +35058,6 @@
       "tested_at_ts": 1759442950.045817
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.11:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.11",
-      "port": 38388,
-      "ip": "103.186.154.11",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:09Z",
-      "tested_at_ts": 1759442949.9610827
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.12:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -35208,21 +35088,6 @@
       "tested_at_ts": 1759442949.9511094
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.13:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.13",
-      "port": 38388,
-      "ip": "103.186.154.13",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.0675263
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.140:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -35251,6 +35116,36 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.052977
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.142:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.142",
+      "port": 38388,
+      "ip": "103.186.154.142",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:08Z",
+      "tested_at_ts": 1759615928.5684638
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.143:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.143",
+      "port": 38388,
+      "ip": "103.186.154.143",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:08Z",
+      "tested_at_ts": 1759615928.928848
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.144:38388 # 🔒 [By EbraSha]",
@@ -35298,19 +35193,19 @@
       "tested_at_ts": 1759442950.0935187
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.147:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.148:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.147",
+      "host": "103.186.154.148",
       "port": 38388,
-      "ip": "103.186.154.147",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.148",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.0768356
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:09Z",
+      "tested_at_ts": 1759615929.5109975
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.149:38388 # 🔒 [By EbraSha]",
@@ -35326,21 +35221,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.0745845
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.14:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.14",
-      "port": 38388,
-      "ip": "103.186.154.14",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.0867825
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.150:38388 # 🔒 [By EbraSha]",
@@ -35403,34 +35283,19 @@
       "tested_at_ts": 1759442950.1335225
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.154:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.156:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.154",
+      "host": "103.186.154.156",
       "port": 38388,
-      "ip": "103.186.154.154",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.156",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.0891297
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.157:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.157",
-      "port": 38388,
-      "ip": "103.186.154.157",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.0791543
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:09Z",
+      "tested_at_ts": 1759615929.5429878
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.158:38388 # 🔒 [By EbraSha]",
@@ -35463,34 +35328,19 @@
       "tested_at_ts": 1759442950.1308222
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.15:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.161:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.15",
+      "host": "103.186.154.161",
       "port": 38388,
-      "ip": "103.186.154.15",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.161",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.3899114
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.162:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.162",
-      "port": 38388,
-      "ip": "103.186.154.162",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.1846445
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:09Z",
+      "tested_at_ts": 1759615929.757491
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.163:38388 # 🔒 [By EbraSha]",
@@ -35508,6 +35358,21 @@
       "tested_at_ts": 1759442950.3531835
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.164:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.164",
+      "port": 38388,
+      "ip": "103.186.154.164",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:10Z",
+      "tested_at_ts": 1759615930.1136906
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.165:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -35521,21 +35386,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.2399783
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.166:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.166",
-      "port": 38388,
-      "ip": "103.186.154.166",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.1527646
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.167:38388 # 🔒 [By EbraSha]",
@@ -35598,36 +35448,6 @@
       "tested_at_ts": 1759442950.2355082
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.172:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.172",
-      "port": 38388,
-      "ip": "103.186.154.172",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.1269166
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.173:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.173",
-      "port": 38388,
-      "ip": "103.186.154.173",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.1468995
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.174:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -35643,49 +35463,34 @@
       "tested_at_ts": 1759442950.246299
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.175:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.176:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.175",
+      "host": "103.186.154.176",
       "port": 38388,
-      "ip": "103.186.154.175",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.176",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.1714203
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:10Z",
+      "tested_at_ts": 1759615930.11604
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.177:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.178:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.177",
+      "host": "103.186.154.178",
       "port": 38388,
-      "ip": "103.186.154.177",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.178",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.1681554
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.179:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.179",
-      "port": 38388,
-      "ip": "103.186.154.179",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.1551385
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:10Z",
+      "tested_at_ts": 1759615930.1393604
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.17:38388 # 🔒 [By EbraSha]",
@@ -35701,36 +35506,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.204214
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.181:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.181",
-      "port": 38388,
-      "ip": "103.186.154.181",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.3271093
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.182:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.182",
-      "port": 38388,
-      "ip": "103.186.154.182",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.3395863
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.183:38388 # 🔒 [By EbraSha]",
@@ -35778,6 +35553,21 @@
       "tested_at_ts": 1759442950.0480862
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.186:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.186",
+      "port": 38388,
+      "ip": "103.186.154.186",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:10Z",
+      "tested_at_ts": 1759615930.697934
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.187:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -35808,6 +35598,21 @@
       "tested_at_ts": 1759442950.3647866
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.189:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.189",
+      "port": 38388,
+      "ip": "103.186.154.189",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:10Z",
+      "tested_at_ts": 1759615930.7346747
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.18:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -35823,21 +35628,6 @@
       "tested_at_ts": 1759442950.475782
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.190:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.190",
-      "port": 38388,
-      "ip": "103.186.154.190",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.2498107
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.192:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -35851,6 +35641,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.3558488
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.193:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.193",
+      "port": 38388,
+      "ip": "103.186.154.193",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:10Z",
+      "tested_at_ts": 1759615930.9532945
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.194:38388 # 🔒 [By EbraSha]",
@@ -35883,6 +35688,21 @@
       "tested_at_ts": 1759442950.318477
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.197:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.197",
+      "port": 38388,
+      "ip": "103.186.154.197",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:11Z",
+      "tested_at_ts": 1759615931.3101127
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.198:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -35896,6 +35716,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.4500217
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.199:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.199",
+      "port": 38388,
+      "ip": "103.186.154.199",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:11Z",
+      "tested_at_ts": 1759615931.3150375
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.19:38388 # 🔒 [By EbraSha]",
@@ -35926,21 +35761,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.4199157
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.201:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.201",
-      "port": 38388,
-      "ip": "103.186.154.201",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.4354455
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.202:38388 # 🔒 [By EbraSha]",
@@ -35988,6 +35808,21 @@
       "tested_at_ts": 1759442950.4429243
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.205:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.205",
+      "port": 38388,
+      "ip": "103.186.154.205",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:11Z",
+      "tested_at_ts": 1759615931.3262856
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.206:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -36001,36 +35836,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.466149
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.207:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.207",
-      "port": 38388,
-      "ip": "103.186.154.207",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.36775
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.208:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.208",
-      "port": 38388,
-      "ip": "103.186.154.208",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.4786003
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.209:38388 # 🔒 [By EbraSha]",
@@ -36108,6 +35913,21 @@
       "tested_at_ts": 1759442950.4734302
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.213:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.213",
+      "port": 38388,
+      "ip": "103.186.154.213",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:11Z",
+      "tested_at_ts": 1759615931.891466
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.214:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -36153,21 +35973,6 @@
       "tested_at_ts": 1759442950.4590874
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.218:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.218",
-      "port": 38388,
-      "ip": "103.186.154.218",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.5024927
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.219:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -36196,6 +36001,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.4539144
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.220:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.220",
+      "port": 38388,
+      "ip": "103.186.154.220",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:11Z",
+      "tested_at_ts": 1759615931.9321878
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.221:38388 # 🔒 [By EbraSha]",
@@ -36273,66 +36093,6 @@
       "tested_at_ts": 1759442950.4964457
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.226:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.226",
-      "port": 38388,
-      "ip": "103.186.154.226",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.541135
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.227:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.227",
-      "port": 38388,
-      "ip": "103.186.154.227",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.486352
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.228:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.228",
-      "port": 38388,
-      "ip": "103.186.154.228",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.5446908
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.229:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.229",
-      "port": 38388,
-      "ip": "103.186.154.229",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.5050814
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.22:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -36363,34 +36123,19 @@
       "tested_at_ts": 1759442950.4898398
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.231:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.232:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.231",
+      "host": "103.186.154.232",
       "port": 38388,
-      "ip": "103.186.154.231",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.232",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.5821853
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.233:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.233",
-      "port": 38388,
-      "ip": "103.186.154.233",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.5283086
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:12Z",
+      "tested_at_ts": 1759615932.142703
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.234:38388 # 🔒 [By EbraSha]",
@@ -36453,19 +36198,19 @@
       "tested_at_ts": 1759442950.5638041
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.238:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.239:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.238",
+      "host": "103.186.154.239",
       "port": 38388,
-      "ip": "103.186.154.238",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.239",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.5001342
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:12Z",
+      "tested_at_ts": 1759615932.5015447
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.23:38388 # 🔒 [By EbraSha]",
@@ -36513,34 +36258,19 @@
       "tested_at_ts": 1759442950.5845528
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.242:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.244:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.242",
+      "host": "103.186.154.244",
       "port": 38388,
-      "ip": "103.186.154.242",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.244",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.567892
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.243:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.243",
-      "port": 38388,
-      "ip": "103.186.154.243",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.573293
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:12Z",
+      "tested_at_ts": 1759615932.5053523
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.245:38388 # 🔒 [By EbraSha]",
@@ -36661,21 +36391,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.7035718
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.253:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.253",
-      "port": 38388,
-      "ip": "103.186.154.253",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.733696
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.254:38388 # 🔒 [By EbraSha]",
@@ -36828,6 +36543,21 @@
       "tested_at_ts": 1759442951.6972482
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.34:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.34",
+      "port": 38388,
+      "ip": "103.186.154.34",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:12Z",
+      "tested_at_ts": 1759615932.5184026
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.35:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -36903,21 +36633,6 @@
       "tested_at_ts": 1759442950.6588836
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.40:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.40",
-      "port": 38388,
-      "ip": "103.186.154.40",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.70633
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.41:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -36931,21 +36646,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.675272
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.42:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.42",
-      "port": 38388,
-      "ip": "103.186.154.42",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.806296
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.43:38388 # 🔒 [By EbraSha]",
@@ -36963,19 +36663,34 @@
       "tested_at_ts": 1759442950.781512
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.46:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.45:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.46",
+      "host": "103.186.154.45",
       "port": 38388,
-      "ip": "103.186.154.46",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.45",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.7145216
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:13Z",
+      "tested_at_ts": 1759615933.0775976
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.47:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.47",
+      "port": 38388,
+      "ip": "103.186.154.47",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:13Z",
+      "tested_at_ts": 1759615933.1240344
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.48:38388 # 🔒 [By EbraSha]",
@@ -37038,6 +36753,21 @@
       "tested_at_ts": 1759442950.633901
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.52:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.52",
+      "port": 38388,
+      "ip": "103.186.154.52",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:13Z",
+      "tested_at_ts": 1759615933.334556
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.53:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37051,6 +36781,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.701166
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.54:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.54",
+      "port": 38388,
+      "ip": "103.186.154.54",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:13Z",
+      "tested_at_ts": 1759615933.704834
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.55:38388 # 🔒 [By EbraSha]",
@@ -37098,6 +36843,36 @@
       "tested_at_ts": 1759442950.774397
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.58:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.58",
+      "port": 38388,
+      "ip": "103.186.154.58",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:13Z",
+      "tested_at_ts": 1759615933.6935833
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.60:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.154.60",
+      "port": 38388,
+      "ip": "103.186.154.60",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:13Z",
+      "tested_at_ts": 1759615933.726231
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.61:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37113,66 +36888,6 @@
       "tested_at_ts": 1759442950.783737
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.62:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.62",
-      "port": 38388,
-      "ip": "103.186.154.62",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.7927992
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.63:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.63",
-      "port": 38388,
-      "ip": "103.186.154.63",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.7904596
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.64:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.64",
-      "port": 38388,
-      "ip": "103.186.154.64",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.7880807
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.66:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.66",
-      "port": 38388,
-      "ip": "103.186.154.66",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.7600327
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.67:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37186,36 +36901,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.7451146
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.68:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.68",
-      "port": 38388,
-      "ip": "103.186.154.68",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.7767947
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.69:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.69",
-      "port": 38388,
-      "ip": "103.186.154.69",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.738237
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.70:38388 # 🔒 [By EbraSha]",
@@ -37248,36 +36933,6 @@
       "tested_at_ts": 1759442950.8027918
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.72:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.72",
-      "port": 38388,
-      "ip": "103.186.154.72",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.7619412
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.73:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.154.73",
-      "port": 38388,
-      "ip": "103.186.154.73",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.7100296
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.74:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37308,19 +36963,19 @@
       "tested_at_ts": 1759442950.7214828
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.77:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.76:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.77",
+      "host": "103.186.154.76",
       "port": 38388,
-      "ip": "103.186.154.77",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.76",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.800467
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:14Z",
+      "tested_at_ts": 1759615934.4224255
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.78:38388 # 🔒 [By EbraSha]",
@@ -37338,19 +36993,49 @@
       "tested_at_ts": 1759442950.7981524
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.9:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.154.79:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.154.9",
+      "host": "103.186.154.79",
       "port": 38388,
-      "ip": "103.186.154.9",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.154.79",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.742641
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:14Z",
+      "tested_at_ts": 1759615934.3088255
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.101:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.101",
+      "port": 38388,
+      "ip": "103.186.155.101",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:14Z",
+      "tested_at_ts": 1759615934.52809
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.102:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.102",
+      "port": 38388,
+      "ip": "103.186.155.102",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:14Z",
+      "tested_at_ts": 1759615934.8934546
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.103:38388 # 🔒 [By EbraSha]",
@@ -37383,6 +37068,21 @@
       "tested_at_ts": 1759442950.7858987
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.105:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.105",
+      "port": 38388,
+      "ip": "103.186.155.105",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:14Z",
+      "tested_at_ts": 1759615934.896501
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.107:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37398,19 +37098,49 @@
       "tested_at_ts": 1759442950.7950726
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.108:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.109:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.108",
+      "host": "103.186.155.109",
       "port": 38388,
-      "ip": "103.186.155.108",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.109",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.8085527
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:14Z",
+      "tested_at_ts": 1759615934.9208827
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.10:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.10",
+      "port": 38388,
+      "ip": "103.186.155.10",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:15Z",
+      "tested_at_ts": 1759615935.5026717
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.110:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.110",
+      "port": 38388,
+      "ip": "103.186.155.110",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:15Z",
+      "tested_at_ts": 1759615935.6105917
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.111:38388 # 🔒 [By EbraSha]",
@@ -37426,6 +37156,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.8307836
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.113:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.113",
+      "port": 38388,
+      "ip": "103.186.155.113",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:15Z",
+      "tested_at_ts": 1759615935.7274203
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.114:38388 # 🔒 [By EbraSha]",
@@ -37458,19 +37203,19 @@
       "tested_at_ts": 1759442950.8107784
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.116:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.117:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.116",
+      "host": "103.186.155.117",
       "port": 38388,
-      "ip": "103.186.155.116",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.117",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.815569
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.0846913
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.118:38388 # 🔒 [By EbraSha]",
@@ -37503,6 +37248,21 @@
       "tested_at_ts": 1759442950.8212388
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.120:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.120",
+      "port": 38388,
+      "ip": "103.186.155.120",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.086776
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.121:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37516,51 +37276,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.8284476
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.122:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.122",
-      "port": 38388,
-      "ip": "103.186.155.122",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.8351436
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.123:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.123",
-      "port": 38388,
-      "ip": "103.186.155.123",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.8427007
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.124:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.124",
-      "port": 38388,
-      "ip": "103.186.155.124",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.8449802
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.125:38388 # 🔒 [By EbraSha]",
@@ -37623,6 +37338,21 @@
       "tested_at_ts": 1759442950.8645875
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.129:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.129",
+      "port": 38388,
+      "ip": "103.186.155.129",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.1139188
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.12:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37636,21 +37366,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.8598332
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.130:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.130",
-      "port": 38388,
-      "ip": "103.186.155.130",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.8669517
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.131:38388 # 🔒 [By EbraSha]",
@@ -37711,6 +37426,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.8691812
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.137:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.137",
+      "port": 38388,
+      "ip": "103.186.155.137",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.7003956
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.138:38388 # 🔒 [By EbraSha]",
@@ -37788,6 +37518,21 @@
       "tested_at_ts": 1759442950.9011602
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.142:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.142",
+      "port": 38388,
+      "ip": "103.186.155.142",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.8037083
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.143:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37801,21 +37546,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:10Z",
       "tested_at_ts": 1759442950.9035957
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.144:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.144",
-      "port": 38388,
-      "ip": "103.186.155.144",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.92291
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.145:38388 # 🔒 [By EbraSha]",
@@ -37878,6 +37608,21 @@
       "tested_at_ts": 1759442950.9506643
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.149:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.149",
+      "port": 38388,
+      "ip": "103.186.155.149",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:16Z",
+      "tested_at_ts": 1759615936.9270728
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.150:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37908,21 +37653,6 @@
       "tested_at_ts": 1759442950.97549
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.154:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.154",
-      "port": 38388,
-      "ip": "103.186.155.154",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.9820893
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.15:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -37938,19 +37668,19 @@
       "tested_at_ts": 1759442950.9861116
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.16:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.17:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.16",
+      "host": "103.186.155.17",
       "port": 38388,
-      "ip": "103.186.155.16",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.17",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:10Z",
-      "tested_at_ts": 1759442950.9945014
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:17Z",
+      "tested_at_ts": 1759615937.0533085
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.18:38388 # 🔒 [By EbraSha]",
@@ -38058,21 +37788,6 @@
       "tested_at_ts": 1759442951.0545185
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.209:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.209",
-      "port": 38388,
-      "ip": "103.186.155.209",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.0322294
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.20:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -38103,19 +37818,34 @@
       "tested_at_ts": 1759442951.0414872
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.214:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.213:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.214",
+      "host": "103.186.155.213",
       "port": 38388,
-      "ip": "103.186.155.214",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.213",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.0683565
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:17Z",
+      "tested_at_ts": 1759615937.206937
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.215:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.215",
+      "port": 38388,
+      "ip": "103.186.155.215",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:17Z",
+      "tested_at_ts": 1759615937.276931
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.218:38388 # 🔒 [By EbraSha]",
@@ -38238,36 +37968,6 @@
       "tested_at_ts": 1759442951.0889096
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.226:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.226",
-      "port": 38388,
-      "ip": "103.186.155.226",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.1276617
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.228:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.228",
-      "port": 38388,
-      "ip": "103.186.155.228",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.116352
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.229:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -38313,6 +38013,21 @@
       "tested_at_ts": 1759442951.1140268
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.232:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.232",
+      "port": 38388,
+      "ip": "103.186.155.232",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:17Z",
+      "tested_at_ts": 1759615937.2746248
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.233:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -38328,19 +38043,34 @@
       "tested_at_ts": 1759442951.125446
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.237:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.235:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.237",
+      "host": "103.186.155.235",
       "port": 38388,
-      "ip": "103.186.155.237",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.235",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.1187062
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:17Z",
+      "tested_at_ts": 1759615937.3114972
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.236:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.236",
+      "port": 38388,
+      "ip": "103.186.155.236",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:17Z",
+      "tested_at_ts": 1759615937.6499035
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.238:38388 # 🔒 [By EbraSha]",
@@ -38418,34 +38148,34 @@
       "tested_at_ts": 1759442951.1448693
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.28:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.26:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.28",
+      "host": "103.186.155.26",
       "port": 38388,
-      "ip": "103.186.155.28",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.26",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.1426406
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:17Z",
+      "tested_at_ts": 1759615937.8882132
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.29:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.27:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.29",
+      "host": "103.186.155.27",
       "port": 38388,
-      "ip": "103.186.155.29",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.27",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.1304607
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:17Z",
+      "tested_at_ts": 1759615937.989067
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.30:38388 # 🔒 [By EbraSha]",
@@ -38478,21 +38208,6 @@
       "tested_at_ts": 1759442951.1328752
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.32:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.32",
-      "port": 38388,
-      "ip": "103.186.155.32",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.1540844
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.33:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -38506,21 +38221,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:11Z",
       "tested_at_ts": 1759442951.151857
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.34:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.34",
-      "port": 38388,
-      "ip": "103.186.155.34",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.1566129
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.35:38388 # 🔒 [By EbraSha]",
@@ -38553,6 +38253,21 @@
       "tested_at_ts": 1759442951.161188
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.37:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.37",
+      "port": 38388,
+      "ip": "103.186.155.37",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:18Z",
+      "tested_at_ts": 1759615938.1092353
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.38:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -38566,6 +38281,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:11Z",
       "tested_at_ts": 1759442951.1800153
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.39:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.39",
+      "port": 38388,
+      "ip": "103.186.155.39",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:18Z",
+      "tested_at_ts": 1759615938.1385136
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.3:38388 # 🔒 [By EbraSha]",
@@ -38643,6 +38373,21 @@
       "tested_at_ts": 1759442951.1589775
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.45:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.45",
+      "port": 38388,
+      "ip": "103.186.155.45",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:18Z",
+      "tested_at_ts": 1759615938.246036
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.46:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -38673,64 +38418,64 @@
       "tested_at_ts": 1759442951.1729038
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.48:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.49:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.48",
+      "host": "103.186.155.49",
       "port": 38388,
-      "ip": "103.186.155.48",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.49",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.184839
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:18Z",
+      "tested_at_ts": 1759615938.3932877
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.4:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.50:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.4",
+      "host": "103.186.155.50",
       "port": 38388,
-      "ip": "103.186.155.4",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.50",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.187216
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:18Z",
+      "tested_at_ts": 1759615938.46828
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.52:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.51:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.52",
+      "host": "103.186.155.51",
       "port": 38388,
-      "ip": "103.186.155.52",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.51",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.182484
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:18Z",
+      "tested_at_ts": 1759615938.4753742
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.54:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.55:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.54",
+      "host": "103.186.155.55",
       "port": 38388,
-      "ip": "103.186.155.54",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.55",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.1894803
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:18Z",
+      "tested_at_ts": 1759615938.5031369
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.56:38388 # 🔒 [By EbraSha]",
@@ -38763,21 +38508,6 @@
       "tested_at_ts": 1759442951.1940289
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.58:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.58",
-      "port": 38388,
-      "ip": "103.186.155.58",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.19639
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.59:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -38808,49 +38538,34 @@
       "tested_at_ts": 1759442951.201809
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.62:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.61:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.62",
+      "host": "103.186.155.61",
       "port": 38388,
-      "ip": "103.186.155.62",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.61",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.2110379
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:18Z",
+      "tested_at_ts": 1759615938.84271
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.63:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.66:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.63",
+      "host": "103.186.155.66",
       "port": 38388,
-      "ip": "103.186.155.63",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.66",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.2085795
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.65:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.65",
-      "port": 38388,
-      "ip": "103.186.155.65",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.2061636
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:19Z",
+      "tested_at_ts": 1759615939.0847132
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.67:38388 # 🔒 [By EbraSha]",
@@ -38913,21 +38628,6 @@
       "tested_at_ts": 1759442951.2553668
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.71:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.71",
-      "port": 38388,
-      "ip": "103.186.155.71",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.257748
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.75:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -38941,6 +38641,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:11Z",
       "tested_at_ts": 1759442951.2145374
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.76:38388 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "103.186.155.76",
+      "port": 38388,
+      "ip": "103.186.155.76",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:19Z",
+      "tested_at_ts": 1759615939.171094
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.77:38388 # 🔒 [By EbraSha]",
@@ -38973,21 +38688,6 @@
       "tested_at_ts": 1759442951.2424488
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.81:38388 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "103.186.155.81",
-      "port": 38388,
-      "ip": "103.186.155.81",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.244433
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.82:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -39003,19 +38703,19 @@
       "tested_at_ts": 1759442951.273257
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.8:38388 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.84:38388 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "103.186.155.8",
+      "host": "103.186.155.84",
       "port": 38388,
-      "ip": "103.186.155.8",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "ip": "103.186.155.84",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "country_name": "Vietnam",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.2518437
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:19Z",
+      "tested_at_ts": 1759615939.302013
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WG44aktkbURNMDBJZU8lIyQjZkpBTXRzRUFFVU9wSC9ZV1l0WXFERm5UMFNW@103.186.155.9:38388 # 🔒 [By EbraSha]",
@@ -39091,6 +38791,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:11Z",
       "tested_at_ts": 1759442951.2707603
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6WkVUNTlMRjZEdkNDOEtWdA==@5.188.181.201:9005 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "5.188.181.201",
+      "port": 9005,
+      "ip": "5.188.181.201",
+      "country": "Spain",
+      "country_code": "ES",
+      "country_name": "Spain",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:19Z",
+      "tested_at_ts": 1759615939.3389268
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6WkVUNTlMRjZEdkNDOEtWdA@213.183.59.190:9005 # 🔒 [By EbraSha]",
@@ -39361,21 +39076,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:11Z",
       "tested_at_ts": 1759442951.3998246
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6YTNHRll0MzZTbTgyVnlzOQ==@5.188.181.201:9000 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "5.188.181.201",
-      "port": 9000,
-      "ip": "5.188.181.201",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.3621707
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6YTNHRll0MzZTbTgyVnlzOQ@185.135.86.173:9000 # 🔒 [By EbraSha]",
@@ -40143,21 +39843,6 @@
       "tested_at_ts": 1759442951.5773447
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU=@3.107.151.161:443 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "3.107.151.161",
-      "port": 443,
-      "ip": "3.107.151.161",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:11Z",
-      "tested_at_ts": 1759442951.5692837
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU=@3.112.193.151:443 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -40351,6 +40036,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:11Z",
       "tested_at_ts": 1759442951.6635911
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU=@34.245.185.129:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "34.245.185.129",
+      "port": 443,
+      "ip": "34.245.185.129",
+      "country": "Ireland",
+      "country_code": "IE",
+      "country_name": "Ireland",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:19Z",
+      "tested_at_ts": 1759615939.4422264
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU=@35.91.221.138:443 # 🔒 [By EbraSha]",
@@ -41643,6 +41343,21 @@
       "tested_at_ts": 1759442951.9983304
     },
     {
+      "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU@18.159.61.225:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "18.159.61.225",
+      "port": 443,
+      "ip": "18.159.61.225",
+      "country": "Germany",
+      "country_code": "DE",
+      "country_name": "Germany",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:19Z",
+      "tested_at_ts": 1759615939.5880823
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU@18.181.211.108:443 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -41761,21 +41476,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:12Z",
       "tested_at_ts": 1759442952.0277493
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU@3.107.151.161:443 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "3.107.151.161",
-      "port": 443,
-      "ip": "3.107.151.161",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:12Z",
-      "tested_at_ts": 1759442952.0240238
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU@3.112.193.151:443 # 🔒 [By EbraSha]",
@@ -44853,21 +44553,6 @@
       "tested_at_ts": 1759442953.7539527
     },
     {
-      "uri": "ss://YWVzLTI1Ni1jZmI6Z1lDWVhma1VRRXMyVGFKUQ==@194.116.173.21:9038 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "194.116.173.21",
-      "port": 9038,
-      "ip": "194.116.173.21",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Processo xray terminou inesperadamente",
-      "tested_at": "2025-10-02T22:09:13Z",
-      "tested_at_ts": 1759442953.7556555
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1jZmI6Z1lDWVhma1VRRXMyVGFKUQ==@213.183.59.190:9038 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -45001,6 +44686,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:12Z",
       "tested_at_ts": 1759442952.970727
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6ZFUzRFNOUzh3WVBYekVLdw==@45.89.52.66:9029 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "45.89.52.66",
+      "port": 9029,
+      "ip": "45.89.52.66",
+      "country": "Turkey",
+      "country_code": "TR",
+      "country_name": "Turkey",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:19Z",
+      "tested_at_ts": 1759615939.6605344
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6ZFUzRFNOUzh3WVBYekVLdw@185.135.86.173:9029 # 🔒 [By EbraSha]",
@@ -50448,19 +50148,34 @@
       "tested_at_ts": 1759442954.3660007
     },
     {
-      "uri": "ss://YWVzLTI1Ni1nY206NWYwMGU4ODAtNDVkOS00NDRjLWFmMTMtMTI4MjBlYjEzZmZj@ss.037.node-for-bigairport.win:11688 # 🔒 [By EbraSha]",
+      "uri": "ss://YWVzLTI1Ni1nY206NWYwMGU4ODAtNDVkOS00NDRjLWFmMTMtMTI4MjBlYjEzZmZj@ss.036.node-for-bigairport.win:16688 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
-      "host": "ss.037.node-for-bigairport.win",
-      "port": 11688,
-      "ip": "18.163.77.252",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
+      "host": "ss.036.node-for-bigairport.win",
+      "port": 16688,
+      "ip": "18.166.78.138",
+      "country": "Hong Kong",
+      "country_code": "HK",
+      "country_name": "Hong Kong",
       "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:15Z",
-      "tested_at_ts": 1759442955.2037873
+      "error": "Timeout após 10.0s",
+      "tested_at": "2025-10-04T22:12:29Z",
+      "tested_at_ts": 1759615949.962613
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1nY206NWYwMGU4ODAtNDVkOS00NDRjLWFmMTMtMTI4MjBlYjEzZmZj@ss.040.node-for-bigairport.win:11689 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "ss.040.node-for-bigairport.win",
+      "port": 11689,
+      "ip": "95.40.42.244",
+      "country": "Hong Kong",
+      "country_code": "HK",
+      "country_name": "Hong Kong",
+      "ping": null,
+      "error": "Timeout após 10.0s",
+      "tested_at": "2025-10-04T22:12:29Z",
+      "tested_at_ts": 1759615949.9222858
     },
     {
       "uri": "ss://YWVzLTI1Ni1nY206NzExNDZiODMtMmJjMC00MjU4LTgzMGEtYTdjMjViZjFjNjM2@132.226.164.14:7705 # 🔒 [By EbraSha]",
@@ -51123,6 +50838,21 @@
       "tested_at_ts": 1759442954.6588178
     },
     {
+      "uri": "ss://YWVzLTI1Ni1nY206RDh3d1B1OVR4bGdhd3MyK3BIeHpJUzhneDZzNlJXdzdibGZ0bkVjSmZoQT0=@174.138.22.94:8443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "174.138.22.94",
+      "port": 8443,
+      "ip": "174.138.22.94",
+      "country": "Singapore",
+      "country_code": "SG",
+      "country_name": "Singapore",
+      "ping": 2526.6533799986064,
+      "error": "Filtro 'US': detectado Singapore",
+      "tested_at": "2025-10-04T22:12:22Z",
+      "tested_at_ts": 1759615942.5680623
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1nY206REtYZld3YzRlYnNjcFhUS3BidDg1clNI@193.29.107.197:38742 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -51301,21 +51031,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:14Z",
       "tested_at_ts": 1759442954.6674342
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1nY206Rm9PaUdsa0FBOXlQRUdQ@139.64.164.15:7306 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "139.64.164.15",
-      "port": 7306,
-      "ip": "139.64.164.15",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:14Z",
-      "tested_at_ts": 1759442954.6829755
     },
     {
       "uri": "ss://YWVzLTI1Ni1nY206Rm9PaUdsa0FBOXlQRUdQ@142.202.48.105:7306 # 🔒 [By EbraSha]",
@@ -52186,21 +51901,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:15Z",
       "tested_at_ts": 1759442955.117172
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1nY206Rm9PaUdsa0FBOXlQRUdQ@23.157.40.89:7306 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "23.157.40.89",
-      "port": 7306,
-      "ip": "23.157.40.89",
-      "country": "United States",
-      "country_code": "US",
-      "country_name": "United States",
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:15Z",
-      "tested_at_ts": 1759442955.457937
     },
     {
       "uri": "ss://YWVzLTI1Ni1nY206Rm9PaUdsa0FBOXlQRUdQ@23.158.56.17:7307 # 🔒 [By EbraSha]",
@@ -53791,21 +53491,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:15Z",
       "tested_at_ts": 1759442955.7799718
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1nY206S2l4THZLendqZWtHMDBybQ==@23.157.40.101:8000 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "23.157.40.101",
-      "port": 8000,
-      "ip": "23.157.40.101",
-      "country": "United States",
-      "country_code": "US",
-      "country_name": "United States",
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:15Z",
-      "tested_at_ts": 1759442955.590151
     },
     {
       "uri": "ss://YWVzLTI1Ni1nY206S2l4THZLendqZWtHMDBybQ==@23.157.40.120:8000 # 🔒 [By EbraSha]",
@@ -58786,21 +58471,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:17Z",
       "tested_at_ts": 1759442957.3539863
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1nY206UmV4bkJnVTdFVjVBRHhH@134.195.196.231:7001 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "134.195.196.231",
-      "port": 7001,
-      "ip": "134.195.196.231",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:16Z",
-      "tested_at_ts": 1759442956.7907557
     },
     {
       "uri": "ss://YWVzLTI1Ni1nY206UmV4bkJnVTdFVjVBRHhH@134.195.196.51:7002 # 🔒 [By EbraSha]",
@@ -72453,6 +72123,36 @@
       "tested_at_ts": 1759442960.0722866
     },
     {
+      "uri": "ss://YWVzLTI1Ni1nY206YzY5Mzc0ZGEtMjIwOC00Y2JkLWI4MWUtY2RmODhiNWU3ZjUz@ss.007.node-for-bigairport.win:36888 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "ss.007.node-for-bigairport.win",
+      "port": 36888,
+      "ip": "18.166.54.77",
+      "country": "Hong Kong",
+      "country_code": "HK",
+      "country_name": "Hong Kong",
+      "ping": null,
+      "error": "Erro na requisição: 503 Server Error: Service Unavailable for url: http://login.live.com/",
+      "tested_at": "2025-10-04T22:12:20Z",
+      "tested_at_ts": 1759615940.9548063
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1nY206YzY5Mzc0ZGEtMjIwOC00Y2JkLWI4MWUtY2RmODhiNWU3ZjUz@ss.008.node-for-bigairport.win:19888 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "ss.008.node-for-bigairport.win",
+      "port": 19888,
+      "ip": "18.162.126.177",
+      "country": "Hong Kong",
+      "country_code": "HK",
+      "country_name": "Hong Kong",
+      "ping": null,
+      "error": "Erro na requisição: 503 Server Error: Service Unavailable for url: http://login.live.com/",
+      "tested_at": "2025-10-04T22:12:21Z",
+      "tested_at_ts": 1759615941.2865722
+    },
+    {
       "uri": "ss://YWVzLTI1Ni1nY206YzY5Mzc0ZGEtMjIwOC00Y2JkLWI4MWUtY2RmODhiNWU3ZjUz@ss.026.node-for-bigairport.win:15099 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -78003,21 +77703,6 @@
       "tested_at_ts": 1759442961.8523054
     },
     {
-      "uri": "ss://YWVzLTI1Ni1nY206ZzVNZUQ2RnQzQ1dsSklk@38.75.136.33:5003 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "38.75.136.33",
-      "port": 5003,
-      "ip": "38.75.136.33",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:21Z",
-      "tested_at_ts": 1759442961.865751
-    },
-    {
       "uri": "ss://YWVzLTI1Ni1nY206ZzVNZUQ2RnQzQ1dsSklk@38.75.137.9:5003 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -79141,21 +78826,6 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:22Z",
       "tested_at_ts": 1759442962.0636342
-    },
-    {
-      "uri": "ss://YWVzLTI1Ni1nY206a0RXdlhZWm9UQmNHa0M0@38.86.135.141:8882 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "38.86.135.141",
-      "port": 8882,
-      "ip": "38.86.135.141",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:22Z",
-      "tested_at_ts": 1759442962.0768986
     },
     {
       "uri": "ss://YWVzLTI1Ni1nY206a0RXdlhZWm9UQmNHa0M0@38.86.135.27:8881 # 🔒 [By EbraSha]",
@@ -83358,21 +83028,6 @@
       "tested_at_ts": 1759442962.893709
     },
     {
-      "uri": "ss://c3M6Ly9ZV1Z6TFRJMU5pMWpabUk2WVcxaGVtOXVjMnR5TURV@3.107.151.161:443 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "3.107.151.161",
-      "port": 443,
-      "ip": "3.107.151.161",
-      "country": "-",
-      "country_code": null,
-      "country_name": null,
-      "ping": null,
-      "error": "Não foi possível encontrar porta disponível após 100 tentativas",
-      "tested_at": "2025-10-02T22:09:22Z",
-      "tested_at_ts": 1759442962.8892462
-    },
-    {
       "uri": "ss://c3M6Ly9ZV1Z6TFRJMU5pMWpabUk2WVcxaGVtOXVjMnR5TURV@3.70.194.142:443 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "ERRO",
@@ -83386,6 +83041,21 @@
       "error": "Não foi possível encontrar porta disponível após 100 tentativas",
       "tested_at": "2025-10-02T22:09:22Z",
       "tested_at_ts": 1759442962.891165
+    },
+    {
+      "uri": "ss://c3M6Ly9ZV1Z6TFRJMU5pMWpabUk2WVcxaGVtOXVjMnR5TURV@34.245.185.129:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "34.245.185.129",
+      "port": 443,
+      "ip": "34.245.185.129",
+      "country": "Ireland",
+      "country_code": "IE",
+      "country_name": "Ireland",
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste.",
+      "tested_at": "2025-10-04T22:12:20Z",
+      "tested_at_ts": 1759615940.4922805
     },
     {
       "uri": "ss://c3M6Ly9ZV1Z6TFRJMU5pMWpabUk2WVcxaGVtOXVjMnR5TURV@52.196.65.55:443 # 🔒 [By EbraSha]",

@@ -5,3 +5,4 @@ random-user-agent
 flask
 fastapi
 uvicorn[standard]
+typer[all]
