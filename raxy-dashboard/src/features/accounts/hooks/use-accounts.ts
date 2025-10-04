@@ -1,32 +1,29 @@
 'use client'
 
-import {
-  type QueryClient,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiFetch, getApiBaseUrl } from '@/lib/api-client'
 
-import { fetchAccounts } from '../data/fetch-accounts'
+import { fetchAccounts, buildProfileId } from '../data/fetch-accounts'
 import {
   type Account,
-  type AccountStatus,
+  type AccountSource,
   type CreateAccountPayload,
 } from '../types'
 
 const ACCOUNTS_QUERY_KEY = ['accounts'] as const
+const DEFAULT_EXECUTOR_ACTIONS = ['login', 'rewards', 'solicitacoes'] as const
 
 type UseAccountsOptions = {
   initialData?: Account[]
+  source: AccountSource
 }
 
-export function useAccounts({ initialData }: UseAccountsOptions = {}) {
+export function useAccounts({ initialData, source }: UseAccountsOptions) {
   return useQuery({
-    queryKey: ACCOUNTS_QUERY_KEY,
-    queryFn: fetchAccounts,
-    initialData,
+    queryKey: [...ACCOUNTS_QUERY_KEY, source],
+    queryFn: () => fetchAccounts(source),
+    initialData: source === 'file' ? initialData : undefined,
     staleTime: 1000 * 60,
     refetchInterval: 1000 * 60,
   })
@@ -39,186 +36,88 @@ export function useAddAccountMutation() {
     mutationFn: async (payload: CreateAccountPayload) => {
       const baseUrl = getApiBaseUrl()
       if (!baseUrl) {
-        return createMockAccount(payload)
+        throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
       }
 
-      return apiFetch<Account>('/accounts', {
+      await apiFetch('/api/v1/executor/run', {
         method: 'POST',
-        body: JSON.stringify(payload),
-      })
-    },
-    onSuccess: (account) => {
-      queryClient.setQueryData<Account[]>(ACCOUNTS_QUERY_KEY, (prev = []) => [
-        normalizeAccount(account),
-        ...prev,
-      ])
-      queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
-    },
-  })
-}
-
-export function useStartAllFarmsMutation() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async () => {
-      const baseUrl = getApiBaseUrl()
-      if (!baseUrl) {
-        const result = simulateBulkStatusChange(queryClient, 'running')
-        queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
-        return result
-      }
-
-      await apiFetch('/farms/start-all', { method: 'POST', parseJson: false })
-      const result = simulateBulkStatusChange(queryClient, 'running')
-      queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
-      return result
-    },
-  })
-}
-
-export function useStartAccountMutation(accountId: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async () => {
-      const baseUrl = getApiBaseUrl()
-      if (!baseUrl) {
-        const result = simulateStatusChange(queryClient, accountId, 'running')
-        queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
-        return result
-      }
-
-      const account = await apiFetch<Account>(`/accounts/${accountId}/start`, {
-        method: 'POST',
-      })
-      const result = updateAccount(queryClient, account)
-      queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
-      return result
-    },
-  })
-}
-
-export function useStopAccountMutation(accountId: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async () => {
-      const baseUrl = getApiBaseUrl()
-      if (!baseUrl) {
-        const result = simulateStatusChange(queryClient, accountId, 'paused')
-        queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
-        return result
-      }
-
-      const account = await apiFetch<Account>(`/accounts/${accountId}/stop`, {
-        method: 'POST',
-      })
-      const result = updateAccount(queryClient, account)
-      queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
-      return result
-    },
-  })
-}
-
-export function useDeleteAccountMutation(accountId: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async () => {
-      const baseUrl = getApiBaseUrl()
-      if (!baseUrl) {
-        removeAccountFromCache(queryClient, accountId)
-        queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
-        return
-      }
-
-      await apiFetch(`/accounts/${accountId}`, {
-        method: 'DELETE',
+        body: JSON.stringify({
+          source: 'manual',
+          actions: DEFAULT_EXECUTOR_ACTIONS,
+          accounts: [toExecutorAccount(payload)],
+        }),
         parseJson: false,
       })
-      removeAccountFromCache(queryClient, accountId)
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
     },
   })
 }
 
-function createMockAccount(payload: CreateAccountPayload): Account {
-  return {
-    id: crypto.randomUUID(),
-    email: payload.email,
-    status: 'idle',
-    tier: 'Level 1',
-    pointsBalance: 0,
-    dailyEarnings: 0,
-    lastActivity: new Date().toISOString(),
-  }
-}
+export function useStartAllFarmsMutation(source: AccountSource = 'file') {
+  const queryClient = useQueryClient()
 
-function normalizeAccount(account: Account): Account {
-  return {
-    id: account.id,
-    email: account.email,
-    alias: account.alias,
-    status: account.status,
-    tier: account.tier,
-    pointsBalance: account.pointsBalance,
-    dailyEarnings: account.dailyEarnings,
-    lastActivity: account.lastActivity,
-    errorMessage: account.errorMessage,
-    country: account.country,
-  }
-}
-
-function updateAccount(queryClient: QueryClient, account: Account) {
-  let updated: Account | undefined
-
-  queryClient.setQueryData<Account[]>(ACCOUNTS_QUERY_KEY, (prev = []) => {
-    const next = prev.map((item) => {
-      if (item.id === account.id) {
-        updated = { ...item, ...account }
-        return updated
+  return useMutation({
+    mutationFn: async () => {
+      const baseUrl = getApiBaseUrl()
+      if (!baseUrl) {
+        throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
       }
-      return item
-    })
 
-    if (!prev.some((item) => item.id === account.id)) {
-      next.unshift(account)
-      updated = account
-    }
-
-    return next
+      await apiFetch('/api/v1/executor/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          source,
+          actions: DEFAULT_EXECUTOR_ACTIONS,
+        }),
+        parseJson: false,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ACCOUNTS_QUERY_KEY })
+    },
   })
-
-  return updated
 }
 
-function simulateStatusChange(
-  queryClient: QueryClient,
-  accountId: string,
-  status: AccountStatus
-) {
-  let updated: Account | undefined
-  queryClient.setQueryData<Account[]>(ACCOUNTS_QUERY_KEY, (prev = []) => {
-    return prev.map((account) => {
-      if (account.id === accountId) {
-        updated = { ...account, status }
-        return updated
+export function useRunAccountMutation(account: Account) {
+  return useMutation({
+    mutationFn: async () => {
+      const baseUrl = getApiBaseUrl()
+      if (!baseUrl) {
+        throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
       }
-      return account
-    })
+
+      await apiFetch('/api/v1/executor/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          source: 'manual',
+          actions: DEFAULT_EXECUTOR_ACTIONS,
+          accounts: [toExecutorAccount(account)],
+        }),
+        parseJson: false,
+      })
+    },
   })
-  return updated
 }
 
-function simulateBulkStatusChange(queryClient: QueryClient, status: AccountStatus) {
-  return queryClient.setQueryData<Account[]>(ACCOUNTS_QUERY_KEY, (prev = []) =>
-    prev.map((account) => ({ ...account, status }))
-  )
-}
+function toExecutorAccount(account: CreateAccountPayload | Account) {
+  const email = account.email
+  const password = account.password ?? ''
+  if (!password) {
+    throw new Error('A API não retornou senha para esta conta.')
+  }
 
-function removeAccountFromCache(queryClient: QueryClient, accountId: string) {
-  return queryClient.setQueryData<Account[]>(ACCOUNTS_QUERY_KEY, (prev = []) =>
-    prev.filter((account) => account.id !== accountId)
-  )
+  const proxyValue = 'proxy' in account ? account.proxy : undefined
+  const profileId =
+    'profileId' in account && account.profileId
+      ? account.profileId
+      : buildProfileId(email)
+
+  return {
+    email,
+    password,
+    profile_id: profileId,
+    proxy: proxyValue ?? undefined,
+  }
 }
