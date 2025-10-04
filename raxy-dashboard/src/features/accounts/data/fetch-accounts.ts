@@ -1,78 +1,60 @@
 import { apiFetch, getApiBaseUrl } from '@/lib/api-client'
 
-import { type Account, type AccountStatus } from '../types'
+import { type Account, type AccountSource } from '../types'
 
-const FALLBACK_ACCOUNTS: Account[] = [
-  {
-    id: 'acc-1',
-    email: 'carla.souza@example.com',
-    alias: 'Carla - BR',
-    status: 'running',
-    tier: 'Level 2',
-    pointsBalance: 32870,
-    dailyEarnings: 450,
-    lastActivity: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
-    country: 'BR',
-  },
-  {
-    id: 'acc-2',
-    email: 'rodrigo.oliveira@example.com',
-    status: 'idle',
-    tier: 'Level 1',
-    pointsBalance: 12450,
-    dailyEarnings: 120,
-    lastActivity: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    country: 'PT',
-  },
-  {
-    id: 'acc-3',
-    email: 'ana.ferreira@example.com',
-    status: 'error',
-    tier: 'Level 2',
-    pointsBalance: 9820,
-    dailyEarnings: 0,
-    lastActivity: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    errorMessage: 'Falha de autenticação',
-    country: 'BR',
-  },
-]
+const DEFAULT_TIER: Account['tier'] = 'Level 1'
+const DEFAULT_STATUS: Account['status'] = 'idle'
 
-export async function fetchAccounts(): Promise<Account[]> {
+export async function fetchAccounts(source: AccountSource = 'file'): Promise<Account[]> {
   const baseUrl = getApiBaseUrl()
 
   if (!baseUrl) {
-    return FALLBACK_ACCOUNTS
+    throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
   }
 
-  try {
-    const response = await apiFetch<AccountResponse[]>('/accounts')
-    return response.map(normalizeAccount)
-  } catch (error) {
-    console.warn('[Dashboard] Falha ao obter contas, exibindo dados simulados.', error)
-    return FALLBACK_ACCOUNTS
-  }
+  const endpoint = source === 'database' ? '/api/v1/accounts/database' : '/api/v1/accounts'
+  const response = await apiFetch<AccountsResponse>(endpoint)
+  return response.accounts.map((account) => normalizeAccount(account, source))
 }
 
-interface AccountResponse extends Partial<Account> {
-  id: string
+interface AccountApiResponse {
   email: string
-  status?: AccountStatus
-  last_activity?: string
-  points_balance?: number
-  daily_earnings?: number
+  profile_id?: string
+  password?: string | null
+  proxy?: string | null
+  source?: AccountSource
+  last_activity?: string | null
+  points_balance?: number | null
+  daily_earnings?: number | null
+  alias?: string | null
+  country?: string | null
 }
 
-function normalizeAccount(account: AccountResponse): Account {
+interface AccountsResponse {
+  accounts: AccountApiResponse[]
+}
+
+function normalizeAccount(account: AccountApiResponse, fallbackSource: AccountSource): Account {
+  const profileId = account.profile_id ?? buildProfileId(account.email)
+  const source = account.source ?? fallbackSource
   return {
-    id: account.id,
+    id: `${source}-${profileId}`,
     email: account.email,
-    alias: account.alias,
-    status: account.status ?? 'idle',
-    tier: account.tier ?? 'Level 1',
-    pointsBalance: account.pointsBalance ?? account.points_balance ?? 0,
-    dailyEarnings: account.dailyEarnings ?? account.daily_earnings ?? 0,
-    lastActivity: account.lastActivity ?? account.last_activity ?? new Date().toISOString(),
-    errorMessage: account.errorMessage,
-    country: account.country,
+    profileId,
+    status: DEFAULT_STATUS,
+    tier: DEFAULT_TIER,
+    pointsBalance: account.points_balance ?? 0,
+    dailyEarnings: account.daily_earnings ?? 0,
+    lastActivity: account.last_activity ?? new Date().toISOString(),
+    proxy: account.proxy ?? null,
+    password: account.password ?? null,
+    alias: account.alias ?? undefined,
+    errorMessage: undefined,
+    country: account.country ?? undefined,
+    source,
   }
+}
+
+export function buildProfileId(email: string) {
+  return email.replace(/@/g, '_at_').replace(/[^a-zA-Z0-9._-]/g, '_')
 }

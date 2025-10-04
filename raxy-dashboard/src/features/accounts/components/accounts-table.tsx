@@ -23,23 +23,35 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 import { useAccounts } from '@/features/accounts/hooks/use-accounts'
-import { type Account, type AccountStatus } from '@/features/accounts/types'
+import { type Account, type AccountStatus, type AccountSource } from '@/features/accounts/types'
 
 import { AccountActionsDropdown } from './account-actions-dropdown'
 
 interface AccountsTableProps {
   initialData: Account[]
+  initialSource?: AccountSource
 }
 
-export function AccountsTable({ initialData }: AccountsTableProps) {
+const SOURCE_OPTIONS: Array<{ label: string; value: AccountSource }> = [
+  { label: 'Arquivo (users.txt)', value: 'file' },
+  { label: 'Banco (Supabase)', value: 'database' },
+]
+
+export function AccountsTable({ initialData, initialSource = 'file' }: AccountsTableProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [emailFilter, setEmailFilter] = useState(() => searchParams.get('email') ?? '')
+  const [source, setSource] = useState<AccountSource>(() =>
+    searchParams.get('source') === 'database' ? 'database' : initialSource
+  )
 
-  const accountsQuery = useAccounts({ initialData })
+  const accountsQuery = useAccounts({
+    initialData: source === initialSource ? initialData : undefined,
+    source,
+  })
 
   const accounts = useMemo(() => {
     const data = accountsQuery.data ?? []
@@ -67,6 +79,8 @@ export function AccountsTable({ initialData }: AccountsTableProps) {
 
   useEffect(() => {
     setEmailFilter(searchParams.get('email') ?? '')
+    const querySource = searchParams.get('source') === 'database' ? 'database' : 'file'
+    setSource(querySource)
   }, [searchParams])
 
   useEffect(() => {
@@ -77,12 +91,13 @@ export function AccountsTable({ initialData }: AccountsTableProps) {
       } else {
         params.delete('email')
       }
+      params.set('source', source)
       const query = params.toString()
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
     }, 250)
 
     return () => clearTimeout(timer)
-  }, [emailFilter, pathname, router, searchParams])
+  }, [emailFilter, pathname, router, searchParams, source])
 
   const toggleSelection = (id: string) => {
     setSelection((prev) => {
@@ -108,6 +123,7 @@ export function AccountsTable({ initialData }: AccountsTableProps) {
   const resetFilters = () => {
     setEmailFilter('')
     setSelection(new Set())
+    setSource('file')
     router.replace(pathname, { scroll: false })
   }
 
@@ -125,6 +141,24 @@ export function AccountsTable({ initialData }: AccountsTableProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full border border-border/60 p-1 text-xs font-medium">
+            {SOURCE_OPTIONS.map((option) => {
+              const isActive = source === option.value
+              return (
+                <Button
+                  key={option.value}
+                  type="button"
+                  size="sm"
+                  variant={isActive ? 'default' : 'ghost'}
+                  className="h-7 rounded-full px-3 text-xs"
+                  onClick={() => setSource(option.value)}
+                >
+                  {option.label}
+                </Button>
+              )
+            })}
+          </div>
+
           <div className="flex items-center gap-2">
             <Input
               value={emailFilter}
@@ -180,6 +214,8 @@ export function AccountsTable({ initialData }: AccountsTableProps) {
                 />
               </TableHead>
               <TableHead>E-mail</TableHead>
+              <TableHead>Perfil</TableHead>
+              <TableHead>Origem</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Tier</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
@@ -208,6 +244,14 @@ export function AccountsTable({ initialData }: AccountsTableProps) {
                         <span className="text-xs text-muted-foreground">{account.alias}</span>
                       ) : null}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs text-muted-foreground">{account.profileId}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="capitalize">
+                      {sourceLabel(account.source)}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={account.status} />
@@ -245,15 +289,14 @@ export function AccountsTable({ initialData }: AccountsTableProps) {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-medium">{account.email}</p>
-                    {account.alias ? (
-                      <p className="text-xs text-muted-foreground">{account.alias}</p>
-                    ) : null}
+                    <p className="text-xs text-muted-foreground">{account.profileId}</p>
                   </div>
                   <StatusBadge status={account.status} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sm text-muted-foreground">
                   <InfoPair label="Tier" value={account.tier} />
+                  <InfoPair label="Origem" value={sourceLabel(account.source)} />
                   <InfoPair label="Última atividade" value={formatRelativeDate(account.lastActivity)} />
                   <InfoPair label="Saldo" value={formatCurrency(account.pointsBalance)} />
                   <InfoPair label="Hoje" value={formatCurrency(account.dailyEarnings)} />
@@ -288,6 +331,17 @@ export function AccountsTable({ initialData }: AccountsTableProps) {
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR').format(value)
+}
+
+function sourceLabel(source: AccountSource) {
+  switch (source) {
+    case 'database':
+      return 'Banco de dados'
+    case 'manual':
+      return 'Manual'
+    default:
+      return 'Arquivo'
+  }
 }
 
 function formatRelativeDate(isoDate: string) {

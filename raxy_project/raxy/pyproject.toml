@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raxy-logic"
+version = "1.0.0"
+description = "Biblioteca com a lógica de negócio principal do Raxy."
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["raxy"]
+package-dir = {"raxy" = "."}
+
+[tool.setuptools.package-data]
+raxy = [
+    "api/requests_templates/*.json",
+    "api/requests_templates/*.txt",
+    "api/proxy/proxy_cache.json",
+]

@@ -7,3 +7,5 @@ flask
 wonderwords
 orjson>=3.9
 watchdog>=4
+fastapi
+uvicorn[standard]
