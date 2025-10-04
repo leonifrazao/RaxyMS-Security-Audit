@@ -4,6 +4,7 @@ let
   python = pkgs."python${pkgs.lib.versions.majorMinor version}";
   qt = pkgs.libsForQt5; # garante consistência Qt + PyQt
   burpsuite = pkgs.callPackage ./burp.nix {};
+  nodejs = pkgs.nodejs_22; # ambiente Node.js moderno para Next.js
   runtimeLibs = with pkgs; [
     stdenv.cc.cc.lib   # <-- provides libstdc++.so.6
     glibc              # libc.so.6, ld-linux, etc.
@@ -63,7 +64,7 @@ pkgs.mkShell {
     # ffmpeg
 
     nodejs
-    nodePackages.npm
+    pnpm
 
     jdk
 
@@ -83,6 +84,9 @@ pkgs.mkShell {
     export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeLibs}:''${LD_LIBRARY_PATH:-}"
     alias burp_crack='java -jar loader.jar & burpsuitepro &'
     alias codex='npx @openai/codex'
+    export PNPM_HOME="$PWD/.pnpm"
+    mkdir -p "$PNPM_HOME"
+    export PATH="$PNPM_HOME:$PATH"
 
     primeiro_setup=false
     if [ ! -d "$venvDir" ]; then
