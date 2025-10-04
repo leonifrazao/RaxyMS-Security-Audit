@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from raxy.container import create_injector
 from raxy.interfaces.services import IProxyService
 
-from .controllers import (
+from controllers import (
     accounts_router,
     auth_router,
     executor_router,

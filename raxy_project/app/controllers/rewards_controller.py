@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..dependencies import get_rewards_data_service, get_session
-from ..schemas import RewardsPointsRequest, RewardsRedeemRequest, RewardsResponse
+from dependencies import get_rewards_data_service, get_session
+from schemas import RewardsPointsRequest, RewardsRedeemRequest, RewardsResponse
 from raxy.interfaces.services import IRewardsDataService
 
 router = APIRouter(prefix="/rewards", tags=["Rewards"])

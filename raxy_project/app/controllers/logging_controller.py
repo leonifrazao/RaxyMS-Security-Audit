@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..dependencies import get_logging_service, get_session
-from ..schemas import LoggingMessageRequest, LoggingOperationResponse
+from dependencies import get_logging_service, get_session
+from schemas import LoggingMessageRequest, LoggingOperationResponse
 from raxy.interfaces.services import ILoggingService
 
 router = APIRouter(prefix="/logging", tags=["Logging"])

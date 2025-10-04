@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.dependencies import get_account_repository, get_database_repository
-from app.schemas import AccountResponse, AccountsResponse, AccountSource
+from dependencies import get_account_repository, get_database_repository
+from schemas import AccountResponse, AccountsResponse, AccountSource
 from raxy.domain import Conta
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..dependencies import get_bing_suggestion_service, get_session
-from ..schemas import SuggestionRequest, SuggestionResponse
+from dependencies import get_bing_suggestion_service, get_session
+from schemas import SuggestionRequest, SuggestionResponse
 from raxy.interfaces.services import IBingSuggestion
 
 router = APIRouter(prefix="/suggestions", tags=["Suggestions"])

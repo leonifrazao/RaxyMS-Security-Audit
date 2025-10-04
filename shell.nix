@@ -102,6 +102,7 @@ pkgs.mkShell {
       if [ -f requirements.txt ]; then
           pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -e ./raxy_project/raxy
       else
           echo "[Raxy] Aviso: requirements.txt não encontrado, nenhuma dependência instalada"
       fi

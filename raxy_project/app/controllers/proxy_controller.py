@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..dependencies import get_proxy_service
-from ..schemas import (
+from dependencies import get_proxy_service
+from schemas import (
     ProxyAddRequest,
     ProxyOperationResponse,
     ProxyRotateRequest,

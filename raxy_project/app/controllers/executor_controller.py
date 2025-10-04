@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 
-from app.dependencies import (
+from dependencies import (
     get_account_repository,
     get_database_repository,
     get_executor_service,
     get_logging_service,
 )
-from app.schemas import (
+from schemas import (
     AccountPayload,
     AccountSource,
     ExecutorBatchRequest,
