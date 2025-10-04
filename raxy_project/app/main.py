@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uvicorn  # 1. Adicione esta linha
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from raxy.container import create_injector
 from raxy.interfaces.services import IProxyService
 
-from .controllers import (
+from controllers import (
     accounts_router,
     auth_router,
     executor_router,
@@ -77,3 +78,13 @@ app.include_router(logging_router, prefix=PREFIX)
 app.include_router(executor_router, prefix=PREFIX)
 
 __all__ = ["app"]
+
+
+# 2. Adicione este bloco no final do arquivo
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )

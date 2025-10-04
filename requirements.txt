@@ -1,11 +1,7 @@
 botasaurus
 rich
-sqlalchemy
+supabase
 random-user-agent
-v2ray2proxy
 flask
-wonderwords
-orjson>=3.9
-watchdog>=4
 fastapi
 uvicorn[standard]

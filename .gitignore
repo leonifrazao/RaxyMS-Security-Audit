@@ -25,3 +25,6 @@ acli
 # Arquivos do sistema
 .DS_Store
 debug_respostas/
+
+# Node
+.pnpm

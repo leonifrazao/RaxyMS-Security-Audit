@@ -6,14 +6,14 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..dependencies import (
+from dependencies import (
     delete_session,
     get_auth_service,
     get_logging_service,
     get_perfil_service,
     get_session_store,
 )
-from ..schemas import AuthRequest, AuthResponse, LoggingOperationResponse, SessionCloseRequest
+from schemas import AuthRequest, AuthResponse, LoggingOperationResponse, SessionCloseRequest
 from raxy.domain import Conta
 from raxy.interfaces.services import IAutenticadorRewardsService, ILoggingService, IPerfilService
 from raxy.core.session_service import SessaoSolicitacoes

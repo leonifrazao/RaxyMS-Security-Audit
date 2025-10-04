@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..dependencies import get_perfil_service
-from ..schemas import ProfileEnsureRequest, ProfileEnsureResponse
+from dependencies import get_perfil_service
+from schemas import ProfileEnsureRequest, ProfileEnsureResponse
 from raxy.interfaces.services import IPerfilService
 
 router = APIRouter(prefix="/profiles", tags=["Profiles"])
