@@ -22,6 +22,7 @@ import time
 import ipaddress
 import shutil
 import threading
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -72,6 +73,21 @@ class Proxy(IProxyService):
         tag: str
         config: Dict[str, Any]
 
+    @dataclass
+    class BridgeRuntime:
+        """Representa uma ponte HTTP ativa e seus recursos associados."""
+
+        tag: str
+        port: int
+        scheme: str
+        uri: str
+        process: Optional[subprocess.Popen]
+        workdir: Optional[Path]
+
+        @property
+        def url(self) -> str:
+            return f"http://127.0.0.1:{self.port}"
+
     def __init__(
         self,
         proxies: Optional[Iterable[str]] = None,
@@ -98,9 +114,7 @@ class Proxy(IProxyService):
 
         self._outbounds: List[Tuple[str, Proxy.Outbound]] = []
         self._entries: List[Dict[str, Any]] = []
-        self._processes: List[subprocess.Popen] = []
-        self._cfg_paths: List[Path] = []
-        self._bridges: List[Tuple[str, int, str]] = []
+        self._bridges: List[Proxy.BridgeRuntime] = []
         self._running = False
         self._atexit_registered = False
         self._parse_errors: List[str] = []
@@ -152,51 +166,47 @@ class Proxy(IProxyService):
         """Mescla dados recuperados do cache ao registro corrente da proxy."""
         if not cached:
             return entry
-        entry = dict(entry)
+        merged = dict(entry)
 
-        status = cached.get("status")
-        if isinstance(status, str):
-            entry["status"] = status
+        text_fields = (
+            "status",
+            "host",
+            "ip",
+            "country",
+            "country_code",
+            "country_name",
+            "error",
+            "tested_at",
+        )
 
-        if "host" in cached:
-            entry["host"] = cached.get("host") or entry.get("host")
-        if "port" in cached:
-            port_value = cached.get("port")
-            try:
-                entry["port"] = int(port_value) if port_value is not None else entry.get("port")
-            except (TypeError, ValueError):
-                entry["port"] = entry.get("port")
-        if "ip" in cached:
-            entry["ip"] = cached.get("ip") or entry.get("ip")
+        for key in text_fields:
+            if key not in cached:
+                continue
+            value = cached.get(key)
+            if isinstance(value, str):
+                normalized = value.strip()
+                if not normalized and key not in {"status", "error"}:
+                    continue
+                merged[key] = normalized or merged.get(key)
+            elif value is not None:
+                merged[key] = value
 
-        if "country" in cached:
-            entry["country"] = cached.get("country") or entry.get("country")
-        if "country_code" in cached:
-            entry["country_code"] = cached.get("country_code") or entry.get("country_code")
-        if "country_name" in cached:
-            entry["country_name"] = cached.get("country_name") or entry.get("country_name")
+        port_value = cached.get("port")
+        parsed_port = self._safe_int(port_value) if port_value is not None else None
+        if parsed_port is not None:
+            merged["port"] = parsed_port
 
-        ping_value = cached.get("ping") if "ping" in cached else cached.get("ping_ms")
-        if ping_value is not None:
-            try:
-                entry["ping"] = float(ping_value)
-            except (TypeError, ValueError):
-                entry["ping"] = entry.get("ping")
+        ping_value = cached.get("ping", cached.get("ping_ms"))
+        parsed_ping = self._safe_float(ping_value) if ping_value is not None else None
+        if parsed_ping is not None:
+            merged["ping"] = parsed_ping
 
-        if "error" in cached:
-            entry["error"] = cached.get("error")
-
-        tested_at_ts = cached.get("tested_at_ts")
+        tested_at_ts = self._safe_float(cached.get("tested_at_ts"))
         if tested_at_ts is not None:
-            try:
-                entry["tested_at_ts"] = float(tested_at_ts)
-            except (TypeError, ValueError):
-                entry["tested_at_ts"] = entry.get("tested_at_ts")
-        if "tested_at" in cached:
-            entry["tested_at"] = cached.get("tested_at") or entry.get("tested_at")
+            merged["tested_at_ts"] = tested_at_ts
 
-        entry["cached"] = True
-        return entry
+        merged["cached"] = True
+        return merged
 
     def _register_new_outbound(self, raw_uri: str, outbound: Proxy.Outbound) -> None:
         """Atualiza as estruturas internas quando um novo outbound é aceito."""
@@ -278,24 +288,24 @@ class Proxy(IProxyService):
         except OSError:
             pass
 
-        payload_entries: List[Dict[str, Any]] = []
-        for entry in entries:
+        def prepare(entry: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             if not isinstance(entry, dict):
-                continue
+                return None
             uri = entry.get("uri")
             if not isinstance(uri, str) or not uri.strip():
-                continue
-            tested_ts = entry.get("tested_at_ts")
-            if isinstance(tested_ts, (int, float)):
-                tested_at_iso = self._format_timestamp(float(tested_ts))
-            else:
+                return None
+
+            tested_ts = self._safe_float(entry.get("tested_at_ts"))
+            if tested_ts is None:
                 tested_ts = time.time()
                 entry["tested_at_ts"] = tested_ts
-                tested_at_iso = self._format_timestamp(tested_ts)
-                if not entry.get("tested_at"):
-                    entry["tested_at"] = tested_at_iso
 
-            payload_entries.append({
+            tested_at = entry.get("tested_at")
+            if not isinstance(tested_at, str) or not tested_at.strip():
+                tested_at = self._format_timestamp(tested_ts)
+                entry["tested_at"] = tested_at
+
+            return {
                 "uri": uri,
                 "tag": entry.get("tag"),
                 "status": entry.get("status"),
@@ -307,9 +317,11 @@ class Proxy(IProxyService):
                 "country_name": entry.get("country_name"),
                 "ping": entry.get("ping"),
                 "error": entry.get("error"),
-                "tested_at": entry.get("tested_at") or tested_at_iso,
+                "tested_at": tested_at,
                 "tested_at_ts": tested_ts,
-            })
+            }
+
+        payload_entries = [prepared for entry in entries if (prepared := prepare(entry))]
 
         payload = {
             "version": self.CACHE_VERSION,
@@ -364,6 +376,22 @@ class Proxy(IProxyService):
             except UnicodeDecodeError:
                 continue
         return data.decode("utf-8", errors="replace")
+
+    @staticmethod
+    def _safe_int(value: Any) -> Optional[int]:
+        """Converte valores em int retornando ``None`` em caso de falha."""
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _safe_float(value: Any) -> Optional[float]:
+        """Converte valores em float retornando ``None`` em caso de falha."""
+        try:
+            return float(str(value).strip())
+        except (TypeError, ValueError):
+            return None
 
     def _read_source_text(self, source: str) -> str:
         """Obtém conteúdo bruto de um arquivo local ou URL contendo proxys."""
@@ -1103,6 +1131,39 @@ class Proxy(IProxyService):
         """Lista de linhas ignoradas ao interpretar os links informados."""
         return list(self._parse_errors)
 
+    @contextmanager
+    def _temporary_bridge(
+        self,
+        outbound: Proxy.Outbound,
+        *,
+        starting_port: Optional[int] = None,
+        tag_prefix: str = "temp",
+    ):
+        """Cria uma ponte Xray temporária garantindo limpeza de recursos."""
+        port = None
+        proc: Optional[subprocess.Popen] = None
+        cfg_dir: Optional[Path] = None
+        starting = starting_port or (self.base_port + 1000)
+
+        try:
+            port = self._find_available_port(starting_from=starting)
+            cfg = self._make_xray_config_http_inbound(port, outbound)
+            xray_bin = self._which_xray()
+            proc, cfg_path = self._launch_bridge(xray_bin, cfg, f"{tag_prefix}_{outbound.tag}")
+            cfg_dir = cfg_path.parent
+
+            # aguarda inicialização e valida processo
+            time.sleep(1.0)
+            if proc.poll() is not None:
+                raise RuntimeError("Processo Xray temporário finalizou antes do teste.")
+
+            yield port, proc
+        finally:
+            self._terminate_process(proc, wait_timeout=2)
+            self._safe_remove_dir(cfg_dir)
+            if port is not None:
+                self._release_port(port)
+
     def _test_proxy_functionality(
         self, 
         raw_uri: str, 
@@ -1122,101 +1183,79 @@ class Proxy(IProxyService):
             result["error"] = "requests não disponível para teste funcional"
             return result
         
-        # Encontra uma porta disponível
-        test_port = None
+        exceptions_mod = getattr(self.requests, "exceptions", None)
+        if exceptions_mod is None and requests is not None:
+            exceptions_mod = getattr(requests, "exceptions", None)
+
+        response = None
+        duration_ms: Optional[float] = None
+
         try:
-            test_port = self._find_available_port(starting_from=self.base_port + 1000)
-        except RuntimeError as e:
-            result["error"] = str(e)
-            return result
-        
-        # Cria configuração temporária
-        cfg = self._make_xray_config_http_inbound(test_port, outbound)
-        
-        # Inicia processo xray temporário
-        xray_bin = None
-        proc = None
-        cfg_path = None
-        
-        try:
-            xray_bin = self._which_xray()
-            proc, cfg_path = self._launch_bridge(xray_bin, cfg, f"test_{outbound.tag}")
-            
-            # Aguarda a ponte inicializar
-            time.sleep(1.0)
-            
-            # Verifica se o processo ainda está rodando
-            if proc.poll() is not None:
-                result["error"] = "Processo xray terminou inesperadamente"
-                return result
-            
-            # Configura proxy para requests
-            proxy_url = f"http://127.0.0.1:{test_port}"
-            proxies = {
-                "http": proxy_url,
-                "https": proxy_url
-            }
-            
-            # Faz requisição de teste
-            start_time = time.perf_counter()
-            try:
+            with self._temporary_bridge(outbound, tag_prefix="test") as (test_port, _):
+                proxy_url = f"http://127.0.0.1:{test_port}"
+                proxies = {"http": proxy_url, "https": proxy_url}
+                start_time = time.perf_counter()
                 response = self.requests.get(
                     test_url,
                     proxies=proxies,
                     timeout=timeout,
-                    verify=False  # Ignora certificados SSL para teste
+                    verify=False,
                 )
                 response.raise_for_status()
-                end_time = time.perf_counter()
-                
-                result["functional"] = True
-                result["response_time"] = (end_time - start_time) * 1000  # em ms
-                
-                # Tenta extrair IP externo da resposta
-                try:
-                    data = response.json()
-                    if "origin" in data:
-                        result["external_ip"] = data["origin"].split(",")[0].strip()
-                    elif "ip" in data:
-                        result["external_ip"] = data["ip"]
-                except:
-                    pass
-                    
-            except self.requests.exceptions.Timeout:
-                result["error"] = f"Timeout após {timeout}s"
-            except self.requests.exceptions.ProxyError as e:
-                result["error"] = f"Erro de proxy: {str(e)[:100]}"
-            except self.requests.exceptions.ConnectionError as e:
-                result["error"] = f"Erro de conexão: {str(e)[:100]}"
-            except Exception as e:
-                result["error"] = f"Erro na requisição: {str(e)[:100]}"
-                
-        except Exception as e:
-            result["error"] = f"Erro ao configurar ponte: {str(e)[:100]}"
-        finally:
-            # Limpa recursos
-            if proc:
-                try:
-                    proc.terminate()
-                    proc.wait(timeout=2)
-                except:
-                    try:
-                        proc.kill()
-                    except:
-                        pass
-            
-            if cfg_path:
-                try:
-                    shutil.rmtree(cfg_path.parent, ignore_errors=True)
-                except:
-                    pass
-            
-            # IMPORTANTE: Libera a porta alocada
-            if test_port is not None:
-                with self._port_allocation_lock:
-                    self._allocated_ports.discard(test_port)
-        
+                duration_ms = (time.perf_counter() - start_time) * 1000
+        except RuntimeError as exc:
+            result["error"] = str(exc)
+            return result
+        except Exception as exc:
+            result["error"] = self._format_request_error(exc, timeout, exceptions_mod)
+            return result
+
+        result["functional"] = True
+        result["response_time"] = duration_ms
+        if response is not None:
+            result["external_ip"] = self._extract_external_ip(response)
         return result
+
+    @staticmethod
+    def _matches_exception(exc: Exception, candidate: Any) -> bool:
+        """Retorna True se ``exc`` for instância de ``candidate`` (classe ou tupla)."""
+        if candidate is None:
+            return False
+        try:
+            return isinstance(exc, candidate)
+        except TypeError:
+            return False
+
+    def _format_request_error(self, exc: Exception, timeout: float, exceptions_mod: Any) -> str:
+        """Normaliza mensagens de erro de requisições HTTP via proxy."""
+        timeout_exc = getattr(exceptions_mod, "Timeout", None) if exceptions_mod else None
+        proxy_exc = getattr(exceptions_mod, "ProxyError", None) if exceptions_mod else None
+        conn_exc = getattr(exceptions_mod, "ConnectionError", None) if exceptions_mod else None
+
+        if self._matches_exception(exc, timeout_exc):
+            return f"Timeout após {timeout}s"
+        if self._matches_exception(exc, proxy_exc):
+            return f"Erro de proxy: {str(exc)[:100]}"
+        if self._matches_exception(exc, conn_exc):
+            return f"Erro de conexão: {str(exc)[:100]}"
+        return f"Erro na requisição: {str(exc)[:100]}"
+
+    @staticmethod
+    def _extract_external_ip(response: Any) -> Optional[str]:
+        """Extrai IP externo da resposta JSON quando disponível."""
+        try:
+            data = response.json()
+        except Exception:
+            return None
+
+        origin = data.get("origin")
+        if isinstance(origin, str) and origin.strip():
+            return origin.split(",")[0].strip()
+
+        ip_value = data.get("ip")
+        if isinstance(ip_value, str) and ip_value.strip():
+            return ip_value.strip()
+        return None
 
     def _find_available_port(self, starting_from: int = 55000, max_attempts: int = 100) -> int:
         """Encontra uma porta TCP disponível para uso temporário com proteção thread-safe."""
@@ -1239,6 +1278,37 @@ class Proxy(IProxyService):
                 finally:
                     sock.close()
             raise RuntimeError(f"Não foi possível encontrar porta disponível após {max_attempts} tentativas")
+
+    @staticmethod
+    def _terminate_process(proc: Optional[subprocess.Popen], *, wait_timeout: float = 3.0) -> None:
+        """Finaliza um processo de forma silenciosa, ignorando erros."""
+        if proc is None:
+            return
+        try:
+            proc.terminate()
+            proc.wait(timeout=wait_timeout)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _safe_remove_dir(path: Optional[Path]) -> None:
+        """Remove diretórios temporários sem propagar exceções."""
+        if path is None:
+            return
+        try:
+            shutil.rmtree(path, ignore_errors=True)
+        except Exception:
+            pass
+
+    def _release_port(self, port: Optional[int]) -> None:
+        """Libera uma porta registrada como em uso pelos testes temporários."""
+        if port is None:
+            return
+        with self._port_allocation_lock:
+            self._allocated_ports.discard(port)
 
     def _emit_test_progress(self, entry: Dict[str, Any], idx: int, total: int, emit_progress: Any) -> None:
         """Emite informações de progresso do teste."""
@@ -1487,9 +1557,8 @@ class Proxy(IProxyService):
 
         self._stop_event.clear()
         port = self.base_port
-        bridges: List[Tuple[str, int, str, str, float]] = []
-        processes: List[subprocess.Popen] = []
-        cfg_paths: List[Path] = []
+        bridges_runtime: List[Proxy.BridgeRuntime] = []
+        bridges_display: List[Tuple[Proxy.BridgeRuntime, float]] = []
 
         if self.console is not None and approved_entries:
             best_ping = get_ping_for_sort(approved_entries[0])
@@ -1499,21 +1568,32 @@ class Proxy(IProxyService):
                     f"[green]Iniciando {len(approved_entries)} proxies ordenadas por ping[/]"
                 )
 
-        for entry in approved_entries:
-            raw_uri, outbound = self._outbounds[entry["index"]]
-            cfg = self._make_xray_config_http_inbound(port, outbound)
-            proc, cfg_path = self._launch_bridge(xray_bin, cfg, outbound.tag)
-            processes.append(proc)
-            cfg_paths.append(cfg_path)
-            scheme = raw_uri.split("://", 1)[0].lower()
-            
-            ping_value = get_ping_for_sort(entry)
-            bridges.append((outbound.tag, port, scheme, raw_uri, ping_value))
-            port += 1
+        try:
+            for entry in approved_entries:
+                raw_uri, outbound = self._outbounds[entry["index"]]
+                cfg = self._make_xray_config_http_inbound(port, outbound)
+                scheme = raw_uri.split("://", 1)[0].lower()
 
-        self._processes = processes
-        self._cfg_paths = cfg_paths
-        self._bridges = [(tag, prt, scheme, uri) for tag, prt, scheme, uri, _ in bridges]
+                proc, cfg_path = self._launch_bridge(xray_bin, cfg, outbound.tag)
+                bridge = Proxy.BridgeRuntime(
+                    tag=outbound.tag,
+                    port=port,
+                    scheme=scheme,
+                    uri=raw_uri,
+                    process=proc,
+                    workdir=cfg_path.parent,
+                )
+                bridges_runtime.append(bridge)
+                bridges_display.append((bridge, get_ping_for_sort(entry)))
+                port += 1
+        except Exception:
+            for bridge in bridges_runtime:
+                self._terminate_process(bridge.process)
+                self._safe_remove_dir(bridge.workdir)
+                self._release_port(bridge.port)
+            raise
+
+        self._bridges = bridges_runtime
         self._running = True
 
         if not self._atexit_registered:
@@ -1523,21 +1603,18 @@ class Proxy(IProxyService):
         if self.console is not None:
             self.console.print()
             self.console.rule(f"Pontes HTTP ativas{f' - País: {country_filter}' if country_filter else ''} - Ordenadas por Ping")
-            
-            for idx, (_, prt, scheme, _, ping) in enumerate(bridges):
+            for idx, (bridge, ping) in enumerate(bridges_display):
                 ping_str = f"{ping:6.1f}ms" if ping != float('inf') else "   -   "
-                self.console.print(f"[bold cyan]ID {idx:<2}[/] [{scheme:6}] http://127.0.0.1:{prt}  ->  [{ping_str}]")
-            
+                self.console.print(
+                    f"[bold cyan]ID {idx:<2}[/] [{bridge.scheme:6}] {bridge.url}  ->  [{ping_str}]"
+                )
+
             self.console.print()
             self.console.print("Pressione Ctrl+C para encerrar todas as pontes.")
-        
+
         bridges_with_id = [
-            {
-                "id": idx,
-                "url": f"http://127.0.0.1:{prt}",
-                "uri": uri
-            }
-            for idx, (_, prt, _, uri) in enumerate(self._bridges)
+            {"id": idx, "url": bridge.url, "uri": bridge.uri}
+            for idx, bridge in enumerate(self._bridges)
         ]
 
         if wait:
@@ -1572,11 +1649,15 @@ class Proxy(IProxyService):
                 if self._stop_event.is_set():
                     break
                 alive = False
-                for proc in list(self._processes):
+                for bridge in list(self._bridges):
+                    proc = bridge.process
+                    if proc is None:
+                        continue
                     if proc.poll() is None:
                         alive = True
-                    if proc.stdout:
-                        line = proc.stdout.readline()
+                    stdout = getattr(proc, "stdout", None)
+                    if stdout:
+                        line = stdout.readline()
                         if line and ("warning" in line.lower() or "error" in line.lower()):
                             print(line.rstrip())
                 if not alive:
@@ -1594,32 +1675,14 @@ class Proxy(IProxyService):
         caller_thread = threading.current_thread()
 
         if self._running:
-            for proc in self._processes:
-                try:
-                    proc.terminate()
-                except Exception:
-                    pass
-            for proc in self._processes:
-                try:
-                    proc.wait(timeout=3)
-                except Exception:
-                    try:
-                        proc.kill()
-                    except Exception:
-                        pass
-            for cfg_path in self._cfg_paths:
-                try:
-                    shutil.rmtree(cfg_path.parent, ignore_errors=True)
-                except Exception:
-                    pass
-            self._processes = []
-            self._cfg_paths = []
+            for bridge in self._bridges:
+                self._terminate_process(bridge.process)
+                self._safe_remove_dir(bridge.workdir)
+                self._release_port(bridge.port)
             self._bridges = []
             self._running = False
         else:
             # Garante que as listas estejam sempre limpas, mesmo após múltiplas chamadas a stop()
-            self._processes = []
-            self._cfg_paths = []
             self._bridges = []
 
         if wait_thread and wait_thread is not caller_thread:
@@ -1635,16 +1698,10 @@ class Proxy(IProxyService):
         """Retorna ID, URL local e URI de cada ponte em execução."""
         if not self._running:
             raise RuntimeError("Nenhuma ponte ativa. Chame start() primeiro.")
-        
-        valid_proxies = []
-        for idx, (_, port, _, uri) in enumerate(self._bridges):
-            valid_proxies.append({
-                "id": idx,
-                "url": f"http://127.0.0.1:{port}",
-                "uri": uri
-            })
-        
-        return valid_proxies
+        return [
+            {"id": idx, "url": bridge.url, "uri": bridge.uri}
+            for idx, bridge in enumerate(self._bridges)
+        ]
 
     # ----------- geração e execução de config -----------
 
@@ -1692,29 +1749,12 @@ class Proxy(IProxyService):
 
     def _remove_bridge(self, tag: str) -> None:
         """Remove uma ponte ativa pelo tag, encerrando o processo e limpando estruturas."""
-        for idx, (b_tag, port, scheme) in enumerate(self._bridges):
-            if b_tag == tag:
-                # encerra processo
-                proc = self._processes[idx]
-                try:
-                    proc.terminate()
-                    proc.wait(timeout=2)
-                except Exception:
-                    try:
-                        proc.kill()
-                    except Exception:
-                        pass
-                # limpa arquivos temporários
-                cfg_path = self._cfg_paths[idx]
-                try:
-                    shutil.rmtree(cfg_path.parent, ignore_errors=True)
-                except Exception:
-                    pass
-
-                # remove das listas
+        for idx, bridge in enumerate(list(self._bridges)):
+            if bridge.tag == tag:
+                self._terminate_process(bridge.process, wait_timeout=2)
+                self._safe_remove_dir(bridge.workdir)
+                self._release_port(bridge.port)
                 self._bridges.pop(idx)
-                self._processes.pop(idx)
-                self._cfg_paths.pop(idx)
                 break
 
     
@@ -1741,7 +1781,9 @@ class Proxy(IProxyService):
             return False
 
         # Obtém informações da ponte atual
-        _, current_port, _, uri_to_replace = self._bridges[bridge_id]
+        bridge = self._bridges[bridge_id]
+        current_port = bridge.port
+        uri_to_replace = bridge.uri
 
         # 2. Encontra uma nova proxy candidata (OK, do país certo e que não seja a atual)
         candidates = [
@@ -1761,21 +1803,9 @@ class Proxy(IProxyService):
         new_raw_uri, new_outbound = self._outbounds[new_entry["index"]]
         new_scheme = new_raw_uri.split("://", 1)[0].lower()
 
-        # 4. Para o processo antigo da ponte (usando o bridge_id como índice)
-        old_proc = self._processes[bridge_id]
-        old_cfg_path = self._cfg_paths[bridge_id]
-        try:
-            old_proc.terminate()
-            old_proc.wait(timeout=2)
-        except Exception:
-            try:
-                old_proc.kill()
-            except Exception:
-                pass
-        try:
-            shutil.rmtree(old_cfg_path.parent, ignore_errors=True)
-        except Exception:
-            pass
+        # 4. Finaliza o processo antigo associado à ponte
+        self._terminate_process(bridge.process, wait_timeout=2)
+        self._safe_remove_dir(bridge.workdir)
 
         # 5. Inicia a nova ponte na mesma porta
         try:
@@ -1786,14 +1816,25 @@ class Proxy(IProxyService):
             if self.console:
                 self.console.print(f"[red]Falha ao reiniciar a ponte (ID {bridge_id}) na porta {current_port} com a nova proxy: {e}[/]")
             # Limpa o estado para evitar inconsistência
-            self._processes[bridge_id] = None
-            self._cfg_paths[bridge_id] = None
+            self._bridges[bridge_id] = Proxy.BridgeRuntime(
+                tag=bridge.tag,
+                port=current_port,
+                scheme=bridge.scheme,
+                uri=bridge.uri,
+                process=None,
+                workdir=None,
+            )
             return False
 
         # 6. Atualiza as estruturas internas com as informações da nova ponte
-        self._bridges[bridge_id] = (new_outbound.tag, current_port, new_scheme, new_raw_uri)
-        self._processes[bridge_id] = new_proc
-        self._cfg_paths[bridge_id] = new_cfg_path
+        self._bridges[bridge_id] = Proxy.BridgeRuntime(
+            tag=new_outbound.tag,
+            port=current_port,
+            scheme=new_scheme,
+            uri=new_raw_uri,
+            process=new_proc,
+            workdir=new_cfg_path.parent,
+        )
 
         if self.console:
             self.console.print(
