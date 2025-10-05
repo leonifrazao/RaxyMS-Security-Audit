@@ -38,9 +38,9 @@ class IProxyService(ABC):
         threads: Optional[int] = 1,
         country: Optional[str] = None,
         verbose: Optional[bool] = None,
-        force_refresh: bool = False,
         timeout: float = 10.0,
         force: bool = False,
+        find_first: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Testa as proxies carregadas usando rota real para medir ping."""
         raise NotImplementedError
@@ -54,6 +54,7 @@ class IProxyService(ABC):
         country: Optional[str] = None,
         auto_test: bool = True,
         wait: bool = False,
+        find_first: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Cria pontes HTTP locais para as proxys aprovadas opcionalmente testando antes."""
         raise NotImplementedError
