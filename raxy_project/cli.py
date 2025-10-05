@@ -146,12 +146,22 @@ def test_proxies(
     country: Optional[str] = typer.Option(None, help="Código do país para filtrar (ex: US, BR)."),
     timeout: float = typer.Option(10.0, help="Timeout em segundos para cada teste."),
     force: bool = typer.Option(False, "--force", help="Força o re-teste, ignorando o cache."),
+    find_first: Optional[int] = typer.Option(
+        None, "--find-first", help="Para de testar após encontrar N proxies funcionais."
+    ),
 ) -> None:
     """Executa o teste de proxies e exibe um relatório."""
     proxy_service = injector.get(IProxyService)
     console.print("[bold cyan]Iniciando teste de proxies...[/bold cyan]")
     # O método `test` já usa `rich` para imprimir a saída quando `verbose=True`
-    proxy_service.test(threads=threads, country=country, timeout=timeout, force=force, verbose=True)
+    proxy_service.test(
+        threads=threads,
+        country=country,
+        timeout=timeout,
+        force=force,
+        find_first=find_first,
+        verbose=True,
+    )
     console.print("[bold green]✅ Teste de proxies concluído.[/bold green]")
 
 
@@ -159,12 +169,21 @@ def test_proxies(
 def start_proxies(
     amounts: Optional[int] = typer.Option(None, help="Número máximo de pontes a serem iniciadas."),
     country: Optional[str] = typer.Option(None, help="Código do país para filtrar (ex: US, BR)."),
+    find_first: Optional[int] = typer.Option(
+        None, "--find-first", help="Para o teste automático após encontrar N proxies."
+    ),
 ) -> None:
     """Inicia os proxies e mantém o processo em execução."""
     proxy_service = injector.get(IProxyService)
     console.print("[bold cyan]Iniciando pontes de proxy...[/bold cyan]")
     # `wait=True` faz o CLI aguardar até ser interrompido (Ctrl+C)
-    proxy_service.start(amounts=amounts, country=country, auto_test=True, wait=True)
+    proxy_service.start(
+        amounts=amounts,
+        country=country,
+        auto_test=True,
+        wait=True,
+        find_first=find_first,
+    )
 
 
 @proxy_app.command("stop", help="Para todas as pontes de proxy ativas.")
@@ -185,7 +204,7 @@ def rotate_proxy(
     # Inicia o serviço para que as pontes existam antes de rotacionar
     if not proxy_service.get_http_proxy():
         console.print("[yellow]Nenhuma ponte ativa. Iniciando pontes antes de rotacionar...[/yellow]")
-        proxy_service.start(auto_test=True, wait=False) # Inicia em background
+        proxy_service.start(auto_test=True, wait=False)  # Inicia em background
         if not proxy_service.get_http_proxy():
             console.print("[bold red]❌ Falha ao iniciar pontes. Não é possível rotacionar.[/bold red]")
             raise typer.Exit(code=1)

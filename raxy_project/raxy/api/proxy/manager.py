@@ -175,6 +175,9 @@ class Proxy(IProxyService):
             "country",
             "country_code",
             "country_name",
+            "proxy_ip",
+            "proxy_country",
+            "proxy_country_code",
             "error",
             "tested_at",
         )
@@ -210,17 +213,14 @@ class Proxy(IProxyService):
 
     def _register_new_outbound(self, raw_uri: str, outbound: Proxy.Outbound) -> None:
         """Atualiza as estruturas internas quando um novo outbound é aceito."""
-        index = len(self._outbounds) - 1
+        index = len(self._outbounds)
         entry = self._make_base_entry(index, raw_uri, outbound)
         if self.use_cache and self._cache_entries:
             cached = self._cache_entries.get(raw_uri)
             if cached:
                 entry = self._apply_cached_entry(entry, cached)
                 entry["country_match"] = self.matches_country(entry, self.country_filter)
-        if index >= len(self._entries):
-            self._entries.append(entry)
-        else:
-            self._entries[index] = entry
+        self._entries.append(entry)
 
     def _prime_entries_from_cache(self) -> None:
         """Reconstrói os registros a partir do cache sem repetir parsing."""
@@ -315,6 +315,9 @@ class Proxy(IProxyService):
                 "country": entry.get("country"),
                 "country_code": entry.get("country_code"),
                 "country_name": entry.get("country_name"),
+                "proxy_ip": entry.get("proxy_ip"),
+                "proxy_country": entry.get("proxy_country"),
+                "proxy_country_code": entry.get("proxy_country_code"),
                 "ping": entry.get("ping"),
                 "error": entry.get("error"),
                 "tested_at": tested_at,
@@ -407,19 +410,22 @@ class Proxy(IProxyService):
     @staticmethod
     def _shutil_which(cmd: str) -> Optional[str]:
         """Localiza um executável equivalente ao comportamento de shutil.which."""
+        if hasattr(shutil, 'which') and callable(shutil.which):
+            return shutil.which(cmd)
+            
         paths = os.environ.get("PATH", "").split(os.pathsep)
         exts = [""]
         if os.name == "nt":
             exts = os.environ.get("PATHEXT", ".EXE;.BAT;.CMD").lower().split(";")
         for directory in paths:
             candidate = Path(directory) / cmd
-            if candidate.exists() and candidate.is_file():
+            if candidate.exists() and candidate.is_file() and os.access(str(candidate), os.X_OK):
                 return str(candidate)
             if os.name == "nt":
                 base = Path(directory) / cmd
                 for ext in exts:
                     alt = base.with_suffix(ext)
-                    if alt.exists() and alt.is_file():
+                    if alt.exists() and alt.is_file() and os.access(str(alt), os.X_OK):
                         return str(alt)
         return None
 
@@ -447,38 +453,70 @@ class Proxy(IProxyService):
         return f"{host}:{port}"
 
     @staticmethod
-    def matches_country(entry: Dict[str, Any], desired: Optional[str]) -> bool:
-        """Valida se o registro atende ao filtro de país solicitado."""
+    def _check_country_match(country_info: Dict[str, Any], desired: Optional[str]) -> bool:
+        """Helper que verifica se um conjunto específico de campos de país corresponde ao país desejado."""
         if not desired:
             return True
         desired_norm = desired.strip().casefold()
         if not desired_norm:
             return True
 
-        candidates: List[str] = []
-        for key in ("country", "country_code", "country_name"):
-            value = entry.get(key)
-            if not value:
-                continue
-            value = str(value).strip()
-            if not value or value == "-":
-                continue
-            candidates.append(value)
+        candidates = [
+            str(country_info.get(k) or "").strip()
+            for k in ("country", "country_code", "country_name")
+            if country_info.get(k)
+        ]
+        candidates = [c for c in candidates if c and c != "-"]
 
-        for value in candidates:
-            if value.casefold() == desired_norm:
+        if not candidates:
+            return False
+
+        for c in candidates:
+            if c.casefold() == desired_norm:
                 return True
-        for value in candidates:
-            norm = value.casefold()
+        for c in candidates:
+            norm = c.casefold()
             if desired_norm in norm or norm in desired_norm:
                 return True
+
         return False
+
+    @classmethod
+    def matches_country(cls, entry: Dict[str, Any], desired: Optional[str]) -> bool:
+        """Valida se o registro atende ao filtro de país, exigindo que tanto o servidor quanto a saída correspondam."""
+        if not desired:
+            return True
+
+        # Define informações para os locais de saída e do servidor
+        exit_country_info = {
+            "country": entry.get("proxy_country"),
+            "country_code": entry.get("proxy_country_code"),
+        }
+        server_country_info = {
+            "country": entry.get("country"),
+            "country_code": entry.get("country_code"),
+            "country_name": entry.get("country_name"),
+        }
+
+        # A localização efetiva é a de saída se existir, senão, a do servidor
+        effective_exit_info = exit_country_info if exit_country_info.get("country") else server_country_info
+        
+        # Regra 1: A localização de saída efetiva DEVE corresponder
+        if not cls._check_country_match(effective_exit_info, desired):
+            return False
+            
+        # Regra 2: Se o servidor e a saída são diferentes, o servidor TAMBÉM DEVE corresponder
+        if entry.get("proxy_ip") and entry.get("proxy_ip") != entry.get("ip"):
+            if not cls._check_country_match(server_country_info, desired):
+                return False
+                
+        # Se passou em todas as verificações, é uma correspondência válida
+        return True
 
     # ----------- carregamento de proxys -----------
 
     def add_proxies(self, proxies: Iterable[str]) -> int:
         """Adiciona proxys a partir de URIs completos (ss, vmess, vless, trojan)."""
-
         added = 0
         for raw in proxies:
             if raw is None:
@@ -491,8 +529,10 @@ class Proxy(IProxyService):
             except Exception as exc:
                 self._parse_errors.append(f"Linha ignorada: {line[:80]} -> {exc}")
                 continue
+            
             self._outbounds.append((line, outbound))
             self._register_new_outbound(line, outbound)
+            
             added += 1
             if self.max_count and len(self._outbounds) >= self.max_count:
                 break
@@ -500,7 +540,6 @@ class Proxy(IProxyService):
 
     def add_sources(self, sources: Iterable[str]) -> int:
         """Carrega proxys de arquivos locais ou URLs linha a linha."""
-
         added = 0
         for src in sources:
             text = self._read_source_text(src)
@@ -580,7 +619,6 @@ class Proxy(IProxyService):
                             }
                         })
 
-        # formato padrão SIP002
         at_split = stripped_payload.rsplit('@', 1)
         if len(at_split) != 2:
             raise ValueError("Formato ss:// inválido.")
@@ -866,10 +904,8 @@ class Proxy(IProxyService):
         if not ip or self.requests is None or not self._is_public_ip(ip):
             return None
         try:
-            # Token da API findip.net
             token = "747e7c8d93c344d2973066cf6eeb7d93"
             
-            # Fazer a requisição para a API findip.net
             resp = self.requests.get(
                 f"https://api.findip.net/{ip}/?token={token}", 
                 timeout=5
@@ -877,29 +913,22 @@ class Proxy(IProxyService):
             resp.raise_for_status()
             data = resp.json()
             
-            # Extrair informações do país
             country_info = data.get("country", {})
             
-            # Pegar o código do país (ISO code)
             country_code = country_info.get("iso_code")
             if isinstance(country_code, str):
                 country_code = (country_code.strip() or None)
                 if country_code:
                     country_code = country_code.upper()
             
-            # Pegar o nome do país em inglês
             country_names = country_info.get("names", {})
-            country_name = country_names.get("en")  # Nome em inglês
-            # Alternativa: usar pt-BR para nome em português
-            # country_name = country_names.get("pt-BR", country_names.get("en"))
+            country_name = country_names.get("en")
             
             if isinstance(country_name, str):
                 country_name = country_name.strip() or None
             
-            # Definir o label (nome preferencial para exibição)
             label = country_name or country_code
             
-            # Retornar None se não houver informações válidas
             if not (label or country_code or country_name):
                 return None
             
@@ -911,14 +940,6 @@ class Proxy(IProxyService):
         except Exception:
             return None
 
-    @staticmethod
-    def _measure_tcp_ping(host: str, port: int, timeout: float = 5.0) -> float:
-        """Calcula o tempo de conexão TCP em milissegundos."""
-        start = time.perf_counter()
-        with socket.create_connection((host, port), timeout=timeout):
-            end = time.perf_counter()
-        return (end - start) * 1000.0
-
     def _test_outbound(self, raw_uri: str, outbound: Proxy.Outbound, timeout: float = 10.0) -> Dict[str, Any]:
         """Executa medições para um outbound específico retornando métricas usando rota real."""
         result: Dict[str, Any] = {
@@ -927,7 +948,6 @@ class Proxy(IProxyService):
             "uri": raw_uri,
         }
         
-        # Extrai host e porta
         try:
             host, port = self._outbound_host_port(outbound)
         except Exception as exc:
@@ -937,7 +957,6 @@ class Proxy(IProxyService):
         result["host"] = host
         result["port"] = port
 
-        # Resolve IP do servidor
         try:
             infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
         except Exception:
@@ -954,36 +973,27 @@ class Proxy(IProxyService):
                 ipv6 = address
         result["ip"] = ip or ipv6
 
-        # IMPORTANTE: Busca informações de país ANTES do teste funcional
-        # para garantir que sempre tenhamos essa informação
         if result.get("ip"):
             country_info = self._lookup_country(result["ip"])
             if country_info:
-                label = country_info.get("label")
-                if label:
+                if label := country_info.get("label"):
                     result["country"] = label
-                code = country_info.get("code")
-                if code:
+                if code := country_info.get("code"):
                     result["country_code"] = code
-                name = country_info.get("name")
-                if name:
+                if name := country_info.get("name"):
                     result["country_name"] = name
 
-        # Testa funcionalidade real da proxy (com ping real)
         func_result = self._test_proxy_functionality(
             raw_uri, outbound, timeout=timeout
         )
         
-        # Se a proxy funciona, usa o response_time como ping
         if func_result.get("functional"):
             result["ping_ms"] = func_result.get("response_time")
             result["functional"] = True
             result["external_ip"] = func_result.get("external_ip")
             
-            # Se o IP externo for diferente do IP do servidor, adiciona informações extras
             if func_result.get("external_ip") and func_result["external_ip"] != result.get("ip"):
                 result["proxy_ip"] = func_result["external_ip"]
-                # Busca país da proxy se temos um IP diferente
                 proxy_country = self._lookup_country(func_result["external_ip"])
                 if proxy_country:
                     result["proxy_country"] = proxy_country.get("label")
@@ -1003,51 +1013,55 @@ class Proxy(IProxyService):
         force_refresh: bool = False,
         functional_timeout: float = 10.0,
         threads: int = 1,
+        stop_on_success: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Percorre os outbounds testando conectividade real de forma concorrente."""
-        entries: List[Dict[str, Any]] = []
-        results_lock = threading.Lock()
+        all_results: List[Dict[str, Any]] = []
         reuse_cache = self.use_cache and not force_refresh
+        success_count = 0
 
-        # 1. Separa proxies que precisam de teste daquelas que podem usar o cache
-        # (Esta lógica original está mantida, pois é eficiente)
-        to_test = []
-        from_cache = []
+        to_test: List[Tuple[int, str, Proxy.Outbound]] = []
         
         for idx, (raw, outbound) in enumerate(outbounds):
-            entry = self._make_base_entry(idx, raw, outbound)
+            base_entry = self._make_base_entry(idx, raw, outbound)
             
             if reuse_cache and raw in self._cache_entries:
                 cached_data = self._cache_entries[raw]
-                if cached_data.get("invalid"):
-                    continue
-                entry = self._apply_cached_entry(entry, cached_data)
-                entry["country_match"] = self.matches_country(entry, country_filter)
-                if country_filter and entry.get("status") == "OK" and not entry["country_match"]:
-                    entry["status"] = "FILTRADO"
-                    detected_country = (
-                        entry.get("country")
-                        or entry.get("country_code")
-                        or entry.get("country_name")
-                        or "-"
-                    )
-                    entry["error"] = f"Filtro de país '{country_filter}': detectado {detected_country}"
-                from_cache.append(entry)
+                entry = self._apply_cached_entry(base_entry, cached_data)
                 
-                if emit_progress is not None:
-                    self._emit_test_progress(entry, idx + 1, len(outbounds), emit_progress)
+                if country_filter and entry.get("status") == "OK":
+                    entry["country_match"] = self.matches_country(entry, country_filter)
+                    if not entry["country_match"]:
+                        entry["status"] = "FILTRADO"
+                        exit_country = entry.get("proxy_country") or entry.get("country") or "-"
+                        server_country = entry.get("country") or "-"
+                        if exit_country != server_country:
+                             entry["error"] = f"Filtro '{country_filter}': Servidor ({server_country}) ou Saída ({exit_country}) não correspondem"
+                        else:
+                             entry["error"] = f"Filtro '{country_filter}': País de saída é {exit_country}"
+                
+                all_results.append(entry)
+
+                if entry.get("status") == "OK":
+                    success_count += 1
+
+                if emit_progress:
+                    self._emit_test_progress(entry, len(all_results), len(outbounds), emit_progress)
             else:
                 to_test.append((idx, raw, outbound))
+
+        limit_reached = stop_on_success is not None and stop_on_success > 0
+        if limit_reached and success_count >= stop_on_success:
+            if self.console:
+                self.console.print(f"\n[bold green]Encontradas {success_count} proxies válidas no cache, atingindo o limite de {stop_on_success}. Testes adicionais ignorados.[/]")
+            for idx, raw, outbound in to_test:
+                all_results.append(self._make_base_entry(idx, raw, outbound))
+            all_results.sort(key=lambda x: x.get("index", float('inf')))
+            return all_results
         
-        entries.extend(from_cache)
-        
-        # 2. Executa os testes em paralelo usando ThreadPoolExecutor
         if to_test:
-            # A função 'worker' interna é a mesma, pois já é thread-safe
-            def worker(idx: int, raw: str, outbound: Proxy.Outbound):
-                """Testa uma única proxy e registra o resultado de forma segura."""
+            def worker(idx: int, raw: str, outbound: Proxy.Outbound) -> Dict[str, Any]:
                 entry = self._make_base_entry(idx, raw, outbound)
-                
                 try:
                     preview_host, preview_port = self._outbound_host_port(outbound)
                     entry.update({"host": preview_host, "port": preview_port})
@@ -1058,7 +1072,6 @@ class Proxy(IProxyService):
                 result = self._test_outbound(raw, outbound, timeout=functional_timeout)
                 finished_at = time.time()
 
-                # Atualiza o entry com os resultados detalhados
                 entry.update({
                     "host": result.get("host") or entry["host"],
                     "port": result.get("port") if result.get("port") is not None else entry["port"],
@@ -1083,41 +1096,55 @@ class Proxy(IProxyService):
                     entry["status"] = "ERRO"
                     entry["error"] = result.get("error", "Teste falhou")
 
-                entry["country_match"] = self.matches_country(entry, country_filter)
-                if country_filter and entry["status"] == "OK" and not entry["country_match"]:
-                    entry["status"] = "FILTRADO"
-                    detected = entry.get("country") or entry.get("country_code") or "-"
-                    entry["error"] = f"Filtro '{country_filter}': detectado {detected}"
+                if country_filter and entry["status"] == "OK":
+                    entry["country_match"] = self.matches_country(entry, country_filter)
+                    if not entry["country_match"]:
+                        entry["status"] = "FILTRADO"
+                        exit_country = entry.get("proxy_country") or entry.get("country") or "-"
+                        server_country = entry.get("country") or "-"
+                        if exit_country != server_country:
+                             entry["error"] = f"Filtro '{country_filter}': Servidor ({server_country}) ou Saída ({exit_country}) não correspondem"
+                        else:
+                             entry["error"] = f"Filtro '{country_filter}': País de saída é {exit_country}"
+                
+                return entry
 
-                with results_lock:
-                    entries.append(entry)
-
-                if emit_progress is not None:
-                    self._emit_test_progress(entry, idx + 1, len(outbounds), emit_progress)
-
-            # Bloco que substitui o gerenciamento manual de threads
             if self.console:
                 self.console.print(f"\n[yellow]Iniciando teste de {len(to_test)} proxies com até {threads} workers...[/]")
             
             with ThreadPoolExecutor(max_workers=threads) as executor:
-                # Submete todas as tarefas de uma vez
-                futuros = {
-                    executor.submit(worker, idx, raw, outbound)
-                    for idx, raw, outbound in to_test
-                }
+                futures = {executor.submit(worker, idx, raw, outbound) for idx, raw, outbound in to_test}
+                tested_indices = set()
 
-                # Processa os resultados à medida que ficam prontos
-                for futuro in as_completed(futuros):
+                for future in as_completed(futures):
                     try:
-                        futuro.result()  # Captura exceções inesperadas da thread
+                        result_entry = future.result()
+                        all_results.append(result_entry)
+                        tested_indices.add(result_entry["index"])
+
+                        if emit_progress:
+                            self._emit_test_progress(result_entry, len(all_results), len(outbounds), emit_progress)
+                        
+                        if result_entry.get("status") == "OK":
+                            success_count += 1
+                        
+                        if limit_reached and success_count >= stop_on_success:
+                            if self.console:
+                                self.console.print(f"\n[bold green]Limite de {stop_on_success} proxies encontradas. Finalizando testes.[/]")
+                            for f in futures:
+                                if not f.done():
+                                    f.cancel()
+                            break
                     except Exception as exc:
                         if self.console:
                             self.console.print(f"[bold red]Erro fatal em uma thread de teste: {exc}[/]")
-        
-        # 3. Ordena os resultados finais para manter a consistência
-        entries.sort(key=lambda x: x.get("index", float('inf')))
-        
-        return entries
+
+                for idx, raw, outbound in to_test:
+                    if idx not in tested_indices:
+                        all_results.append(self._make_base_entry(idx, raw, outbound))
+
+        all_results.sort(key=lambda x: x.get("index", float('inf')))
+        return all_results
 
     # ----------- interface pública -----------
 
@@ -1136,26 +1163,33 @@ class Proxy(IProxyService):
         self,
         outbound: Proxy.Outbound,
         *,
-        starting_port: Optional[int] = None,
         tag_prefix: str = "temp",
     ):
         """Cria uma ponte Xray temporária garantindo limpeza de recursos."""
-        port = None
+        port: Optional[int] = None
         proc: Optional[subprocess.Popen] = None
         cfg_dir: Optional[Path] = None
-        starting = starting_port or (self.base_port + 1000)
 
         try:
-            port = self._find_available_port(starting_from=starting)
+            port = self._find_available_port()
             cfg = self._make_xray_config_http_inbound(port, outbound)
             xray_bin = self._which_xray()
-            proc, cfg_path = self._launch_bridge(xray_bin, cfg, f"{tag_prefix}_{outbound.tag}")
+            
+            proc, cfg_path = self._launch_bridge_with_diagnostics(
+                xray_bin, cfg, f"{tag_prefix}_{outbound.tag}"
+            )
             cfg_dir = cfg_path.parent
 
-            # aguarda inicialização e valida processo
             time.sleep(1.0)
             if proc.poll() is not None:
-                raise RuntimeError("Processo Xray temporário finalizou antes do teste.")
+                error_output = ""
+                if proc.stderr:
+                    error_output = self._decode_bytes(proc.stderr.read()).strip()
+                
+                raise RuntimeError(
+                    "Processo Xray temporário finalizou antes do teste. "
+                    f"Erro: {error_output or 'Nenhuma saída de erro.'}"
+                )
 
             yield port, proc
         finally:
@@ -1164,12 +1198,13 @@ class Proxy(IProxyService):
             if port is not None:
                 self._release_port(port)
 
+
     def _test_proxy_functionality(
         self, 
         raw_uri: str, 
         outbound: Proxy.Outbound,
         timeout: float = 10.0,
-        test_url: str = "http://login.live.com/"
+        test_url: str = "http://httpbin.org/ip"
     ) -> Dict[str, Any]:
         """Testa a funcionalidade real da proxy criando uma ponte temporária e fazendo uma requisição."""
         result = {
@@ -1195,11 +1230,17 @@ class Proxy(IProxyService):
                 proxy_url = f"http://127.0.0.1:{test_port}"
                 proxies = {"http": proxy_url, "https": proxy_url}
                 start_time = time.perf_counter()
+                
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                }
+
                 response = self.requests.get(
                     test_url,
                     proxies=proxies,
                     timeout=timeout,
                     verify=False,
+                    headers=headers
                 )
                 response.raise_for_status()
                 duration_ms = (time.perf_counter() - start_time) * 1000
@@ -1231,18 +1272,24 @@ class Proxy(IProxyService):
         timeout_exc = getattr(exceptions_mod, "Timeout", None) if exceptions_mod else None
         proxy_exc = getattr(exceptions_mod, "ProxyError", None) if exceptions_mod else None
         conn_exc = getattr(exceptions_mod, "ConnectionError", None) if exceptions_mod else None
+        http_exc = getattr(exceptions_mod, "HTTPError", None) if exceptions_mod else None
 
         if self._matches_exception(exc, timeout_exc):
-            return f"Timeout após {timeout}s"
+            return f"Timeout após {timeout:.1f}s"
         if self._matches_exception(exc, proxy_exc):
             return f"Erro de proxy: {str(exc)[:100]}"
         if self._matches_exception(exc, conn_exc):
             return f"Erro de conexão: {str(exc)[:100]}"
+        if self._matches_exception(exc, http_exc):
+            response = getattr(exc, 'response', None)
+            if response is not None:
+                return f"Erro HTTP {response.status_code}: {response.reason}"
+        
         return f"Erro na requisição: {str(exc)[:100]}"
 
     @staticmethod
     def _extract_external_ip(response: Any) -> Optional[str]:
-        """Extrai IP externo da resposta JSON quando disponível."""
+        """Extrai IP externo da resposta JSON do httpbin.org/ip."""
         try:
             data = response.json()
         except Exception:
@@ -1252,32 +1299,25 @@ class Proxy(IProxyService):
         if isinstance(origin, str) and origin.strip():
             return origin.split(",")[0].strip()
 
-        ip_value = data.get("ip")
-        if isinstance(ip_value, str) and ip_value.strip():
-            return ip_value.strip()
         return None
 
-    def _find_available_port(self, starting_from: int = 55000, max_attempts: int = 100) -> int:
-        """Encontra uma porta TCP disponível para uso temporário com proteção thread-safe."""
+    def _find_available_port(self) -> int:
+        """Encontra uma porta TCP disponível pedindo ao SO para alocar uma."""
         with self._port_allocation_lock:
-            for offset in range(max_attempts):
-                port = starting_from + offset
-                # Pula portas já alocadas por outras threads
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                sock.bind(('127.0.0.1', 0))
+                port = sock.getsockname()[1]
+                
                 if port in self._allocated_ports:
-                    continue
-                    
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                try:
-                    sock.bind(('127.0.0.1', port))
-                    sock.close()
-                    # Marca porta como alocada
-                    self._allocated_ports.add(port)
-                    return port
-                except OSError:
-                    continue
-                finally:
-                    sock.close()
-            raise RuntimeError(f"Não foi possível encontrar porta disponível após {max_attempts} tentativas")
+                    return self._find_available_port()
+                
+                self._allocated_ports.add(port)
+                return port
+            except OSError as e:
+                raise RuntimeError("Não foi possível alocar uma porta TCP disponível pelo sistema operacional.") from e
+            finally:
+                sock.close()
 
     @staticmethod
     def _terminate_process(proc: Optional[subprocess.Popen], *, wait_timeout: float = 3.0) -> None:
@@ -1310,52 +1350,41 @@ class Proxy(IProxyService):
         with self._port_allocation_lock:
             self._allocated_ports.discard(port)
 
-    def _emit_test_progress(self, entry: Dict[str, Any], idx: int, total: int, emit_progress: Any) -> None:
+    def _emit_test_progress(self, entry: Dict[str, Any], count: int, total: int, emit_progress: Any) -> None:
         """Emite informações de progresso do teste."""
         destino = self._format_destination(entry.get("host"), entry.get("port"))
         ping_preview = entry.get("ping")
         ping_fmt = f"{ping_preview:.1f} ms" if isinstance(ping_preview, (int, float)) else "-"
         
-        should_display = not (self.country_filter and entry.get("status") == "FILTRADO")
+        status_fmt = {
+            "OK": "[bold green]OK[/]",
+            "ERRO": "[bold red]ERRO[/]",
+            "TESTANDO": "[yellow]TESTANDO[/]",
+            "AGUARDANDO": "[dim]AGUARDANDO[/]",
+            "FILTRADO": "[cyan]FILTRADO[/]",
+        }.get(entry["status"], entry["status"])
         
-        if should_display:
-            status_fmt = {
-                "OK": "[bold green]OK[/]",
-                "ERRO": "[bold red]ERRO[/]",
-                "TESTANDO": "[yellow]TESTANDO[/]",
-                "AGUARDANDO": "[dim]AGUARDANDO[/]",
-                "FILTRADO": "[cyan]FILTRADO[/]",
-            }.get(entry["status"], entry["status"])
-            
-            cache_note = ""
-            if entry.get("cached"):
-                cache_note = " [dim](cache)[/]" if Console else " (cache)"
-            
-            functional_note = ""
-            if entry.get("functional") is not None:
-                if entry["functional"]:
-                    response_time = entry.get("response_time")
-                    if response_time:
-                        functional_note = f" | [green]Funcional ({response_time:.0f}ms)[/]"
-                    else:
-                        functional_note = " | [green]Funcional[/]"
-                else:
-                    functional_note = " | [red]Não funcional[/]"
-            
+        cache_note = ""
+        if entry.get("cached"):
+            cache_note = " [dim](cache)[/]" if Console else " (cache)"
+        
+        display_country = entry.get("proxy_country") or entry.get("country") or "-"
+        
+        emit_progress.print(
+            f"[{count}/{total}] {status_fmt}{cache_note} [bold]{entry['tag']}[/] -> "
+            f"{destino} | IP: {entry.get('ip') or '-'} | "
+            f"País: {display_country} | Ping: {ping_fmt}"
+        )
+        
+        if entry.get("proxy_ip") and entry.get("proxy_ip") != entry.get("ip"):
+            original_country = entry.get("country", "-")
             emit_progress.print(
-                f"[{idx}/{total}] {status_fmt}{cache_note} [bold]{entry['tag']}[/] -> "
-                f"{destino} | IP: {entry.get('ip') or '-'} | "
-                f"País: {entry.get('country') or '-'} | Ping: {ping_fmt}{functional_note}"
+                f"    [dim]País do Servidor: {original_country} -> "
+                f"País de Saída: {entry.get('proxy_country', '-')}[/]"
             )
-            
-            if entry.get("proxy_ip") and entry["proxy_ip"] != entry.get("ip"):
-                emit_progress.print(
-                    f"    [dim]IP da Proxy: {entry['proxy_ip']} "
-                    f"({entry.get('proxy_country', '-')})[/]"
-                )
-            
-            if entry.get("error"):
-                emit_progress.print(f"    [dim]Motivo: {entry['error']}[/]")
+        
+        if entry.get("error"):
+            emit_progress.print(f"    [dim]Motivo: {entry['error']}[/]")
 
     def test(
         self,
@@ -1363,39 +1392,25 @@ class Proxy(IProxyService):
         threads: Optional[int] = 1,
         country: Optional[str] = None,
         verbose: Optional[bool] = None,
-        force_refresh: bool = False,
         timeout: float = 10.0,
-        force: bool = False,   # force=True retesta TODAS, force=False usa cache quando disponível
+        force: bool = False,
+        find_first: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Testa as proxies carregadas usando rota real para medir ping.
-        
-        O ping agora é medido através de uma requisição HTTP real pela proxy,
-        fornecendo uma medida mais precisa do desempenho real.
-        
-        Args:
-            threads: Número de threads para testes paralelos
-            country: Filtro de país opcional
-            verbose: Se deve exibir progresso detalhado
-            force_refresh: Se True, ignora cache para proxies não testadas
-            timeout: Timeout em segundos para cada teste
-            force: Se True, retesta TODAS as proxies ignorando o cache
-        """
+        """Testa as proxies carregadas usando rota real para medir ping."""
         if not self._outbounds:
             raise RuntimeError("Nenhuma proxy carregada para testar.")
 
         country_filter = country if country is not None else self.country_filter
         emit = self.console if (self.console is not None and (verbose is None or verbose)) else None
 
-        # force=True sempre ignora cache, force=False respeita force_refresh
-        effective_force_refresh = True if force else force_refresh
-
         results = self._perform_health_checks(
             self._outbounds,
             country_filter=country_filter,
             emit_progress=emit,
-            force_refresh=effective_force_refresh,
+            force_refresh=force,
             functional_timeout=timeout,
             threads=threads,
+            stop_on_success=find_first,
         )
 
         self._entries = results
@@ -1411,18 +1426,22 @@ class Proxy(IProxyService):
         """Exibe relatório amigável via Rich quando disponível."""
         if not self.console or Table is None:
             return
-        table_entries = entries
+        
+        ok_entries = [e for e in entries if e.get("status") == "OK"]
         if country_filter:
-            table_entries = [entry for entry in entries if entry.get("country_match")]
+            table_entries = [entry for entry in ok_entries if entry.get("country_match")]
+        else:
+            table_entries = ok_entries
 
         self.console.print()
-        self.console.rule("Tabela final")
+        self.console.rule("Proxies Funcionais")
         if table_entries:
             self.console.print(self._render_test_table(table_entries))
         else:
-            self.console.print(
-                f"[yellow]Nenhuma proxy corresponde ao filtro de país '{country_filter}'.[/]"
-            )
+            msg = "[yellow]Nenhuma proxy funcional encontrada.[/yellow]"
+            if country_filter:
+                 msg = f"[yellow]Nenhuma proxy funcional corresponde ao filtro de país '{country_filter}'.[/yellow]"
+            self.console.print(msg)
 
         success = sum(1 for entry in entries if entry.get("status") == "OK")
         fail = sum(1 for entry in entries if entry.get("status") == "ERRO")
@@ -1446,36 +1465,44 @@ class Proxy(IProxyService):
         if failed_entries:
             self.console.print()
             self.console.print("[bold red]Detalhes das falhas:[/]")
-            for entry in failed_entries:
+            for entry in failed_entries[:10]:
                 self.console.print(f" - [bold]{entry.get('tag') or '-'}[/]: {entry['error']}")
+            if len(failed_entries) > 10:
+                self.console.print(f"  [dim]... e mais {len(failed_entries) - 10} outras falhas.[/dim]")
+
 
     @staticmethod
     def _render_test_table(entries: List[Dict[str, Any]]):
         """Gera uma tabela Rich com o resultado dos testes."""
         if Table is None:
             raise RuntimeError("render_test_table requer a biblioteca 'rich'.")
+        
+        entries.sort(key=lambda e: e.get("ping") or float('inf'))
+
         table = Table(show_header=True, header_style="bold cyan", expand=True)
         table.add_column("Status", no_wrap=True)
-        table.add_column("Tag", no_wrap=True)
+        table.add_column("Tag", no_wrap=True, max_width=30)
         table.add_column("Destino", overflow="fold")
-        table.add_column("IP", no_wrap=True)
-        table.add_column("País", no_wrap=True)
+        table.add_column("IP Real (Saída)", no_wrap=True)
+        table.add_column("País (Saída)", no_wrap=True)
         table.add_column("Ping", justify="right", no_wrap=True)
         for entry in entries:
             status = entry.get("status", "-")
             style = Proxy.STATUS_STYLES.get(status, "white")
             status_cell = Text(status, style=style) if Text else status
-            host = entry.get("host")
-            port = entry.get("port")
-            destino = Proxy._format_destination(host, port)
+            destino = Proxy._format_destination(entry.get("host"), entry.get("port"))
             ping = entry.get("ping")
             ping_str = f"{ping:.1f} ms" if isinstance(ping, (int, float)) else "-"
+            
+            display_ip = entry.get("proxy_ip") or entry.get("ip") or "-"
+            display_country = entry.get("proxy_country") or entry.get("country") or "-"
+            
             table.add_row(
                 status_cell,
-                (entry.get("tag") or "-")[:40],
+                (entry.get("tag") or "-"),
                 destino,
-                entry.get("ip") or "-",
-                entry.get("country") or "-",
+                display_ip,
+                display_country,
                 ping_str,
             )
         return table
@@ -1488,15 +1515,9 @@ class Proxy(IProxyService):
         country: Optional[str] = None,
         auto_test: bool = True,
         wait: bool = False,
+        find_first: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Cria pontes HTTP locais para as proxys aprovadas opcionalmente testando antes.
-        amounts: se for int > 0, limita o número de pontes criadas a esse valor.
-        As proxies são automaticamente ordenadas por ping (menor primeiro).
-
-        Returns:
-            Uma lista de dicionários, onde cada um contém o 'id' da ponte (de 0 a n-1),
-            a 'url' da ponte e a 'uri' da proxy original.
-        """
+        """Cria pontes HTTP locais para as proxys aprovadas opcionalmente testando antes."""
         if self._running:
             raise RuntimeError("As pontes já estão em execução. Chame stop() antes de iniciar novamente.")
         if not self._outbounds:
@@ -1504,28 +1525,24 @@ class Proxy(IProxyService):
 
         country_filter = country if country is not None else self.country_filter
         
-        if auto_test and (not self._entries or country_filter != self.country_filter):
-            self.test(threads=threads, country=country_filter, verbose=self.use_console)
-            country_filter = self.country_filter
-        elif auto_test and self.use_cache and not self._cache_available:
-            self.test(threads=threads, country=country_filter, verbose=self.use_console, force_refresh=True)
+        if auto_test:
+            self.test(
+                threads=threads,
+                country=country_filter,
+                verbose=self.use_console,
+                find_first=find_first
+            )
             country_filter = self.country_filter
 
         approved_entries = [
             entry for entry in self._entries
             if entry.get("status") == "OK" 
-            and not entry.get("invalid")
             and self.matches_country(entry, country_filter)
         ]
         
         def get_ping_for_sort(entry: Dict[str, Any]) -> float:
             ping = entry.get("ping")
-            if ping is None:
-                return float('inf')
-            try:
-                return float(ping)
-            except (TypeError, ValueError):
-                return float('inf')
+            return float(ping) if isinstance(ping, (int, float)) else float('inf')
         
         approved_entries.sort(key=get_ping_for_sort)
         
@@ -1533,48 +1550,44 @@ class Proxy(IProxyService):
             if country_filter:
                 raise RuntimeError(
                     f"Nenhuma proxy aprovada para o país '{country_filter}'. "
-                    f"Execute test(country='{country_filter}') e verifique os resultados."
+                    "Execute o teste e verifique os resultados."
                 )
             else:
                 raise RuntimeError("Nenhuma proxy aprovada para iniciar. Execute test() e verifique os resultados.")
 
         if amounts is not None:
-            if not isinstance(amounts, int):
-                raise TypeError("amounts deve ser um inteiro ou None.")
-            if amounts <= 0:
+            if not isinstance(amounts, int) or amounts <= 0:
                 raise ValueError("amounts deve ser um inteiro positivo.")
             if amounts < len(approved_entries):
                 approved_entries = approved_entries[:amounts]
-            elif amounts > len(approved_entries):
-                if self.console is not None:
-                    self.console.print(
-                        f"Atenção: solicitado amounts={amounts} mas só existem {len(approved_entries)} "
-                        f"proxies aprovadas{f' para o país {country_filter}' if country_filter else ''}. "
-                        "Serão iniciadas todas as proxies aprovadas."
-                    )
+            elif amounts > len(approved_entries) and self.console:
+                self.console.print(
+                    f"Atenção: solicitado amounts={amounts} mas só existem {len(approved_entries)} "
+                    f"proxies aprovadas{f' para {country_filter}' if country_filter else ''}. "
+                    "Iniciando todas as disponíveis."
+                )
 
         xray_bin = self._which_xray()
 
         self._stop_event.clear()
-        port = self.base_port
         bridges_runtime: List[Proxy.BridgeRuntime] = []
         bridges_display: List[Tuple[Proxy.BridgeRuntime, float]] = []
 
-        if self.console is not None and approved_entries:
-            best_ping = get_ping_for_sort(approved_entries[0])
-            if best_ping != float('inf'):
-                self.console.print()
-                self.console.print(
-                    f"[green]Iniciando {len(approved_entries)} proxies ordenadas por ping[/]"
-                )
+        if self.console and approved_entries:
+            self.console.print()
+            self.console.print(
+                f"[green]Iniciando {len(approved_entries)} pontes ordenadas por ping[/]"
+            )
 
         try:
             for entry in approved_entries:
                 raw_uri, outbound = self._outbounds[entry["index"]]
+                
+                port = self._find_available_port()
                 cfg = self._make_xray_config_http_inbound(port, outbound)
                 scheme = raw_uri.split("://", 1)[0].lower()
 
-                proc, cfg_path = self._launch_bridge(xray_bin, cfg, outbound.tag)
+                proc, cfg_path = self._launch_bridge_with_diagnostics(xray_bin, cfg, outbound.tag)
                 bridge = Proxy.BridgeRuntime(
                     tag=outbound.tag,
                     port=port,
@@ -1585,7 +1598,6 @@ class Proxy(IProxyService):
                 )
                 bridges_runtime.append(bridge)
                 bridges_display.append((bridge, get_ping_for_sort(entry)))
-                port += 1
         except Exception:
             for bridge in bridges_runtime:
                 self._terminate_process(bridge.process)
@@ -1600,13 +1612,13 @@ class Proxy(IProxyService):
             atexit.register(self.stop)
             self._atexit_registered = True
 
-        if self.console is not None:
+        if self.console:
             self.console.print()
             self.console.rule(f"Pontes HTTP ativas{f' - País: {country_filter}' if country_filter else ''} - Ordenadas por Ping")
             for idx, (bridge, ping) in enumerate(bridges_display):
-                ping_str = f"{ping:6.1f}ms" if ping != float('inf') else "   -   "
+                ping_str = f"{ping:6.1f}ms" if ping != float('inf') else "     -     "
                 self.console.print(
-                    f"[bold cyan]ID {idx:<2}[/] [{bridge.scheme:6}] {bridge.url}  ->  [{ping_str}]"
+                    f"[bold cyan]ID {idx:<2}[/] http://127.0.0.1:{bridge.port}  ->  [{ping_str}]"
                 )
 
             self.console.print()
@@ -1637,7 +1649,6 @@ class Proxy(IProxyService):
         try:
             self.wait()
         except RuntimeError:
-            # Nenhuma ponte ativa quando o wrapper inicia
             pass
 
     def wait(self) -> None:
@@ -1645,59 +1656,47 @@ class Proxy(IProxyService):
         if not self._running:
             raise RuntimeError("Nenhuma ponte ativa para aguardar.")
         try:
-            while True:
-                if self._stop_event.is_set():
-                    break
-                alive = False
-                for bridge in list(self._bridges):
-                    proc = bridge.process
-                    if proc is None:
-                        continue
-                    if proc.poll() is None:
-                        alive = True
-                    stdout = getattr(proc, "stdout", None)
-                    if stdout:
-                        line = stdout.readline()
-                        if line and ("warning" in line.lower() or "error" in line.lower()):
-                            print(line.rstrip())
+            while not self._stop_event.is_set():
+                alive = any(
+                    bridge.process and bridge.process.poll() is None
+                    for bridge in self._bridges
+                )
                 if not alive:
-                    print("Todos os processos xray finalizaram.")
+                    if self.console:
+                        self.console.print("\n[yellow]Todos os processos xray finalizaram.[/yellow]")
                     break
-                time.sleep(0.2)
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            if self.console:
+                self.console.print("\n[yellow]Interrupção recebida, encerrando pontes...[/yellow]")
         finally:
             self.stop()
 
     def stop(self) -> None:
         """Finaliza processos Xray ativos e limpa arquivos temporários."""
+        if not self._running and not self._bridges:
+            return
+
         self._stop_event.set()
-
-        wait_thread = self._wait_thread
-        caller_thread = threading.current_thread()
-
-        if self._running:
-            for bridge in self._bridges:
+        
+        bridges_to_stop = list(self._bridges)
+        if bridges_to_stop:
+            for bridge in bridges_to_stop:
                 self._terminate_process(bridge.process)
                 self._safe_remove_dir(bridge.workdir)
                 self._release_port(bridge.port)
-            self._bridges = []
-            self._running = False
-        else:
-            # Garante que as listas estejam sempre limpas, mesmo após múltiplas chamadas a stop()
-            self._bridges = []
 
-        if wait_thread and wait_thread is not caller_thread:
-            if wait_thread.is_alive():
-                try:
-                    wait_thread.join(timeout=1.0)
-                except Exception:
-                    pass
-        self._wait_thread = None
+        self._bridges = []
         self._running = False
+
+        if self._wait_thread and self._wait_thread is not threading.current_thread():
+            self._wait_thread.join(timeout=1.0)
+        self._wait_thread = None
 
     def get_http_proxy(self) -> List[Dict[str, Any]]:
         """Retorna ID, URL local e URI de cada ponte em execução."""
         if not self._running:
-            raise RuntimeError("Nenhuma ponte ativa. Chame start() primeiro.")
+            return []
         return [
             {"id": idx, "url": bridge.url, "uri": bridge.uri}
             for idx, bridge in enumerate(self._bridges)
@@ -1732,60 +1731,32 @@ class Proxy(IProxyService):
             cfg["outbounds"][0]["tag"] = outbound.tag
         return cfg
 
-    def _launch_bridge(self, xray_bin: str, cfg: Dict[str, Any], name: str) -> Tuple[subprocess.Popen, Path]:
-        """Inicializa o processo Xray com configuração temporária para a ponte."""
+    def _launch_bridge_with_diagnostics(
+        self, xray_bin: str, cfg: Dict[str, Any], name: str
+    ) -> Tuple[subprocess.Popen, Path]:
+        """Inicializa o Xray com captura de stdout/stderr para melhor diagnóstico."""
         tmpdir = Path(tempfile.mkdtemp(prefix=f"xray_{name}_"))
         cfg_path = tmpdir / "config.json"
         cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 
         proc = subprocess.Popen(
             [xray_bin, "-config", str(cfg_path)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            bufsize=1
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
         return proc, cfg_path
-
-    def _remove_bridge(self, tag: str) -> None:
-        """Remove uma ponte ativa pelo tag, encerrando o processo e limpando estruturas."""
-        for idx, bridge in enumerate(list(self._bridges)):
-            if bridge.tag == tag:
-                self._terminate_process(bridge.process, wait_timeout=2)
-                self._safe_remove_dir(bridge.workdir)
-                self._release_port(bridge.port)
-                self._bridges.pop(idx)
-                break
-
     
     def rotate_proxy(self, bridge_id: int) -> bool:
-        """Troca a proxy de uma ponte em execução por outra proxy aleatória e funcional.
-
-        A ponte continuará escutando na mesma porta, mas o tráfego será
-        redirecionado através da nova proxy selecionada.
-
-        Args:
-            bridge_id: O ID numérico (índice) da ponte que você deseja trocar.
-
-        Returns:
-            True se a troca foi bem-sucedida, False caso contrário (ex: ID inválido,
-            nenhuma outra proxy disponível para troca).
-        """
-        if not self._running:
-            return False
-
-        # 1. Valida o ID da ponte
-        if not (0 <= bridge_id < len(self._bridges)):
+        """Troca a proxy de uma ponte em execução por outra proxy aleatória e funcional."""
+        if not self._running or not (0 <= bridge_id < len(self._bridges)):
             if self.console:
-                self.console.print(f"[red]Erro: ID de ponte inválido: {bridge_id}. IDs válidos são de 0 a {len(self._bridges) - 1}.[/]")
+                msg = f"ID de ponte inválido: {bridge_id}. IDs válidos: 0 a {len(self._bridges) - 1}."
+                self.console.print(f"[red]Erro: {msg}[/red]")
             return False
 
-        # Obtém informações da ponte atual
         bridge = self._bridges[bridge_id]
-        current_port = bridge.port
         uri_to_replace = bridge.uri
 
-        # 2. Encontra uma nova proxy candidata (OK, do país certo e que não seja a atual)
         candidates = [
             entry for entry in self._entries
             if entry.get("status") == "OK"
@@ -1795,41 +1766,29 @@ class Proxy(IProxyService):
 
         if not candidates:
             if self.console:
-                self.console.print(f"[yellow]Aviso: Nenhuma outra proxy disponível para rotacionar a ponte com ID {bridge_id}.[/]")
+                self.console.print(f"[yellow]Aviso: Nenhuma outra proxy disponível para rotacionar a ponte ID {bridge_id}.[/yellow]")
             return False
 
-        # 3. Escolhe uma nova proxy aleatoriamente
         new_entry = random.choice(candidates)
         new_raw_uri, new_outbound = self._outbounds[new_entry["index"]]
         new_scheme = new_raw_uri.split("://", 1)[0].lower()
 
-        # 4. Finaliza o processo antigo associado à ponte
         self._terminate_process(bridge.process, wait_timeout=2)
         self._safe_remove_dir(bridge.workdir)
 
-        # 5. Inicia a nova ponte na mesma porta
         try:
             xray_bin = self._which_xray()
-            cfg = self._make_xray_config_http_inbound(current_port, new_outbound)
-            new_proc, new_cfg_path = self._launch_bridge(xray_bin, cfg, new_outbound.tag)
+            cfg = self._make_xray_config_http_inbound(bridge.port, new_outbound)
+            new_proc, new_cfg_path = self._launch_bridge_with_diagnostics(xray_bin, cfg, new_outbound.tag)
         except Exception as e:
             if self.console:
-                self.console.print(f"[red]Falha ao reiniciar a ponte (ID {bridge_id}) na porta {current_port} com a nova proxy: {e}[/]")
-            # Limpa o estado para evitar inconsistência
-            self._bridges[bridge_id] = Proxy.BridgeRuntime(
-                tag=bridge.tag,
-                port=current_port,
-                scheme=bridge.scheme,
-                uri=bridge.uri,
-                process=None,
-                workdir=None,
-            )
+                self.console.print(f"[red]Falha ao reiniciar ponte {bridge_id} na porta {bridge.port}: {e}[/red]")
+            bridge.process = None # Marca a ponte como inativa
             return False
 
-        # 6. Atualiza as estruturas internas com as informações da nova ponte
         self._bridges[bridge_id] = Proxy.BridgeRuntime(
             tag=new_outbound.tag,
-            port=current_port,
+            port=bridge.port,
             scheme=new_scheme,
             uri=new_raw_uri,
             process=new_proc,
@@ -1838,7 +1797,7 @@ class Proxy(IProxyService):
 
         if self.console:
             self.console.print(
-                f"[green]Sucesso:[/green] Ponte com [bold]ID {bridge_id}[/] (porta {current_port}) rotacionada para a proxy '[bold]{new_outbound.tag}[/]'"
+                f"[green]Sucesso:[/green] Ponte [bold]ID {bridge_id}[/] (porta {bridge.port}) rotacionada para a proxy '[bold]{new_outbound.tag}[/]'"
             )
 
         return True
