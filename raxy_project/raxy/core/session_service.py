@@ -126,13 +126,35 @@ class BaseRequest:
             full_error = traceback.format_exc()
             self._logger.erro(f"Falha ao atualizar cookies para {url}", erro=full_error)
 
-    def executar(self, diretorio_template, bypass_request_token=False, use_ua = True, use_cookies = True):
+    def executar(self, diretorio_template, bypass_request_token=False, use_ua = True, use_cookies = True, proxy: dict = {}):
         if not isinstance(diretorio_template, dict):  
             template = self._carregar(diretorio_template)
         else:
             template = diretorio_template
         args = self._montar(template, bypass_request_token, use_ua, use_cookies)
-        return self._enviar(args)
+        tentativas = 5
+        ultima_excecao: Exception | None = None
+        
+
+        for tentativa in range(1, tentativas + 1):
+            try:
+                if "url" in proxy:
+                    
+                    return self._enviar(args, proxy=proxy["url"])
+            except Exception as exc:  # pragma: no cover - fluxo de erro depende da rede
+                ultima_excecao = exc
+                if tentativa >= tentativas:
+                    break
+                if self._logger:
+                    self._logger.aviso(
+                        "Falha ao enviar requisição, tentando novamente.",
+                        tentativa=tentativa,
+                        max_tentativas=tentativas,
+                        erro=str(exc),
+                    )
+
+        if ultima_excecao is not None:
+            raise ultima_excecao
 
     def _carregar(self, diretorio_template):
         caminho = diretorio_template
