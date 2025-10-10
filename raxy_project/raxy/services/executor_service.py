@@ -17,7 +17,8 @@ from raxy.interfaces.services import (
     IPerfilService,
     IRewardsDataService,
     IProxyService,
-    IBingSuggestion
+    IBingSuggestion,
+    IBingFlyoutService
 )
 
 
@@ -50,6 +51,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
         rewards_data: IRewardsDataService,
         logger: ILoggingService,
         db_repository: IDatabaseRepository, # Recebe a nova dependência
+        bing_flyout_service: IBingFlyoutService,
         config: ExecutorConfig | None = None,
     ) -> None:
         self._config = config or ExecutorConfig()
@@ -61,6 +63,8 @@ class ExecutorEmLote(IExecutorEmLoteService):
         self._rewards_data = rewards_data
         self._bing_search = bing_search
         self._db_repository = db_repository # Armazena a dependência
+        self._bing_flyout_service = bing_flyout_service
+        
 
     def executar(self, acoes: Iterable[str] | None = None, contas: Sequence[Conta] | None = None) -> None:
         """
@@ -123,6 +127,13 @@ class ExecutorEmLote(IExecutorEmLoteService):
             pontos_finais = 0
 
             if sessao:
+                scoped_logger.sucesso("Login bem-sucedido.", pontos_atual=pontos_iniciais)
+                
+                if "flyout" in acoes:
+                    sku_meta_padrao = "000409000021" # Cartão-presente Xbox
+                    self._bing_flyout_service.set_goal(sessao, sku=sku_meta_padrao)
+                    
+                    
                 if "rewards" in acoes:
                     self._rewards_data.pegar_recompensas(sessao.base_request)
                     pontos_finais = self._rewards_data.obter_pontos(sessao.base_request)
