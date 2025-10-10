@@ -15,7 +15,8 @@ from raxy.interfaces.services import (
     IRewardsBrowserService,
     IRewardsDataService,
     IProxyService,
-    IBingSuggestion
+    IBingSuggestion,
+    IBingFlyoutService
 )
 from raxy.repositories.file_account_repository import ArquivoContaRepository
 from raxy.services.auth_service import AutenticadorRewards, NavegadorRecompensas
@@ -27,6 +28,7 @@ from raxy.api.proxy import Proxy
 from raxy.api.rewards_data_api import RewardsDataAPI
 from raxy.api.bing_suggestion_api import BingSuggestionAPI
 from raxy.api.db import SupabaseRepository
+from raxy.services.bingflyout_service import BingFlyoutService
 
 
 _T = TypeVar("_T")
@@ -56,6 +58,10 @@ class SimpleInjector:
         self.bind_singleton(IRewardsBrowserService, lambda inj: RewardsBrowserService(proxy_service=inj.get(IProxyService)))
         self.bind_singleton(IRewardsDataService, lambda inj: RewardsDataAPI())
         self.bind_singleton(IBingSuggestion, lambda inj: BingSuggestionAPI())
+        self.bind_singleton(
+            IBingFlyoutService,
+            lambda inj: BingFlyoutService(logger=inj.get(ILoggingService))
+        )
         
         # Vincula a nova interface à sua implementação Supabase
         self.bind_singleton(IDatabaseRepository, lambda inj: SupabaseRepository())

@@ -1,0 +1,11 @@
+{
+    "method": "POST",
+    "url": "https://www.bing.com/rewardsapp/setredemptiongoal",
+    "headers": {
+        "accept": "*/*",
+        "content-type": "application/json"
+    },
+    "json": {
+        "Goal": "{sku}"
+    }
+}

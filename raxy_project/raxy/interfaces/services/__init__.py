@@ -10,6 +10,7 @@ from .IProxyService import IProxyService
 from .IRewardsBrowserService import IRewardsBrowserService
 from .IRewardsDataService import IRewardsDataService
 from .IBingSuggestion import IBingSuggestion
+from .IBingFlyoutService import IBingFlyoutService
 
 __all__ = [
     "IAutenticadorRewardsService",
@@ -22,4 +23,5 @@ __all__ = [
     "IRewardsBrowserService",
     "IRewardsDataService",
     "IBingSuggestion",
+    "IBingFlyoutService",
 ]
