@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2025-10-10T21:24:11Z",
+  "generated_at": "2025-10-10T22:15:56Z",
   "entries": [
     {
       "uri": "ss://1afvv73vv73vv73vv73vv73vv70777-977-9NXtv77-977-977-977-977-9HO-_ve-_vR_vv715OtWn77-977-977-977-977-977-9O--_ve-_vTV7b--_ve-_ve-_ve-_ve-_vRzvv73vv70f77-9eQ@172.64.157.124:80 # 🔒 [By EbraSha]",
@@ -5313,6 +5313,24 @@
       "tested_at_ts": 1759697607.446778
     },
     {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxUld3WGh3ZkFCNWdBRW96VTRHMlBn@45.87.175.166:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "45.87.175.166",
+      "port": 443,
+      "ip": "45.87.175.166",
+      "country": "United States",
+      "country_code": "US",
+      "country_name": "United States",
+      "proxy_ip": "193.29.139.206",
+      "proxy_country": "The Netherlands",
+      "proxy_country_code": "NL",
+      "ping": 1859.8635900016234,
+      "error": "Filtro 'US': Servidor (United States) ou Saída (The Netherlands) não correspondem",
+      "tested_at": "2025-10-10T22:13:45Z",
+      "tested_at_ts": 1760134425.344411
+    },
+    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToxUld3WGh3ZkFCNWdBRW96VTRHMlBn@45.87.175.166:8080 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "AGUARDANDO",
@@ -6103,24 +6121,6 @@
       "error": null,
       "tested_at": "2025-10-05T20:53:27Z",
       "tested_at_ts": 1759697607.446981
-    },
-    {
-      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToyVnJUbnNRcnZmSmhTeFd3Ukd0U1VrNDNUOEJMM005WFU2QVlzc0pLelNiVDZMcjJwYUh2cVdBeGNZV0haMjQzdkVxYzFmU1RNa1diUDZWcVVCYkZFVktlWDVwVnYxQ1U=@185.5.38.111:55988 # 🔒 [By EbraSha]",
-      "tag": "_By_EbraSha_",
-      "status": "ERRO",
-      "host": "185.5.38.111",
-      "port": 55988,
-      "ip": "185.5.38.111",
-      "country": "Finland",
-      "country_code": "FI",
-      "country_name": "Finland",
-      "proxy_ip": null,
-      "proxy_country": null,
-      "proxy_country_code": null,
-      "ping": null,
-      "error": "Timeout após 10.0s",
-      "tested_at": "2025-10-10T21:03:16Z",
-      "tested_at_ts": 1760130196.7944105
     },
     {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNToyYWZiYzk3NDAwY2E3MWM4ZjMzMDZmOTg0M2E2ZTFjMg==@216.250.97.118:443 # 🔒 [By EbraSha]",
@@ -23097,6 +23097,24 @@
       "tested_at_ts": 1759697607.4525394
     },
     {
+      "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpPM1JTdUpPOWVlZHhWMGExNDZGc3hS@78.129.140.11:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "78.129.140.11",
+      "port": 443,
+      "ip": "78.129.140.11",
+      "country": "United Kingdom",
+      "country_code": "GB",
+      "country_name": "United Kingdom",
+      "proxy_ip": null,
+      "proxy_country": null,
+      "proxy_country_code": null,
+      "ping": 1252.570905002358,
+      "error": "Filtro 'US': País de saída é United Kingdom",
+      "tested_at": "2025-10-10T22:13:44Z",
+      "tested_at_ts": 1760134424.553406
+    },
+    {
       "uri": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpPMEJydHFsS3QwYWxvSHZ3ZE41NGF2@206.189.44.226:38194 # 🔒 [By EbraSha]",
       "tag": "_By_EbraSha_",
       "status": "AGUARDANDO",
@@ -34885,6 +34903,24 @@
       "error": null,
       "tested_at": "2025-10-05T20:53:27Z",
       "tested_at_ts": 1759697607.4555676
+    },
+    {
+      "uri": "ss://YWVzLTEyOC1nY206NTdiYzBjMDQtODE4NC00OGY1LTkwNmItODk3ZDA5NWVkNDQ1@liubu9.singdns.com:17459 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "FILTRADO",
+      "host": "liubu9.singdns.com",
+      "port": 17459,
+      "ip": "141.11.76.77",
+      "country": "Hong Kong",
+      "country_code": "HK",
+      "country_name": "Hong Kong",
+      "proxy_ip": null,
+      "proxy_country": null,
+      "proxy_country_code": null,
+      "ping": 1470.696760003193,
+      "error": "Filtro 'US': País de saída é Hong Kong",
+      "tested_at": "2025-10-10T22:13:45Z",
+      "tested_at_ts": 1760134425.4001052
     },
     {
       "uri": "ss://YWVzLTEyOC1nY206NjNkYzg3ZTAtOGVjMy00NDAxLWJlYmQtNGQ0OTk3NDNmODcz@de01.dns-node.top:45596 # 🔒 [By EbraSha]",
@@ -49627,6 +49663,24 @@
       "error": null,
       "tested_at": "2025-10-05T20:53:27Z",
       "tested_at_ts": 1759697607.4591558
+    },
+    {
+      "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU@34.245.185.129:443 # 🔒 [By EbraSha]",
+      "tag": "_By_EbraSha_",
+      "status": "ERRO",
+      "host": "34.245.185.129",
+      "port": 443,
+      "ip": "34.245.185.129",
+      "country": "Ireland",
+      "country_code": "IE",
+      "country_name": "Ireland",
+      "proxy_ip": null,
+      "proxy_country": null,
+      "proxy_country_code": null,
+      "ping": null,
+      "error": "Processo Xray temporário finalizou antes do teste. Erro: Nenhuma saída de erro.",
+      "tested_at": "2025-10-10T22:13:43Z",
+      "tested_at_ts": 1760134423.3023186
     },
     {
       "uri": "ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDU@35.91.109.62:443 # 🔒 [By EbraSha]",
