@@ -36,7 +36,12 @@ class RewardsDataAPI(IRewardsDataService):
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
         resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token)
 
-        if not getattr(resposta, "ok", True):
+        # CORREÇÃO: Adicionada verificação explícita de None
+        if resposta is None:
+            self._registrar_erro(base, {"metodo": "get", "path": self._TEMPLATE_OBTER_PONTOS})
+            raise RuntimeError("A requisição para obter pontos falhou e não retornou uma resposta.")
+
+        if not getattr(resposta, "ok", False):
             self._registrar_erro(
                 base,
                 {"metodo": "get", "url": getattr(resposta, "url", None)},
@@ -87,7 +92,12 @@ class RewardsDataAPI(IRewardsDataService):
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
         resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token)
 
-        if not getattr(resposta, "ok", True):
+        # CORREÇÃO: Adicionada verificação explícita de None
+        if resposta is None:
+            self._registrar_erro(base, {"metodo": "get", "path": self._TEMPLATE_OBTER_PONTOS})
+            raise RuntimeError("A requisição para obter recompensas falhou e não retornou uma resposta.")
+
+        if not getattr(resposta, "ok", False):
             self._registrar_erro(
                 base,
                 {"metodo": "get", "url": getattr(resposta, "url", None)},

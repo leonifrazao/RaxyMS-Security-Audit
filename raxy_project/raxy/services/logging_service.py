@@ -207,11 +207,9 @@ class FarmLogger(ILoggingService):
             self._config = config
             self._nivel_minimo = self._resolver_nivel_valor(config.nivel_minimo)
 
-            for sink_id in self._sink_ids:
-                try:
-                    _loguru_logger.remove(sink_id)
-                except ValueError:
-                    pass
+            # Remove todos os handlers existentes para evitar duplicatas
+            _loguru_logger.remove()
+
             self._sink_ids.clear()
             self._file_sink_id = None
 
@@ -735,10 +733,11 @@ class FarmLogger(ILoggingService):
     def _construir_formato_console(self, config: LoggerConfig) -> str:
         partes: list[str] = []
         if config.mostrar_tempo:
-            partes.append("<cyan>{time:HH:mm:ss}</cyan>")
+            partes.append("<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green>")
         partes.append("<level>{level: <8}</level>")
-        partes.append("<level>{message}</level>")
+        partes.append("<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")
         formato = " | ".join(partes)
+        # O sufixo é tratado pelo loguru automaticamente através do `bind`
         return formato + "{extra[suffix]}"
 
 

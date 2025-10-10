@@ -105,12 +105,14 @@ class BaseRequest:
         self.cookies = self.driver.get_cookies_dict()
         self.user_agent = self.driver.profile.get("UA")
 
-        try:
-            html = driver.requests.get(url_base).text
-        except Exception:
-            html = None
+        # CORREÇÃO: Usa o page_source do driver, que contém a página autenticada,
+        # em vez de fazer uma nova requisição não autenticada.
+        self.driver.get(url_base) 
+        html = soupify(driver)
         self.token_antifalsificacao = _extract_request_verification_token(html)
         
+        if not self.token_antifalsificacao:
+            self._logger.aviso("Não foi possível extrair o __RequestVerificationToken da página.")
     
     def atualizar_cookies_para_dominio(self, url: str) -> None:
         """Navega para uma nova URL e adiciona os cookies desse domínio à sessão."""

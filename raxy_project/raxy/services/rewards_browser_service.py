@@ -82,33 +82,24 @@ class RewardsBrowserService(IRewardsBrowserService):
 
         driver.enable_human_mode()
         driver.google_get("https://rewards.bing.com/")
-        soup = soupify(driver)
         driver.short_random_sleep()
         
         if driver.run_js("return document.title").lower() == "microsoft rewards":
             registro.sucesso("Conta já autenticada")
-            # driver.prompt()
             registro.info("Coletando cookies do domínio de pesquisa...")
             driver.google_get("https://www.bing.com") 
             
             driver.short_random_sleep()
             registro.info("Cookies coletados.")
+            
+            # REATORAÇÃO: A lógica de extração do token agora está centralizada no construtor do BaseRequest.
             base_request = BaseRequest(driver.config.profile, driver)
-
-            # Início da modificação: Extrair token da página atual
-            token_element = soup.find("input", {"name": "__RequestVerificationToken"})
-            token = token_element.get("value") if token_element else None
-            if token:
-                base_request.token_antifalsificacao = token
-                registro.info("Token __RequestVerificationToken encontrado e definido na sessão.")
-            else:
-                registro.aviso("Não foi possível encontrar o __RequestVerificationToken no HTML da página. As solicitações podem falhar.")
-            # Fim da modificação
 
             registro.debug(
                 "Sessão pronta para requests",
                 perfil=driver.config.profile,
-                total_cookies=len(driver.get_cookies_dict()),
+                total_cookies=len(base_request.cookies),
+                token_encontrado=bool(base_request.token_antifalsificacao)
             )
             return base_request
 
@@ -154,24 +145,14 @@ class RewardsBrowserService(IRewardsBrowserService):
             registro.info("Coletando cookies do domínio de pesquisa...")
             driver.google_get("https://www.bing.com")
 
+            # REATORAÇÃO: A lógica de extração do token agora está centralizada no construtor do BaseRequest.
             base_request = BaseRequest(driver.config.profile, driver)
-
-            # Início da modificação: Extrair token da página atual
-            html = driver.page_source
-            soup = soupify(html)
-            token_element = soup.find("input", {"name": "__RequestVerificationToken"})
-            token = token_element.get("value") if token_element else None
-            if token:
-                base_request.token_antifalsificacao = token
-                registro.info("Token __RequestVerificationToken encontrado e definido na sessão.")
-            else:
-                registro.aviso("Não foi possível encontrar o __RequestVerificationToken no HTML da página. As solicitações podem falhar.")
-            # Fim da modificação
 
             registro.debug(
                 "Sessão pronta para requests",
                 perfil=driver.config.profile,
-                total_cookies=len(driver.get_cookies_dict()),
+                total_cookies=len(base_request.cookies),
+                token_encontrado=bool(base_request.token_antifalsificacao),
             )
             return base_request
 
