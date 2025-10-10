@@ -34,7 +34,7 @@ class RewardsDataAPI(IRewardsDataService):
 
     def obter_pontos(self, base: BaseRequest, *, bypass_request_token: bool = True, proxy: dict = {}) -> int:
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
-        resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token, proxy=proxy)
+        resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token)
 
         if not getattr(resposta, "ok", True):
             self._registrar_erro(
@@ -85,7 +85,7 @@ class RewardsDataAPI(IRewardsDataService):
         proxy: dict = {}
     ) -> Mapping[str, object]:
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
-        resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token, proxy=proxy)
+        resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token)
 
         if not getattr(resposta, "ok", True):
             self._registrar_erro(
@@ -142,7 +142,7 @@ class RewardsDataAPI(IRewardsDataService):
         bypass_request_token: bool = True,
         proxy: dict = {}
     ) -> Mapping[str, object]:
-        recompensas = self.obter_recompensas(base, bypass_request_token=bypass_request_token, proxy=proxy)
+        recompensas = self.obter_recompensas(base, bypass_request_token=bypass_request_token)
 
         daily_sets = recompensas.get("daily_sets", []) if isinstance(recompensas, dict) else []
         more_promotions = recompensas.get("more_promotions", []) if isinstance(recompensas, dict) else []
@@ -177,7 +177,7 @@ class RewardsDataAPI(IRewardsDataService):
 
                 argumentos = base._montar(template, bypass_request_token=bypass_request_token)
                 try:
-                    resposta = base._enviar(argumentos, proxy=proxy["url"])
+                    resposta = base._enviar(argumentos)
                 except Exception as erro:
                     self._registrar_erro(
                         base,
