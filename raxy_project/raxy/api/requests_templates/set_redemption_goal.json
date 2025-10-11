@@ -3,9 +3,13 @@
     "url": "https://www.bing.com/rewardsapp/setredemptiongoal",
     "headers": {
         "accept": "*/*",
-        "content-type": "application/json"
+        "accept-language": "en-US,en;q=0.9",
+        "content-type": "text/plain;charset=UTF-8",
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "x-rewards-csrf": "1",
+        "Referer": "https://www.bing.com/rewards/panelflyout"
     },
-    "json": {
-        "Goal": "{sku}"
-    }
+    "data": "{{\"Goal\":\"{sku}\"}}"
 }

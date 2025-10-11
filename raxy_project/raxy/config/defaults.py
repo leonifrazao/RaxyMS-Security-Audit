@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-DEFAULT_ACTIONS = ["login", "rewards", "solicitacoes"]
+DEFAULT_ACTIONS = ["login", "rewards", "solicitacoes", "flyout"]
 DEFAULT_API_ERROR_WORDS = [
     "captcha",
     "verifique",

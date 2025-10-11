@@ -127,7 +127,7 @@ class BaseRequest:
         except Exception:
             full_error = traceback.format_exc()
             self._logger.erro(f"Falha ao atualizar cookies para {url}", erro=full_error)
-
+    
     def executar(self, diretorio_template, bypass_request_token=False, use_ua = True, use_cookies = True, proxy: dict = {}):
         if not isinstance(diretorio_template, dict):  
             template = self._carregar(diretorio_template)
@@ -214,16 +214,9 @@ class BaseRequest:
     @staticmethod
     @request(cache=False, raise_exception=True, create_error_logs=False, output=None)
     def _enviar(req: Request, args: dict, proxy: str | None = None):
-        metodo = args["metodo"]
-        url = args["url"]
-        return getattr(req, metodo)(
-            url,
-            params=args["params"],
-            data=args["data"],
-            json=args["json"],
-            headers=args["headers"],
-            cookies=args["cookies"]
-        )
+        metodo = args.pop("metodo")
+        # Desempacota o dicionário 'args' para passar seus conteúdos como argumentos nomeados
+        return getattr(req, metodo)(**args)
 
 
 __all__ = [

@@ -41,7 +41,12 @@ class BingFlyoutService(IBingFlyoutService):
             with scoped_logger.etapa("Definir meta de resgate via API", sku=sku):
                 # 1. Extrair dados dinâmicos da página do flyout via request headless
                 scoped_logger.info("Extraindo dados de onboarding da página do flyout...")
-                dados_onboarding = self._extrair_dados_onboarding(sessao)
+                dados_onboarding = self._extrair_dados_onboarding(sessao) # Pode retornar None
+
+                if not dados_onboarding:
+                    scoped_logger.aviso("Promoção de onboarding não encontrada ou indisponível. Ignorando definição de meta.")
+                    # Retorna True porque a ausência da promoção não é um erro de execução.
+                    return True
                 
                 if sku not in dados_onboarding["skus_disponiveis"]:
                     scoped_logger.aviso(
@@ -64,12 +69,13 @@ class BingFlyoutService(IBingFlyoutService):
             scoped_logger.erro("Falha no processo de definir meta.", erro=str(e))
             return False
 
-    def _extrair_dados_onboarding(self, sessao: SessaoSolicitacoes) -> dict[str, Any]:
+    def _extrair_dados_onboarding(self, sessao: SessaoSolicitacoes) -> dict[str, Any] | None:
         """
         Acessa a página do flyout com uma requisição headless para obter o HTML
         e extrai os dados dinâmicos necessários.
         """
         # Cria uma requisição GET simples para o flyout usando o executor da sessão
+        scoped_logger = self._logger.com_contexto(perfil=sessao.perfil, acao="extrair_dados_onboarding")
         flyout_request_template = {
             "method": "GET",
             "url": FLYOUT_URL,
@@ -96,13 +102,27 @@ class BingFlyoutService(IBingFlyoutService):
         if not flyout_result_str:
             raise ValueError("Não foi possível encontrar o JSON 'flyoutResult' no HTML do flyout.")
 
-        flyout_data = json.loads(flyout_result_str)
+        flyout_result_data = json.loads(flyout_result_str)
         
         try:
-            onboarding_promo = flyout_data["onboardingPromotion"]
-            skus_disponiveis = [item["sku"] for item in onboarding_promo.get("redemptionGoalItems", [])]
+            # A chave 'userId' agora está no nível superior do 'flyoutViewModel',
+            # que contém o 'flyoutResult'. Vamos extrair o viewModel completo.
+            view_model_match = re.search(r'window\.flyoutViewModel\s*=\s*({.*?});', html_content, re.DOTALL)
+            if not view_model_match:
+                raise ValueError("Não foi possível encontrar o JSON 'flyoutViewModel' no HTML do flyout.")
+            
+            view_model_data = json.loads(view_model_match.group(1))
+            onboarding_promo = flyout_result_data.get("onboardingPromotion")
+            
+            # Adiciona uma verificação para o caso de onboarding_promo ser None
+            if onboarding_promo is None or not flyout_result_data.get("userStatus"):
+                # Não é um erro, apenas a promoção não está ativa. Retorna None.
+                return None
+
+            skus_disponiveis = [item["sku"] for item in onboarding_promo.get("redemptionGoalItems", []) if item]
+            
             return {
-                "user_id": flyout_data["userId"],
+                "user_id": view_model_data["userId"],
                 "offer_id": onboarding_promo["offerId"],
                 "auth_key": onboarding_promo["hash"],
                 "skus_disponiveis": skus_disponiveis,
@@ -115,10 +135,12 @@ class BingFlyoutService(IBingFlyoutService):
         with open(self._TEMPLATE_SET_GOAL, "r", encoding="utf-8") as f:
             template = json.load(f)
         
-        # Insere o SKU no payload do template
-        template["json"]["Goal"] = sku
+        # Formata a string 'data' com o SKU fornecido
+        template["data"] = template["data"].format(sku=sku)
 
-        resposta = sessao.base_request.executar(template, bypass_request_token=True)
+        # Monta e envia a requisição
+        args = sessao.base_request._montar(template, bypass_request_token=False)
+        resposta = sessao.base_request._enviar(args)
         
         if not getattr(resposta, "ok", False):
             raise RuntimeError(f"Falha ao definir meta. Status: {getattr(resposta, 'status_code', 'N/A')}")
@@ -128,18 +150,17 @@ class BingFlyoutService(IBingFlyoutService):
     def _executar_report_activity(self, sessao: SessaoSolicitacoes, dados: dict[str, Any]) -> None:
         """Executa a requisição para reportar a atividade de onboarding."""
         with open(self._TEMPLATE_REPORT_ACTIVITY, "r", encoding="utf-8") as f:
-            # Carrega o template como texto para permitir a formatação
-            template_str = f.read()
-
-        # Substitui todos os placeholders usando .format()
-        template_str_modificado = template_str.format(
-            offer_id=dados["offer_id"],
-            auth_key=dados["auth_key"],
-            user_id=dados["user_id"],
-        )
-        template = json.loads(template_str_modificado)
+            template = json.load(f)
         
-        resposta = sessao.base_request.executar(template)
+        # Modifica o payload JSON diretamente no dicionário do template
+        payload = template["json"]
+        payload["offerid"] = dados["offer_id"]
+        payload["authkey"] = dados["auth_key"]
+        payload["userid"] = dados["user_id"]
+        
+        # Monta os argumentos da requisição com o template modificado e depois envia
+        args = sessao.base_request._montar(template, bypass_request_token=False)
+        resposta = sessao.base_request._enviar(args)
         
         if not getattr(resposta, "ok", False):
             raise RuntimeError(f"Falha ao reportar atividade. Status: {getattr(resposta, 'status_code', 'N/A')}")
