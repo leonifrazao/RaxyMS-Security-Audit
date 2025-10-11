@@ -91,6 +91,7 @@ class SimpleInjector:
                 proxy_service=inj.get(IProxyService),
                 # Passa a nova dependência para o executor
                 db_repository=inj.get(IDatabaseRepository),
+                bing_flyout_service=inj.get(IBingFlyoutService)
             ),
         )
 

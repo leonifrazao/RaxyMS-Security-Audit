@@ -105,12 +105,14 @@ class BaseRequest:
         self.cookies = self.driver.get_cookies_dict()
         self.user_agent = self.driver.profile.get("UA")
 
-        try:
-            html = driver.requests.get(url_base).text
-        except Exception:
-            html = None
+        # CORREÇÃO: Usa o page_source do driver, que contém a página autenticada,
+        # em vez de fazer uma nova requisição não autenticada.
+        self.driver.get(url_base) 
+        html = soupify(driver)
         self.token_antifalsificacao = _extract_request_verification_token(html)
         
+        if not self.token_antifalsificacao:
+            self._logger.aviso("Não foi possível extrair o __RequestVerificationToken da página.")
     
     def atualizar_cookies_para_dominio(self, url: str) -> None:
         """Navega para uma nova URL e adiciona os cookies desse domínio à sessão."""
@@ -138,9 +140,8 @@ class BaseRequest:
 
         for tentativa in range(1, tentativas + 1):
             try:
-                if "url" in proxy:
-                    
-                    return self._enviar(args, proxy=proxy["url"])
+                proxy_url = proxy.get("url") if isinstance(proxy, dict) else None
+                return self._enviar(args, proxy=proxy_url)
             except Exception as exc:  # pragma: no cover - fluxo de erro depende da rede
                 ultima_excecao = exc
                 if tentativa >= tentativas:
@@ -155,6 +156,8 @@ class BaseRequest:
 
         if ultima_excecao is not None:
             raise ultima_excecao
+        
+        return None
 
     def _carregar(self, diretorio_template):
         caminho = diretorio_template
@@ -210,7 +213,7 @@ class BaseRequest:
 
     @staticmethod
     @request(cache=False, raise_exception=True, create_error_logs=False, output=None)
-    def _enviar(req: Request, args: dict):
+    def _enviar(req: Request, args: dict, proxy: str | None = None):
         metodo = args["metodo"]
         url = args["url"]
         return getattr(req, metodo)(
@@ -219,7 +222,7 @@ class BaseRequest:
             data=args["data"],
             json=args["json"],
             headers=args["headers"],
-            cookies=args["cookies"],
+            cookies=args["cookies"]
         )
 
 
