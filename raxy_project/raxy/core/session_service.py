@@ -79,22 +79,9 @@ class SessaoSolicitacoes:
         )
 
 
-def _extract_request_verification_token(html):
-    if not html:
-        return None
-    try:
-        soup = soupify(html)
-        campo = soup.find("input", {"name": "__RequestVerificationToken"})
-        if campo and campo.get("value"):
-            return campo["value"].strip() or None
-    except Exception:
-        return None
-    return None
-
-
 class BaseRequest:
     """Carrega templates JSON e executa requests autenticadas para UMA SESSÃO."""
-    def __init__(self, perfil: str, driver: Driver, url_base="https://rewards.bing.com/"):
+    def __init__(self, perfil: str, driver: Driver, url_base="https://rewards.bing.com/", token_antifalsificacao: str | None = None) -> None:
         from raxy.services.logging_service import log
         
         self.perfil = perfil
@@ -107,9 +94,7 @@ class BaseRequest:
 
         # CORREÇÃO: Usa o page_source do driver, que contém a página autenticada,
         # em vez de fazer uma nova requisição não autenticada.
-        self.driver.get(url_base) 
-        html = soupify(driver)
-        self.token_antifalsificacao = _extract_request_verification_token(html)
+        self.token_antifalsificacao = token_antifalsificacao
         
         if not self.token_antifalsificacao:
             self._logger.aviso("Não foi possível extrair o __RequestVerificationToken da página.")
@@ -222,5 +207,5 @@ class BaseRequest:
 __all__ = [
     "BaseRequest",
     "SessaoSolicitacoes",
-    "ParametrosManualSolicitacao",
+    "ParametrosManualSolicitacao"
 ]

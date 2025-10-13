@@ -1748,6 +1748,7 @@ class Proxy(IProxyService):
     
     def rotate_proxy(self, bridge_id: int) -> bool:
         """Troca a proxy de uma ponte em execução por outra proxy aleatória e funcional."""
+        
         if not self._running or not (0 <= bridge_id < len(self._bridges)):
             if self.console:
                 msg = f"ID de ponte inválido: {bridge_id}. IDs válidos: 0 a {len(self._bridges) - 1}."
@@ -1756,6 +1757,16 @@ class Proxy(IProxyService):
 
         bridge = self._bridges[bridge_id]
         uri_to_replace = bridge.uri
+
+        # Encontra a entrada correspondente na lista principal e a invalida
+        entry_to_invalidate = next((e for e in self._entries if e.get("uri") == uri_to_replace), None)
+        if entry_to_invalidate:
+            entry_to_invalidate["status"] = "ERRO"
+            entry_to_invalidate["error"] = "Proxy invalidada manualmente via rotação"
+            entry_to_invalidate["tested_at_ts"] = time.time() # Atualiza o timestamp
+            self._save_cache(self._entries) # Salva o cache com a proxy invalidada
+            if self.console:
+                self.console.print(f"[dim]Proxy '{bridge.tag}' marcada como inválida no cache.[/dim]")
 
         candidates = [
             entry for entry in self._entries

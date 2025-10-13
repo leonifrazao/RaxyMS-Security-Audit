@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Iterable, Sequence
 
-from raxy.config import DEFAULT_ACTIONS, DEFAULT_MAX_WORKERS, DEFAULT_USERS_FILE
+from raxy.config import DEFAULT_ACTIONS, DEFAULT_MAX_WORKERS, DEFAULT_USERS_FILE, WORKERS_PROXY
 from raxy.domain import Conta
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
@@ -78,7 +78,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
             return
 
         total_contas = len(contas_processar)
-        self._proxy_service.start(threads=200, amounts=total_contas, auto_test=True)
+        self._proxy_service.start(threads=WORKERS_PROXY, amounts=total_contas, auto_test=True)
 
         self._logger.info(
             "Iniciando processamento em lote com multithreading.",
@@ -100,16 +100,20 @@ class ExecutorEmLote(IExecutorEmLoteService):
                 for conta, proxy in zip(contas_processar, proxies)
             }
 
+            resultados = []
             for futuro in as_completed(futuros):
                 try:
-                    futuro.result()
+                    resultados.append(futuro.result())
                 except Exception as exc:
                     self._logger.erro(
                         "Uma thread de processamento encontrou um erro inesperado e foi encerrada.",
                         erro=str(exc)
                     )
-
-        self._logger.sucesso("Processamento em lote finalizado para todas as contas.")
+        if all(resultados):
+            self._logger.sucesso("Processamento em lote finalizado para todas as contas.")
+        else:
+            falhas = resultados.count(False)
+            self._logger.aviso(f"Processamento em lote finalizado com {falhas} falhas.")
 
     def _processar_conta(self, conta: Conta, acoes: Sequence[str], proxy: dict) -> None:
         """
@@ -121,6 +125,10 @@ class ExecutorEmLote(IExecutorEmLoteService):
         try:
             self._perfil_service.garantir_perfil(conta.id_perfil, conta.email, conta.senha)
             
+            if not "login" in acoes:
+                scoped_logger.aviso("Ação 'login' não está na lista de ações. Pulando login e demais ações.")
+                return False
+            
             sessao = self._autenticador.executar(conta, proxy=proxy) if "login" in acoes else None
             
             pontos_iniciais = self._rewards_data.obter_pontos(sessao.base_request)
@@ -130,8 +138,7 @@ class ExecutorEmLote(IExecutorEmLoteService):
                 scoped_logger.sucesso("Login bem-sucedido.", pontos_atual=pontos_iniciais)
                 
                 if "flyout" in acoes:
-                    sku_meta_padrao = "000409000021" # Cartão-presente Xbox
-                    self._bing_flyout_service.set_goal(sessao, sku=sku_meta_padrao)
+                    self._bing_flyout_service.abrir_flyout(profile=sessao.perfil, proxy=proxy)
                     
                     
                 if "rewards" in acoes:
@@ -156,10 +163,12 @@ class ExecutorEmLote(IExecutorEmLoteService):
                     scoped_logger.aviso("Pontuação final não foi determinada, registro no banco de dados ignorado.")
 
             scoped_logger.sucesso("Conta processada com sucesso pela thread.")
+            return True
 
         except Exception as exc:
             scoped_logger.erro("Falha ao processar conta na thread.", erro=str(exc))
-            raise
+            return False
+        
 
     @staticmethod
     def _normalizar_acoes(acoes: Iterable[str]) -> list[str]:

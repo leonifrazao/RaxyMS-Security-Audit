@@ -69,13 +69,6 @@ pkgs.mkShell {
     jdk
 
     xray
-
-    code-cursor
-
-    # Dependências para Shotgun Code
-    steam-run          # <-- ADICIONADO: O wrapper para executar o app
-    webkitgtk_4_1      # <-- ADICIONADO: A biblioteca que estava faltando
-
   ]) ++ [
     burpsuite
   ];
