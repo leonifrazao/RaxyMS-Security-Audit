@@ -24,6 +24,18 @@ class ProxyRotationRequiredException(Exception):
         self.proxy_id = proxy_id
         super().__init__(f"Erro HTTP {status_code} detectado. Rotação de proxy necessária (ID: {proxy_id})")
 
+def _extract_request_verification_token(html):
+    if not html:
+        return None
+    try:
+        soup = soupify(html)
+        campo = soup.find("input", {"name": "__RequestVerificationToken"})
+        if campo and campo.get("value"):
+            return campo["value"].strip() or None
+    except Exception:
+        return None
+    return None
+
 
 class RewardsBrowserService(IRewardsBrowserService):
     """Encapsula operações que dependem do navegador controlado pelo Botasaurus."""
@@ -57,6 +69,8 @@ class RewardsBrowserService(IRewardsBrowserService):
         reuse_driver=False,
         remove_default_browser_check_argument=True,
         wait_for_complete_page_load=False,
+        raise_exception=True,
+        close_on_crash=True,
         block_images=True,
         output=None,
         tiny_profile=True,
@@ -86,6 +100,7 @@ class RewardsBrowserService(IRewardsBrowserService):
         
         if driver.run_js("return document.title").lower() == "microsoft rewards":
             registro.sucesso("Conta já autenticada")
+            html = soupify(driver)
             registro.info("Coletando cookies do domínio de pesquisa...")
             driver.google_get("https://www.bing.com") 
             
@@ -93,7 +108,7 @@ class RewardsBrowserService(IRewardsBrowserService):
             registro.info("Cookies coletados.")
             
             # REATORAÇÃO: A lógica de extração do token agora está centralizada no construtor do BaseRequest.
-            base_request = BaseRequest(driver.config.profile, driver)
+            base_request = BaseRequest(driver.config.profile, driver, token_antifalsificacao=_extract_request_verification_token(html))
 
             registro.debug(
                 "Sessão pronta para requests",
@@ -104,8 +119,8 @@ class RewardsBrowserService(IRewardsBrowserService):
             return base_request
 
         if not driver.is_element_present("input[type='email']", wait=Wait.VERY_LONG):
-            registro.erro("Campo de email não encontrado na página")
-            raise RuntimeError("Campo de email não encontrado na página de login")
+            registro.erro("Campo de email não encontrado na página, trocando proxy")
+            raise ProxyRotationRequiredException(400, proxy_id)
 
         registro.info("Digitando email")
         driver.type("input[type='email']", email_normalizado, wait=Wait.VERY_LONG)
@@ -141,12 +156,13 @@ class RewardsBrowserService(IRewardsBrowserService):
                 registro.aviso(f"Login concluído mas com status inesperado: {status_final}")
             else:
                 registro.debug("Nenhum status HTTP registrado após login")
+            html = soupify(driver)
             
             registro.info("Coletando cookies do domínio de pesquisa...")
             driver.google_get("https://www.bing.com")
 
             # REATORAÇÃO: A lógica de extração do token agora está centralizada no construtor do BaseRequest.
-            base_request = BaseRequest(driver.config.profile, driver)
+            base_request = BaseRequest(driver.config.profile, driver, token_antifalsificacao=_extract_request_verification_token(html))
 
             registro.debug(
                 "Sessão pronta para requests",
@@ -174,23 +190,23 @@ class RewardsBrowserService(IRewardsBrowserService):
         Rotaciona a proxy automaticamente em caso de erro HTTP 400+ até conseguir login bem-sucedido.
         """
         registro = log.com_contexto(fluxo="login_com_rotacao", perfil=profile)
-        proxy_atual = proxy
         tentativas = 0
         
         while True:
             tentativas += 1
             try:
-                registro.debug(f"Tentativa #{tentativas} de login", proxy_id=proxy_atual["id"])
-                return self._login(profile=profile, proxy=proxy_atual["url"], data={"proxy": proxy_atual})
+                registro.debug(f"Tentativa #{tentativas} de login", proxy_id=proxy["id"])
+                resultado = self._login(profile=profile, proxy=proxy["url"], data={"proxy": proxy})
+                return resultado
             except ProxyRotationRequiredException as e:
                 registro.aviso(
                     f"Tentativa #{tentativas} falhou com status {e.status_code}",
-                    proxy_id=proxy_atual["id"]
+                    proxy_id=proxy["id"]
                 )
                 
                 # Rotaciona a proxy mantendo o mesmo ID
-                proxy_atual = self._proxy_service.rotate_proxy(proxy_atual["id"])
-                registro.info(f"Proxy rotacionada - Nova tentativa com URL: {proxy_atual['url']}")
+                self._proxy_service.rotate_proxy(proxy["id"])
+                registro.info(f"Proxy rotacionada - Nova tentativa")
 
 
 __all__ = ["RewardsBrowserService", "ProxyRotationRequiredException"]

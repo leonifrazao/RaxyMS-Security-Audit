@@ -60,7 +60,7 @@ class SimpleInjector:
         self.bind_singleton(IBingSuggestion, lambda inj: BingSuggestionAPI())
         self.bind_singleton(
             IBingFlyoutService,
-            lambda inj: BingFlyoutService(logger=inj.get(ILoggingService))
+            lambda inj: BingFlyoutService()
         )
         
         # Vincula a nova interface à sua implementação Supabase

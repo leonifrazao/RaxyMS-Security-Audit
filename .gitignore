@@ -14,7 +14,6 @@ venv/
 # Logs e arquivos gerados em execucoes
 error_logs/
 profiles/
-proxy_cache.json
 profiles.json
 *.log
 
@@ -29,3 +28,4 @@ debug_respostas/
 
 # Node
 .pnpm
+proxy_cache.json
