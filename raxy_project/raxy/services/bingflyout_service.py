@@ -55,9 +55,12 @@ class BingFlyoutService(IBingFlyoutService):
             try:
                 driver.click(f'div[id="Card_{random.randint(0, 3)}"]')
                 driver.short_random_sleep()
+                driver.click('button[id="slideshow_nb"]')
+                driver.short_random_sleep()
             except Exception:
                 pass
-
+        while not driver.is_element_present('div[class="onboarding_checklist_title"]'): #Pode dar merda kkakakaka
+            driver.short_random_sleep()
         html = getattr(driver, "page_html", "") or ""
         if not html:
             log.aviso("HTML do flyout não disponível.")

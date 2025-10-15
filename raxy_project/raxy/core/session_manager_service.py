@@ -118,6 +118,11 @@ class SessionManagerService:
         driver.type("input[type='password']", senha_normalizada, wait=Wait.VERY_LONG)
         driver.click("button[type='submit']")
         driver.short_random_sleep()
+        
+        while driver.run_js("return document.title").lower() == "let's protect your account":
+            driver.short_random_sleep()
+            driver.click("a[id='iShowSkip']", wait=Wait.LONG)
+            driver.short_random_sleep()
 
         try:
             driver.click("button[data-testid='primaryButton']", wait=Wait.SHORT)
