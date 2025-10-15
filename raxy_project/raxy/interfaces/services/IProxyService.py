@@ -1,80 +1,42 @@
-"""Contrato para gerenciamento de proxys via Xray/V2Ray."""
-
 from __future__ import annotations
-
+from typing import List, Dict, Optional
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, List, Optional, Dict
 
 
 class IProxyService(ABC):
-    """Define operacoes publicas para manipulacao de proxys."""
+    """Interface para gerenciamento de proxies (v2ray/xray)."""
 
-    @property
     @abstractmethod
-    def entries(self) -> List[Dict[str, Any]]:
-        """Retorna os registros carregados ou decorrentes dos últimos testes."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def parse_errors(self) -> List[str]:
-        """Lista de linhas ignoradas ao interpretar os links informados."""
+    def add_sources(self, sources: List[str]) -> int:
+        """Adiciona proxies a partir de fontes (linhas de URIs)."""
         raise NotImplementedError
 
     @abstractmethod
-    def add_proxies(self, proxies: Iterable[str]) -> int:
-        """Adiciona proxys a partir de URIs completos (ss, vmess, vless, trojan)."""
+    def add_proxies(self, proxies: List[str]) -> int:
+        """Adiciona proxies diretamente (URIs)."""
         raise NotImplementedError
 
     @abstractmethod
-    def add_sources(self, sources: Iterable[str]) -> int:
-        """Carrega proxys de arquivos locais ou URLs linha a linha."""
+    def test(self, *, threads: Optional[int] = 1, force: bool = False, timeout: Optional[float] = None) -> List[Dict]:
+        """Testa proxies carregados e retorna resultados."""
         raise NotImplementedError
 
     @abstractmethod
-    def test(
-        self,
-        *,
-        threads: Optional[int] = 1,
-        country: Optional[str] = None,
-        verbose: Optional[bool] = None,
-        timeout: float = 10.0,
-        force: bool = False,
-        find_first: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
-        """Testa as proxies carregadas usando rota real para medir ping."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def start(
-        self,
-        *,
-        threads: Optional[int] = None,
-        amounts: Optional[int] = None,
-        country: Optional[str] = None,
-        auto_test: bool = True,
-        wait: bool = False,
-        find_first: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
-        """Cria pontes HTTP locais para as proxys aprovadas opcionalmente testando antes."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def wait(self) -> None:
-        """Bloqueia até que todas as pontes terminem ou ``stop`` seja chamado."""
+    def start(self, *, amounts: Optional[int] = None, auto_test: bool = True) -> List[Dict]:
+        """Inicia pontes HTTP locais e retorna lista de proxies ativos."""
         raise NotImplementedError
 
     @abstractmethod
     def stop(self) -> None:
-        """Finaliza processos Xray ativos e limpa arquivos temporários."""
+        """Encerra todas as pontes ativas."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_http_proxy(self) -> List[Dict[str, Any]]:
-        """Retorna ID, URL local e URI de cada ponte em execução."""
+    def get_http_proxy(self) -> List[Dict]:
+        """Lista proxies HTTP ativos (id, url, uri)."""
         raise NotImplementedError
 
     @abstractmethod
     def rotate_proxy(self, bridge_id: int) -> bool:
-        """Troca a proxy de uma ponte em execução por outra proxy aleatória e funcional."""
+        """Rotaciona proxy de uma ponte específica."""
         raise NotImplementedError

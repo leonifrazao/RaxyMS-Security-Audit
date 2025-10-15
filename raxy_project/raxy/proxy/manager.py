@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Ferramenta orientada a biblioteca para testar e criar pontes HTTP para proxys V2Ray/Xray.
 

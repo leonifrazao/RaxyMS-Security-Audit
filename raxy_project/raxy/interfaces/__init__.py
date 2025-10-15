@@ -1,13 +1,9 @@
 """Interfaces públicas utilizadas pelo container de injeção."""
 
 from .services import (
-    IAutenticadorRewardsService,
     IExecutorEmLoteService,
-    IGerenciadorSolicitacoesService,
     ILoggingService,
-    INavegadorRewardsService,
     IPerfilService,
-    IRewardsBrowserService,
     IRewardsDataService,
     IBingSuggestion
 )
@@ -17,12 +13,9 @@ __all__ = [
     "IAutenticadorRewardsService",
     "IContaRepository",
     "IExecutorEmLoteService",
-    "IGerenciadorSolicitacoesService",
     "IHistoricoPontuacaoRepository",
     "ILoggingService",
-    "INavegadorRewardsService",
     "IPerfilService",
-    "IRewardsBrowserService",
     "IRewardsDataService",
     "IBingSuggestion",
     "IDatabaseRepository",

@@ -1,27 +1,19 @@
-"""Camada de API para consumo das chamadas HTTP do Microsoft Rewards."""
+"""Camada de API para consumo das chamadas HTTP do Microsoft Rewards usando SessionManagerService."""
 
 from __future__ import annotations
 
 import json
-import traceback
 from copy import deepcopy
-from datetime import datetime
 from pathlib import Path
-from typing import Callable, Iterable, Mapping
+from typing import Iterable, Mapping
 
-# Supondo que estas interfaces existam em algum lugar do seu projeto
 from raxy.interfaces.services import IRewardsDataService
-from raxy.core.session_service import BaseRequest
-
-# Para o código ser autônomo, vamos criar classes dummy
-
+from raxy.core.session_manager_service import SessionManagerService
 
 REQUESTS_DIR = Path(__file__).resolve().parent / "requests_templates"
 
 
 class RewardsDataAPI(IRewardsDataService):
-    """Realiza chamadas HTTP autenticadas ao Rewards sem uso de navegador."""
-
     _TEMPLATE_OBTER_PONTOS = "rewards_obter_pontos.json"
     _TEMPLATE_EXECUTAR_TAREFA = "pegar_recompensa_rewards.json"
 
@@ -31,89 +23,35 @@ class RewardsDataAPI(IRewardsDataService):
     ) -> None:
         self._palavras_erro = tuple(palavra.lower() for palavra in palavras_erro or ("captcha", "temporarily unavailable", "error"))
 
-
-    def obter_pontos(self, base: BaseRequest, *, bypass_request_token: bool = True, proxy: dict = {}) -> int:
+    def obter_pontos(self, sessao: SessionManagerService, *, bypass_request_token: bool = True) -> int:
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
-        resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token)
+        resposta = sessao.execute_template(caminho_template, bypass_request_token=bypass_request_token)
 
-        # CORREÇÃO: Adicionada verificação explícita de None
-        if resposta is None:
-            self._registrar_erro(base, {"metodo": "get", "path": self._TEMPLATE_OBTER_PONTOS})
-            raise RuntimeError("A requisição para obter pontos falhou e não retornou uma resposta.")
-
-        if not getattr(resposta, "ok", False):
-            self._registrar_erro(
-                base,
-                {"metodo": "get", "url": getattr(resposta, "url", None)},
-                resposta_registro=resposta,
-            )
-            raise RuntimeError(f"Request falhou com status {resposta.status_code}")
-
-        texto = (resposta.text or "").lower()
-        for palavra in self._palavras_erro:
-            if palavra and palavra in texto:
-                self._registrar_erro(
-                    base,
-                    {"metodo": "get", "url": getattr(resposta, "url", None)},
-                    resposta_registro=resposta,
-                    extras_registro={"palavras": [palavra]},
-                )
-                raise RuntimeError("Request falhou: " + palavra)
+        if resposta is None or not getattr(resposta, "ok", False):
+            raise RuntimeError(f"Request falhou com status {getattr(resposta, 'status_code', 'N/A')}")
 
         try:
             resposta_json = resposta.json()
         except json.JSONDecodeError as exc:
-            self._registrar_erro(
-                base,
-                {"metodo": "get", "url": getattr(resposta, "url", None)},
-                resposta_registro=resposta,
-                extras_registro={"conteudo": resposta.text[:200]},
-            )
             raise RuntimeError("Request falhou: resposta inválida") from exc
 
         if not isinstance(resposta_json, dict) or "dashboard" not in resposta_json:
-            self._registrar_erro(
-                base,
-                {"metodo": "get", "url": getattr(resposta, "url", None)},
-                resposta_registro=resposta,
-                extras_registro={"conteudo": resposta.text[:200]},
-            )
             raise RuntimeError("Request falhou: formato inesperado")
 
         return int(resposta_json["dashboard"]["userStatus"]["availablePoints"])
 
     def obter_recompensas(
         self,
-        base: BaseRequest,
+        sessao: SessionManagerService,
         *,
         bypass_request_token: bool = True,
-        proxy: dict = {}
     ) -> Mapping[str, object]:
         caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
-        resposta = base.executar(caminho_template, bypass_request_token=bypass_request_token)
-
-        # CORREÇÃO: Adicionada verificação explícita de None
-        if resposta is None:
-            self._registrar_erro(base, {"metodo": "get", "path": self._TEMPLATE_OBTER_PONTOS})
-            raise RuntimeError("A requisição para obter recompensas falhou e não retornou uma resposta.")
-
-        if not getattr(resposta, "ok", False):
-            self._registrar_erro(
-                base,
-                {"metodo": "get", "url": getattr(resposta, "url", None)},
-                resposta_registro=resposta,
-            )
-            raise RuntimeError(f"Request falhou com status {resposta.status_code}")
+        resposta = sessao.execute_template(caminho_template, bypass_request_token=bypass_request_token)
 
         try:
             corpo = resposta.json()
         except json.JSONDecodeError as exc:
-            self._registrar_erro(
-                base,
-                {"metodo": "get", "url": getattr(resposta, "url", None)},
-                resposta_registro=resposta,
-                extras_registro={"conteudo": resposta.text[:200]},
-            )
             raise RuntimeError("Request falhou: resposta inválida") from exc
 
         if not isinstance(corpo, dict):
@@ -147,12 +85,11 @@ class RewardsDataAPI(IRewardsDataService):
 
     def pegar_recompensas(
         self,
-        base: BaseRequest,
+        sessao: SessionManagerService,
         *,
         bypass_request_token: bool = True,
-        proxy: dict = {}
     ) -> Mapping[str, object]:
-        recompensas = self.obter_recompensas(base, bypass_request_token=bypass_request_token)
+        recompensas = self.obter_recompensas(sessao, bypass_request_token=bypass_request_token)
 
         daily_sets = recompensas.get("daily_sets", []) if isinstance(recompensas, dict) else []
         more_promotions = recompensas.get("more_promotions", []) if isinstance(recompensas, dict) else []
@@ -160,13 +97,11 @@ class RewardsDataAPI(IRewardsDataService):
         if not daily_sets and not more_promotions:
             return {"daily_sets": [], "more_promotions": []}
 
-        # Criação do diretório e arquivo de template para o exemplo funcionar
-        REQUESTS_DIR.mkdir(exist_ok=True)
         template_path = REQUESTS_DIR / self._TEMPLATE_EXECUTAR_TAREFA
         if not template_path.exists():
             with open(template_path, 'w', encoding="utf-8") as f:
                 json.dump({"data": {}}, f)
-        
+
         with open(template_path, encoding="utf-8") as arquivo:
             template_base = json.load(arquivo)
 
@@ -182,19 +117,12 @@ class RewardsDataAPI(IRewardsDataService):
                 payload = dict(template.get("data") or {})
                 payload["id"] = identificador
                 payload["hash"] = hash_promocao
-                payload["__RequestVerificationToken"] = base.token_antifalsificacao
+                payload["__RequestVerificationToken"] = sessao.token_antifalsificacao
                 template["data"] = payload
 
-                argumentos = base._montar(template, bypass_request_token=bypass_request_token)
                 try:
-                    resposta = base._enviar(argumentos)
+                    resposta = sessao.execute_template(template, bypass_request_token=False)
                 except Exception as erro:
-                    self._registrar_erro(
-                        base,
-                        {"metodo": argumentos.get("metodo"), "url": argumentos.get("url")},
-                        erro_registro=erro,
-                        extras_registro={"id": identificador, "hash": hash_promocao},
-                    )
                     promocoes_resultado.append(
                         {
                             "id": identificador,
@@ -205,14 +133,6 @@ class RewardsDataAPI(IRewardsDataService):
                         }
                     )
                     continue
-
-                if not getattr(resposta, "ok", False):
-                    self._registrar_erro(
-                        base,
-                        {"metodo": argumentos.get("metodo"), "url": argumentos.get("url")},
-                        resposta_registro=resposta,
-                        extras_registro={"id": identificador, "hash": hash_promocao},
-                    )
 
                 promocoes_resultado.append(
                     {
@@ -233,25 +153,17 @@ class RewardsDataAPI(IRewardsDataService):
             resultado = processar_promocoes(conjunto.get("promotions", []), data_referencia)
             if resultado.get("promotions"):
                 resultados_daily_sets.append(resultado)
-        
+
         resultados_more_promotions = []
         if more_promotions:
             resultado = processar_promocoes(more_promotions)
             if resultado.get("promotions"):
-                # Correção: extrai a lista de promoções do dicionário retornado
                 resultados_more_promotions = resultado["promotions"]
 
         return {
             "daily_sets": resultados_daily_sets,
             "more_promotions": resultados_more_promotions,
         }
-
-    @staticmethod
-    def _parse_bool(value: str | None) -> bool:
-        if value is None:
-            return False
-        valor_normalizado = value.strip().lower()
-        return valor_normalizado in {"1", "true", "t", "yes", "y", "on"}
 
     def _montar_promocao(self, item: Mapping[str, object], data_ref: str | None = None) -> Mapping[str, object]:
         atributos_obj = item.get("attributes")
@@ -296,38 +208,3 @@ class RewardsDataAPI(IRewardsDataService):
             if numeros:
                 return int("".join(numeros))
         return None
-
-    @staticmethod
-    def _registrar_erro(
-        parametros: BaseRequest,
-        chamada: Mapping[str, object],
-        *,
-        resposta_registro: object | None = None,
-        erro_registro: BaseException | None = None,
-        extras_registro: Mapping[str, object] | None = None,
-    ) -> Path:
-        base = Path.cwd() / "error_logs"
-        base.mkdir(parents=True, exist_ok=True)
-        destino = base / f"request_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-        destino.mkdir(parents=True, exist_ok=True)
-
-        detalhes = {
-            "perfil": getattr(parametros, "perfil", None),
-            "metodo": chamada.get("metodo"),
-            "url": chamada.get("url"),
-        }
-        if extras_registro:
-            detalhes.update(extras_registro)
-        if resposta_registro is not None:
-            detalhes["status"] = getattr(resposta_registro, "status_code", None)
-        if erro_registro is not None:
-            detalhes["erro"] = repr(erro_registro)
-            detalhes["traceback"] = "\n".join(
-                traceback.format_exception(type(erro_registro), erro_registro, erro_registro.__traceback__)
-            )
-
-        (destino / "detalhes.json").write_text(json.dumps(detalhes, indent=2, ensure_ascii=False), encoding="utf-8")
-        return destino
-
-
-__all__ = ["RewardsDataAPI"]

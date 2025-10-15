@@ -1,6 +1,6 @@
 {
     "method": "GET",
-    "path": "/api/getuserinfo?type=1",
+    "path": "https://rewards.bing.com/api/getuserinfo?type=1",
     "headers": {
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "application/json, text/javascript, */*; q=0.01",

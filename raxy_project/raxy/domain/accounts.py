@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from raxy.proxy import Proxy  # sua implementação
+
 
 @dataclass(frozen=True, slots=True)
 class Conta:
@@ -12,4 +14,4 @@ class Conta:
     email: str
     senha: str
     id_perfil: str
-    proxy: str
+    proxy: dict | None = None

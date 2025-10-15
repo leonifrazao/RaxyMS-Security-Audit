@@ -1,47 +1,19 @@
-"""Contrato para operações de API HTTP do Microsoft Rewards."""
+"""Contrato para sugestões de pesquisa do Bing usando SessionManagerService."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Mapping, TYPE_CHECKING
-
-from raxy.core.session_service import BaseRequest
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from raxy.core.session_service import BaseRequest
+    from raxy.core.session_manager_service import SessionManagerService
 
 
 class IBingSuggestion(ABC):
-    """Opera sobre a API HTTP do Rewards sem interação com navegador."""
-
+    @abstractmethod
+    def get_all(self, sessao: "SessionManagerService", keyword: str) -> list[dict[str, Any]]:
+        """Retorna todas as sugestões para a palavra-chave."""
 
     @abstractmethod
-    def get_all(self, base: BaseRequest ,keyword: str):
-        """
-        Busca todas as sugestões de pesquisa para uma determinada palavra-chave.
-
-        Args:
-            keyword: O termo a ser pesquisado.
-
-        Returns:
-            Uma lista de dicionários, onde cada um representa uma sugestão.
-        
-        Raises:
-            ValueError: Se a palavra-chave for inválida.
-            TypeError: Se a resposta da API não tiver o formato esperado.
-        """
-
-    @abstractmethod
-    def get_random(self, base: BaseRequest, keyword: str):
-        """
-        Busca uma sugestão de pesquisa aleatória para a palavra-chave.
-
-        Args:
-            keyword: O termo a ser pesquisado.
-
-        Returns:
-            Um dicionário representando uma única sugestão aleatória.
-
-        Raises:
-            ValueError: Se nenhuma sugestão for encontrada.
-        """
+    def get_random(self, sessao: "SessionManagerService", keyword: str) -> dict[str, Any]:
+        """Retorna uma sugestão aleatória para a palavra-chave."""

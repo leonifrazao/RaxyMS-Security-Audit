@@ -1,5 +1,4 @@
-"""Container de injeção de dependências inspirado em Ninject."""
-
+# raxy/container.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,29 +6,23 @@ from typing import Any, Callable, Dict, Type, TypeVar
 
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
-    IAutenticadorRewardsService,
     IExecutorEmLoteService,
     ILoggingService,
-    INavegadorRewardsService,
     IPerfilService,
-    IRewardsBrowserService,
     IRewardsDataService,
     IProxyService,
     IBingSuggestion,
-    IBingFlyoutService
+    IBingFlyoutService,
 )
 from raxy.repositories.file_account_repository import ArquivoContaRepository
-from raxy.services.auth_service import AutenticadorRewards, NavegadorRecompensas
 from raxy.services.executor_service import ExecutorConfig, ExecutorEmLote
 from raxy.services.logging_service import log
 from raxy.services.perfil_service import GerenciadorPerfil
-from raxy.services.rewards_browser_service import RewardsBrowserService
-from raxy.api.proxy import Proxy
 from raxy.api.rewards_data_api import RewardsDataAPI
 from raxy.api.bing_suggestion_api import BingSuggestionAPI
 from raxy.api.db import SupabaseRepository
 from raxy.services.bingflyout_service import BingFlyoutService
-
+from raxy.proxy import Proxy  # sua implementação
 
 _T = TypeVar("_T")
 
@@ -43,8 +36,6 @@ class _Binding:
 
 
 class SimpleInjector:
-    """Container leve que oferece API similar ao Injector/Ninject."""
-
     def __init__(self, config: ExecutorConfig | None = None) -> None:
         self._bindings: Dict[Type[Any], _Binding] = {}
         self._config = config or ExecutorConfig()
@@ -55,47 +46,26 @@ class SimpleInjector:
         self.bind_instance(ExecutorConfig, self._config)
         self.bind_singleton(ILoggingService, lambda inj: log)
         self.bind_singleton(IPerfilService, lambda inj: GerenciadorPerfil())
-        self.bind_singleton(IRewardsBrowserService, lambda inj: RewardsBrowserService(proxy_service=inj.get(IProxyService)))
         self.bind_singleton(IRewardsDataService, lambda inj: RewardsDataAPI())
         self.bind_singleton(IBingSuggestion, lambda inj: BingSuggestionAPI())
-        self.bind_singleton(
-            IBingFlyoutService,
-            lambda inj: BingFlyoutService()
-        )
-        
-        # Vincula a nova interface à sua implementação Supabase
+        self.bind_singleton(IBingFlyoutService, lambda inj: BingFlyoutService())
         self.bind_singleton(IDatabaseRepository, lambda inj: SupabaseRepository())
-        
-        self.bind_singleton(
-            IAutenticadorRewardsService,
-            lambda inj: AutenticadorRewards(navegador=inj.get(IRewardsBrowserService)),
-        )
-        self.bind_singleton(
-            INavegadorRewardsService,
-            lambda inj: NavegadorRecompensas(navegador=inj.get(IRewardsBrowserService)),
-        )
-        self.bind_singleton(
-            IContaRepository,
-            lambda inj: ArquivoContaRepository(inj.get(ExecutorConfig).users_file),
-        )
+        self.bind_singleton(IContaRepository, lambda inj: ArquivoContaRepository(inj.get(ExecutorConfig).users_file))
         self.bind_singleton(
             IExecutorEmLoteService,
             lambda inj: ExecutorEmLote(
                 bing_search=inj.get(IBingSuggestion),
                 conta_repository=inj.get(IContaRepository),
-                autenticador=inj.get(IAutenticadorRewardsService),
                 perfil_service=inj.get(IPerfilService),
                 rewards_data=inj.get(IRewardsDataService),
                 logger=inj.get(ILoggingService),
                 config=inj.get(ExecutorConfig),
-                proxy_service=inj.get(IProxyService),
-                # Passa a nova dependência para o executor
+                proxy_manager=inj.get(IProxyService),
                 db_repository=inj.get(IDatabaseRepository),
-                bing_flyout_service=inj.get(IBingFlyoutService)
+                bing_flyout_service=inj.get(IBingFlyoutService),
             ),
         )
 
-    # ... (o resto do arquivo permanece o mesmo)
     def bind_instance(self, chave: Type[_T], instancia: _T) -> None:
         self._bindings[chave] = _Binding(factory=lambda _: instancia, singleton=True, instance=instancia, has_instance=True)
 
@@ -118,7 +88,6 @@ class SimpleInjector:
 
 
 def create_injector(config: ExecutorConfig | None = None) -> SimpleInjector:
-    """Cria o container padrão da aplicação."""
     return SimpleInjector(config)
 
 
