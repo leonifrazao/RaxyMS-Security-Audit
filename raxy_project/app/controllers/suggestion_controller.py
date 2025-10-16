@@ -19,7 +19,8 @@ def get_all_suggestions(
 ) -> SuggestionResponse:
     sessao = get_session(request, payload.session_id)
     try:
-        sugestoes = suggestion_service.get_all(sessao.base_request, payload.keyword)
+        # CORREÇÃO: Passa o objeto de sessão completo
+        sugestoes = suggestion_service.get_all(sessao, payload.keyword)
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     total = len(sugestoes) if isinstance(sugestoes, list) else 0
@@ -34,7 +35,8 @@ def get_random_suggestion(
 ):
     sessao = get_session(request, payload.session_id)
     try:
-        sugestao = suggestion_service.get_random(sessao.base_request, payload.keyword)
+        # CORREÇÃO: Passa o objeto de sessão completo
+        sugestao = suggestion_service.get_random(sessao, payload.keyword)
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"status": "ok", "suggestion": sugestao}

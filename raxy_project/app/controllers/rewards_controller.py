@@ -19,7 +19,8 @@ def get_points(
 ) -> RewardsResponse:
     sessao = get_session(request, payload.session_id)
     try:
-        pontos = rewards_service.obter_pontos(sessao.base_request, bypass_request_token=payload.bypass_request_token)
+        # CORREÇÃO: Passa o objeto de sessão completo, não `sessao.base_request`
+        pontos = rewards_service.obter_pontos(sessao, bypass_request_token=payload.bypass_request_token)
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return RewardsResponse(status="ok", data={"points": pontos})
@@ -33,7 +34,8 @@ def redeem_rewards(
 ) -> RewardsResponse:
     sessao = get_session(request, payload.session_id)
     try:
-        resultado = rewards_service.pegar_recompensas(sessao.base_request, bypass_request_token=payload.bypass_request_token)
+        # CORREÇÃO: Passa o objeto de sessão completo
+        resultado = rewards_service.pegar_recompensas(sessao, bypass_request_token=payload.bypass_request_token)
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return RewardsResponse(status="ok", data={"result": resultado})

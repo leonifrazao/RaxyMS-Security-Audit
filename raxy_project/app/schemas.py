@@ -144,7 +144,7 @@ class LoggingOperationResponse(BaseModel):
 
 
 class ExecutorBatchRequest(BaseModel):
-    actions: Optional[List[str]] = Field(None, description="Ações específicas a executar; usa padrão se ausente.")
+    actions: List[str] = Field(..., description="Ações específicas a executar.")
     source: Optional[AccountSource] = Field(None, description="Origem das contas: file, database ou manual.")
     accounts: Optional[List[AccountPayload]] = Field(None, description="Lista de contas para execução manual.")
     account: Optional[AccountPayload] = Field(None, description="Conta individual para execução manual.")

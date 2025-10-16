@@ -3,14 +3,14 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 import typer
 from rich.console import Console
 from rich.table import Table
 from typing_extensions import Annotated
 
-from raxy.container import create_injector
+from raxy.container import SimpleInjector, create_injector
 from raxy.domain.accounts import Conta
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
@@ -18,6 +18,8 @@ from raxy.interfaces.services import (
     ILoggingService,
     IProxyService,
 )
+from raxy.proxy import Proxy
+from raxy.services.executor_service import ExecutorConfig
 
 # --- Configuração da Aplicação CLI ---
 app = typer.Typer(
@@ -33,67 +35,136 @@ app.add_typer(accounts_app, no_args_is_help=True)
 
 # --- Instâncias Globais ---
 console = Console()
-injector = create_injector()
 
+# --- Classe Auxiliar para Desativar Proxy ---
+class DummyProxyService(IProxyService):
+    """Implementação de IProxyService que não faz nada, efetivamente desativando os proxies."""
+    def add_sources(self, sources: List[str]) -> int: return 0
+    def add_proxies(self, proxies: List[str]) -> int: return 0
+    def test(self, **kwargs) -> List[Dict]: return []
+    def start(self, **kwargs) -> List[Dict]:
+        console.print("[yellow]Executando sem proxies.[/yellow]")
+        return []
+    def stop(self) -> None: pass
+    def get_http_proxy(self) -> List[Dict]: return []
+    def rotate_proxy(self, bridge_id: int) -> bool: return False
 
 # --- Comando Principal: run ---
-@app.command(help="[bold green]Executa o processo de farm em lote. Este é o comando principal.[/bold green]")
+@app.command(help="[bold green]Executa o processo de farm. Este é o comando principal.[/bold green]")
 def run(
     actions: Annotated[
         Optional[List[str]],
-        typer.Option(
-            "--action",
-            "-a",
-            help="Ação para executar (pode usar várias vezes). Padrão: login, rewards, solicitacoes.",
-        ),
+        typer.Option("--action", "-a", help="Ação para executar (pode usar várias vezes)."),
     ] = None,
     source: Annotated[
         str,
-        typer.Option(
-            help="Origem das contas: 'file' ou 'database'.",
-            case_sensitive=False,
-        ),
+        typer.Option(help="Origem das contas para execução em lote: 'file' ou 'database'.", case_sensitive=False),
     ] = "file",
+    email: Annotated[
+        Optional[str],
+        typer.Option("-e", "--email", help="Email de uma conta específica para executar (ignora --source).")
+    ] = None,
+    password: Annotated[
+        Optional[str],
+        typer.Option("-p", "--password", help="Senha da conta específica (requer --email).")
+    ] = None,
+    profile_id: Annotated[
+        Optional[str],
+        typer.Option("--profile-id", help="ID do perfil para a conta específica (opcional, usa email como padrão).")
+    ] = None,
+    use_proxy: Annotated[
+        bool,
+        typer.Option("--use-proxy/--no-proxy", help="Ativa ou desativa o uso de proxies para a execução.")
+    ] = True,
+    proxy_uri: Annotated[
+        Optional[str],
+        typer.Option("--proxy-uri", help="URI de um proxy específico para usar na execução de conta única.")
+    ] = None,
+    workers: Annotated[
+        Optional[int],
+        typer.Option("-w", "--workers", help="Número de execuções paralelas em lote.")
+    ] = None,
 ) -> None:
-    """Executa o processo principal de automação."""
+    """Executa o processo principal de automação com opções de personalização."""
+
+    # --- Configuração do Executor e Injeção de Dependência ---
+    config_params = {}
+    if workers:
+        config_params['max_workers'] = workers
+    
+    config = ExecutorConfig(**config_params)
+    
+    # Cria um injetor customizado para esta execução
+    injector = SimpleInjector(config)
+    
+    # Sobrescreve o serviço de proxy se necessário
+    if not use_proxy:
+        injector.bind_instance(IProxyService, DummyProxyService())
+    elif email and proxy_uri: # Apenas para conta única, usa o proxy especificado
+        single_proxy_service = Proxy(proxies=[proxy_uri], use_console=True)
+        injector.bind_instance(IProxyService, single_proxy_service)
+
     executor = injector.get(IExecutorEmLoteService)
     logger = injector.get(ILoggingService)
 
-    console.print("[bold cyan]🚀 Iniciando execução do Raxy...[/bold cyan]")
-    console.print(f"   - [b]Ações:[/b] {actions or ['padrão']}")
-    console.print(f"   - [b]Origem das contas:[/b] {source}")
-
+    # --- Lógica de Execução ---
     contas_para_executar: list[Conta] = []
-    if source.lower() == "database":
-        console.print("[yellow]Carregando contas do banco de dados...[/yellow]")
-        db_repo = injector.get(IDatabaseRepository)
-        registros = db_repo.listar_contas()
-        for registro in registros:
-            if not isinstance(registro, dict):
-                continue
-            email = registro.get("email")
-            senha = registro.get("senha") or registro.get("password") or ""
-            if not email or not senha:
-                logger.aviso("Registro de conta inválido no DB ignorado.", registro=str(registro)[:100])
-                continue
-            perfil = registro.get("id_perfil") or registro.get("perfil") or email
-            proxy = registro.get("proxy") or registro.get("proxy_uri") or ""
-            contas_para_executar.append(Conta(email, senha, perfil, proxy))
-        if not contas_para_executar:
-            console.print("[bold red]❌ Nenhuma conta encontrada no banco de dados.[/bold red]")
+    
+    # Caso 1: Execução de conta única
+    if email:
+        if not password:
+            console.print("[bold red]❌ A opção --password é obrigatória quando --email é fornecida.[/bold red]")
             raise typer.Exit(code=1)
+        
+        console.print(f"[bold cyan]🚀 Iniciando execução para conta única: {email}[/bold cyan]")
+        id_perfil_final = profile_id or email
+        contas_para_executar.append(Conta(email, password, id_perfil_final))
+        console.print(f"   - [b]Perfil ID:[/b] {id_perfil_final}")
+    
+    # Caso 2: Execução em lote (comportamento padrão)
+    else:
+        console.print("[bold cyan]🚀 Iniciando execução em lote...[/bold cyan]")
+        console.print(f"   - [b]Origem das contas:[/b] {source}")
+        
+        if source.lower() == "database":
+            console.print("[yellow]Carregando contas do banco de dados...[/yellow]")
+            db_repo = injector.get(IDatabaseRepository)
+            registros = db_repo.listar_contas()
+            for registro in registros:
+                if not isinstance(registro, dict): continue
+                db_email = registro.get("email")
+                db_senha = registro.get("senha") or registro.get("password") or ""
+                if not db_email or not db_senha:
+                    logger.aviso("Registro de conta inválido no DB ignorado.", registro=str(registro)[:100])
+                    continue
+                db_perfil = registro.get("id_perfil") or registro.get("perfil") or db_email
+                contas_para_executar.append(Conta(db_email, db_senha, db_perfil))
+            if not contas_para_executar:
+                console.print("[bold red]❌ Nenhuma conta encontrada no banco de dados.[/bold red]")
+                raise typer.Exit(code=1)
+        else: # source == 'file'
+            try:
+                file_repo = injector.get(IContaRepository)
+                contas_para_executar = file_repo.listar()
+                if not contas_para_executar:
+                    console.print(f"[bold red]❌ Nenhuma conta encontrada no arquivo de origem.[/bold red]")
+                    raise typer.Exit(code=1)
+            except FileNotFoundError:
+                console.print(f"[bold red]❌ Arquivo de contas não encontrado no caminho configurado.[/bold red]")
+                raise typer.Exit(code=1)
 
-    # Se a fonte for 'file' ou qualquer outra, o executor usará o repositório padrão (ArquivoContaRepository)
-    # se `contas_para_executar` permanecer vazio.
-    executor.executar(acoes=actions, contas=contas_para_executar or None)
+    acoes_finais = actions or config.actions
+    console.print(f"   - [b]Ações:[/b] {acoes_finais}")
+    
+    executor.executar(acoes=acoes_finais, contas=contas_para_executar)
     console.print("[bold green]✅ Execução concluída.[/bold green]")
 
 
-# --- Subcomandos: accounts ---
+# --- Subcomandos (sem alterações) ---
 @accounts_app.command("list-file", help="Lista as contas do arquivo (ex: users.txt).")
 def list_file_accounts() -> None:
     """Exibe as contas configuradas no arquivo de texto."""
-    repo = injector.get(IContaRepository)
+    repo = create_injector().get(IContaRepository)
     try:
         contas = repo.listar()
         if not contas:
@@ -114,7 +185,7 @@ def list_file_accounts() -> None:
 @accounts_app.command("list-db", help="Lista as contas do banco de dados.")
 def list_db_accounts() -> None:
     """Exibe as contas configuradas no banco de dados."""
-    repo = injector.get(IDatabaseRepository)
+    repo = create_injector().get(IDatabaseRepository)
     contas = repo.listar_contas()
 
     if not contas:
@@ -139,7 +210,6 @@ def list_db_accounts() -> None:
     console.print(table)
 
 
-# --- Subcomandos: proxy ---
 @proxy_app.command("test", help="Testa a conectividade dos proxies.")
 def test_proxies(
     threads: int = typer.Option(10, help="Número de workers para os testes."),
@@ -151,9 +221,8 @@ def test_proxies(
     ),
 ) -> None:
     """Executa o teste de proxies e exibe um relatório."""
-    proxy_service = injector.get(IProxyService)
+    proxy_service = create_injector().get(IProxyService)
     console.print("[bold cyan]Iniciando teste de proxies...[/bold cyan]")
-    # O método `test` já usa `rich` para imprimir a saída quando `verbose=True`
     proxy_service.test(
         threads=threads,
         country=country,
@@ -174,9 +243,8 @@ def start_proxies(
     ),
 ) -> None:
     """Inicia os proxies e mantém o processo em execução."""
-    proxy_service = injector.get(IProxyService)
+    proxy_service = create_injector().get(IProxyService)
     console.print("[bold cyan]Iniciando pontes de proxy...[/bold cyan]")
-    # `wait=True` faz o CLI aguardar até ser interrompido (Ctrl+C)
     proxy_service.start(
         amounts=amounts,
         country=country,
@@ -189,7 +257,7 @@ def start_proxies(
 @proxy_app.command("stop", help="Para todas as pontes de proxy ativas.")
 def stop_proxies() -> None:
     """Para os processos de proxy em background."""
-    proxy_service = injector.get(IProxyService)
+    proxy_service = create_injector().get(IProxyService)
     console.print("[bold yellow]Parando pontes de proxy...[/bold yellow]")
     proxy_service.stop()
     console.print("[bold green]✅ Pontes paradas com sucesso.[/bold green]")
@@ -200,11 +268,10 @@ def rotate_proxy(
     bridge_id: int = typer.Argument(..., help="O ID da ponte a ser rotacionada."),
 ) -> None:
     """Troca a proxy de uma ponte específica por outra disponível."""
-    proxy_service = injector.get(IProxyService)
-    # Inicia o serviço para que as pontes existam antes de rotacionar
+    proxy_service = create_injector().get(IProxyService)
     if not proxy_service.get_http_proxy():
         console.print("[yellow]Nenhuma ponte ativa. Iniciando pontes antes de rotacionar...[/yellow]")
-        proxy_service.start(auto_test=True, wait=False)  # Inicia em background
+        proxy_service.start(auto_test=True, wait=False)
         if not proxy_service.get_http_proxy():
             console.print("[bold red]❌ Falha ao iniciar pontes. Não é possível rotacionar.[/bold red]")
             raise typer.Exit(code=1)

@@ -41,7 +41,8 @@ def log_message(
     if payload.session_id:
         try:
             sessao = get_session(request, payload.session_id)
-            scoped_logger = logger.com_contexto(perfil=sessao.perfil, email=sessao.conta.email)
+            # CORREÇÃO: Usa sessao.conta.id_perfil ao invés do obsoleto sessao.perfil
+            scoped_logger = logger.com_contexto(perfil=sessao.conta.id_perfil, email=sessao.conta.email)
         except HTTPException:
             # Se a sessão não existir, mantém logger padrão
             scoped_logger = logger

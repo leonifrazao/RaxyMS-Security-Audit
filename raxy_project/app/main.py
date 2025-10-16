@@ -3,10 +3,8 @@
 """Ponto de entrada FastAPI que atua como API Gateway para a biblioteca raxy."""
 
 from __future__ import annotations
-
-import uvicorn  # Garanta que esta linha esteja presente
+import uvicorn
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,7 +16,7 @@ from controllers import (
     auth_router,
     executor_router,
     logging_router,
-    profile_router,
+    # profile_router foi removido
     proxy_router,
     rewards_router,
     suggestion_router,
@@ -70,7 +68,7 @@ def healthcheck() -> dict[str, str]:
 
 PREFIX = "/api/v1"
 
-app.include_router(profile_router, prefix=PREFIX)
+# app.include_router(profile_router, prefix=PREFIX) # Removido
 app.include_router(accounts_router, prefix=PREFIX)
 app.include_router(auth_router, prefix=PREFIX)
 app.include_router(proxy_router, prefix=PREFIX)

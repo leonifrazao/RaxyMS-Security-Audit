@@ -26,7 +26,7 @@ router = APIRouter(prefix="/executor", tags=["Executor"])
 def _executar_batch(
     executor: IExecutorEmLoteService,
     logger: ILoggingService,
-    acoes: list[str] | None,
+    acoes: list[str],  # Alterado: Não é mais opcional
     contas: list[Conta] | None,
     source: AccountSource,
 ) -> None:
@@ -92,8 +92,8 @@ def _build_manual_accounts(contas_payload: list[AccountPayload]) -> list[Conta]:
     contas: list[Conta] = []
     for item in contas_payload:
         perfil = item.profile_id or item.email
-        proxy = item.proxy or ""
-        contas.append(Conta(email=item.email, senha=item.password, id_perfil=perfil, proxy=proxy))
+        # O proxy é lido do payload mas não é mais armazenado no objeto Conta
+        contas.append(Conta(email=item.email, senha=item.password, id_perfil=perfil))
     return contas
 
 
@@ -120,6 +120,6 @@ def _build_database_accounts(
             or registro.get("profile_id")
             or email
         )
-        proxy = registro.get("proxy") or registro.get("proxy_uri") or ""
-        contas.append(Conta(email=email, senha=senha, id_perfil=perfil, proxy=proxy))
+        # O proxy é lido do DB mas não é armazenado no objeto Conta
+        contas.append(Conta(email=email, senha=senha, id_perfil=perfil))
     return contas
