@@ -19,7 +19,7 @@ def list_file_accounts(
     """Retorna as contas cadastradas no arquivo ``email:senha``."""
 
     contas = conta_repository.listar()
-    items = [_to_account_response(conta, AccountSource.FILE) for conta in contas]
+    items = [_to_account_response_from_conta(conta, AccountSource.FILE) for conta in contas]
     return AccountsResponse(accounts=items)
 
 
@@ -30,25 +30,25 @@ def list_database_accounts(
     """Lista todas as contas persistidas no banco de dados."""
 
     registros = database_repository.listar_contas()
-    contas = [_from_database_record(registro) for registro in registros]
-    items = [item for item in contas if item is not None]
-    return AccountsResponse(accounts=items)
+    items = [_from_database_record_to_response(registro) for registro in registros]
+    return AccountsResponse(accounts=[item for item in items if item is not None])
 
 
-def _to_account_response(conta: Conta, source: AccountSource) -> AccountResponse:
+def _to_account_response_from_conta(conta: Conta, source: AccountSource) -> AccountResponse:
+    """Cria uma AccountResponse a partir de um objeto Conta (que não possui proxy)."""
     perfil = conta.id_perfil or conta.email
-    proxy_value = conta.proxy or None
     senha = getattr(conta, "senha", None)
     return AccountResponse(
         email=conta.email,
         profile_id=perfil,
         password=senha or None,
-        proxy=proxy_value,
+        proxy=None,  # Contas baseadas em arquivo não têm proxy
         source=source,
     )
 
 
-def _from_database_record(registro: dict | None) -> AccountResponse | None:
+def _from_database_record_to_response(registro: dict | None) -> AccountResponse | None:
+    """Cria uma AccountResponse diretamente de um registro de dicionário do banco de dados."""
     if not isinstance(registro, dict):
         return None
 
@@ -64,8 +64,14 @@ def _from_database_record(registro: dict | None) -> AccountResponse | None:
     )
     proxy = registro.get("proxy") or registro.get("proxy_uri")
     senha = registro.get("senha") or registro.get("password") or ""
-    conta = Conta(email=email, senha=senha, id_perfil=str(perfil), proxy=proxy or "")
-    return _to_account_response(conta, AccountSource.DATABASE)
+
+    return AccountResponse(
+        email=email,
+        profile_id=str(perfil),
+        password=senha or None,
+        proxy=proxy or None,
+        source=AccountSource.DATABASE,
+    )
 
 
 __all__ = ["router"]

@@ -8,7 +8,6 @@ from raxy.repositories.file_account_repository import (
 )
 from raxy.services.executor_service import ExecutorConfig, ExecutorEmLote
 from raxy.services.logging_service import FarmLogger, LoggerConfig, configurar_logging, log
-from raxy.services.perfil_service import GerenciadorPerfil
 
 __all__ = [
     "APIRecompensas",
@@ -18,7 +17,6 @@ __all__ = [
     "ExecutorConfig",
     "ExecutorEmLote",
     "FarmLogger",
-    "GerenciadorPerfil",
     "HistoricoPontuacaoMemoriaRepository",
     "LoggerConfig",
     "RewardsDataAPI",

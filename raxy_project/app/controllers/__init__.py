@@ -1,6 +1,6 @@
 """Routers expostos pela aplicação FastAPI."""
 
-from .profile_controller import router as profile_router
+# profile_router foi removido
 from .accounts_controller import router as accounts_router
 from .auth_controller import router as auth_router
 from .proxy_controller import router as proxy_router
@@ -11,7 +11,6 @@ from .logging_controller import router as logging_router
 
 __all__ = [
     "accounts_router",
-    "profile_router",
     "auth_router",
     "proxy_router",
     "rewards_router",

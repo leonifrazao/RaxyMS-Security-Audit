@@ -26,7 +26,7 @@ def carregar_contas(caminho_arquivo: str | Path) -> list[Conta]:
 
         base = email.lower().replace("@", "_at_")
         id_perfil = re.sub(r"[^a-z0-9._-]+", "_", base).strip("_") or "perfil"
-        contas.append(Conta(email=email, senha=senha, id_perfil=id_perfil, proxy=''))
+        contas.append(Conta(email=email, senha=senha, id_perfil=id_perfil))
 
     return contas
 

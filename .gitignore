@@ -29,3 +29,5 @@ debug_respostas/
 # Node
 .pnpm
 proxy_cache.json
+
+raxy_logic.egg-info/

@@ -1,33 +1,30 @@
 """Endpoints responsáveis por autenticação e manutenção de sessões Rewards."""
 
 from __future__ import annotations
-
 import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from dependencies import (
     delete_session,
-    get_auth_service,
     get_logging_service,
-    get_perfil_service,
     get_session_store,
+    get_proxy_service,
+    get_mailtm_service,
 )
 from schemas import AuthRequest, AuthResponse, LoggingOperationResponse, SessionCloseRequest
 from raxy.domain import Conta
-from raxy.interfaces.services import IAutenticadorRewardsService, ILoggingService, IPerfilService
-from raxy.core.session_service import SessaoSolicitacoes
+from raxy.interfaces.services import ILoggingService, IProxyService, IMailTmService
+from raxy.core.session_manager_service import SessionManagerService, ProxyRotationRequiredException
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-
 
 @router.post("/login", response_model=AuthResponse, status_code=201)
 def login(
     payload: AuthRequest,
     request: Request,
-    autenticador: IAutenticadorRewardsService = Depends(get_auth_service),
-    perfil_service: IPerfilService = Depends(get_perfil_service),
     logger: ILoggingService = Depends(get_logging_service),
+    proxy_service: IProxyService = Depends(get_proxy_service),
+    mail_service: IMailTmService = Depends(get_mailtm_service),
 ) -> AuthResponse:
     """Realiza o login na conta Rewards e retorna um identificador de sessão."""
 
@@ -35,14 +32,27 @@ def login(
     if not profile_id:
         raise HTTPException(status_code=400, detail="profile_id não pôde ser determinado")
 
-    perfil_service.garantir_perfil(profile_id, payload.email, payload.password)
-
-    conta = Conta(email=payload.email, senha=payload.password, id_perfil=profile_id, proxy=(payload.proxy or {}).get("uri", ""))
+    # Objeto Conta não armazena mais o proxy
+    conta = Conta(
+        email=payload.email,
+        senha=payload.password,
+        id_perfil=profile_id,
+    )
 
     try:
-        sessao: SessaoSolicitacoes = autenticador.executar(conta, proxy=payload.proxy)
-    except Exception as exc:  # pragma: no cover - dependente de integração real
-        logger.erro("Falha ao autenticar usuário via API", erro=str(exc))
+        # O proxy é passado como um detalhe de execução para o SessionManagerService
+        sessao = SessionManagerService(
+            conta=conta,
+            proxy=payload.proxy,
+            proxy_service=proxy_service,
+            mail_service=mail_service,
+        )
+        sessao.start()
+    except ProxyRotationRequiredException as exc:
+        logger.erro("Falha de proxy ao autenticar usuário via API", erro=str(exc))
+        raise HTTPException(status_code=503, detail=f"Proxy error during authentication: {exc.status_code}") from exc
+    except Exception as exc:
+        logger.erro("Falha ao autenticar usuário via API", erro=str(exc), exc_info=True)
         raise HTTPException(status_code=500, detail="Não foi possível autenticar a conta") from exc
 
     session_id = str(uuid.uuid4())
@@ -59,7 +69,7 @@ def logout(
     request: Request,
     logger: ILoggingService = Depends(get_logging_service),
 ) -> LoggingOperationResponse:
-    """Remove a sessão mantida em memória."""
+    """Remove a sessão mantida em memória e encerra seus recursos."""
 
     if not payload.session_id:
         raise HTTPException(status_code=400, detail="session_id é obrigatório")

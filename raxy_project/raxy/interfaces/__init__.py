@@ -3,7 +3,6 @@
 from .services import (
     IExecutorEmLoteService,
     ILoggingService,
-    IPerfilService,
     IRewardsDataService,
     IBingSuggestion
 )
@@ -15,7 +14,6 @@ __all__ = [
     "IExecutorEmLoteService",
     "IHistoricoPontuacaoRepository",
     "ILoggingService",
-    "IPerfilService",
     "IRewardsDataService",
     "IBingSuggestion",
     "IDatabaseRepository",
