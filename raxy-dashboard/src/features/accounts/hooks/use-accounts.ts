@@ -12,7 +12,7 @@ import {
 } from '../types'
 
 const ACCOUNTS_QUERY_KEY = ['accounts'] as const
-const DEFAULT_EXECUTOR_ACTIONS = ['login', 'rewards', 'solicitacoes'] as const
+const DEFAULT_EXECUTOR_ACTIONS = ['login', 'rewards', 'bing', 'flyout'] as const
 
 type UseAccountsOptions = {
   initialData?: Account[]
@@ -34,11 +34,6 @@ export function useAddAccountMutation() {
 
   return useMutation({
     mutationFn: async (payload: CreateAccountPayload) => {
-      const baseUrl = getApiBaseUrl()
-      if (!baseUrl) {
-        throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
-      }
-
       await apiFetch('/api/v1/executor/run', {
         method: 'POST',
         body: JSON.stringify({
@@ -60,11 +55,6 @@ export function useStartAllFarmsMutation(source: AccountSource = 'file') {
 
   return useMutation({
     mutationFn: async () => {
-      const baseUrl = getApiBaseUrl()
-      if (!baseUrl) {
-        throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
-      }
-
       await apiFetch('/api/v1/executor/run', {
         method: 'POST',
         body: JSON.stringify({
@@ -83,11 +73,6 @@ export function useStartAllFarmsMutation(source: AccountSource = 'file') {
 export function useRunAccountMutation(account: Account) {
   return useMutation({
     mutationFn: async () => {
-      const baseUrl = getApiBaseUrl()
-      if (!baseUrl) {
-        throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
-      }
-
       await apiFetch('/api/v1/executor/run', {
         method: 'POST',
         body: JSON.stringify({

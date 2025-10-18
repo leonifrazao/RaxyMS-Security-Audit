@@ -90,7 +90,7 @@ export function KpiGrid({ kpiData }: { kpiData: KpiStats }) {
           label={kpi.label}
           description={kpi.description}
           icon={kpi.icon}
-          value={kpi.formatter ? kpi.formatter(metrics[kpi.id] ?? 0) : metrics[kpi.id]}
+          value={kpi.formatter ? kpi.formatter(metrics[kpi.id] ?? 0) : (metrics[kpi.id] ?? 0)}
           tone={kpi.tone}
           subtlePulse={isFetching}
         />
@@ -112,19 +112,22 @@ function KpiCard({ label, description, icon: Icon, value, tone, subtlePulse }: K
   return (
     <Card
       className={cn(
-        'border-border/60 bg-card/60 backdrop-blur transition-opacity',
+        'group relative overflow-hidden border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur transition-all hover:shadow-lg hover:border-primary/50',
         subtlePulse ? 'animate-pulse' : ''
       )}
     >
-      <CardHeader className="space-y-0 pb-2">
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+      <CardHeader className="relative space-y-0 pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium text-muted-foreground">{label}</CardTitle>
-          <Icon className={cn('h-5 w-5 text-muted-foreground', tone)} aria-hidden />
+          <div className={cn('rounded-full p-2 transition-colors group-hover:bg-primary/10', tone ? 'bg-muted' : '')}>
+            <Icon className={cn('h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary', tone)} aria-hidden />
+          </div>
         </div>
         <CardDescription className="text-xs text-muted-foreground/80">{description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <span className={cn('text-3xl font-semibold tracking-tight', tone)}>{value}</span>
+      <CardContent className="relative">
+        <span className={cn('text-3xl font-bold tracking-tight', tone)}>{value}</span>
       </CardContent>
     </Card>
   )

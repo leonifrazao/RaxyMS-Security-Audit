@@ -26,6 +26,7 @@ import { useAccounts } from '@/features/accounts/hooks/use-accounts'
 import { type Account, type AccountStatus, type AccountSource } from '@/features/accounts/types'
 
 import { AccountActionsDropdown } from './account-actions-dropdown'
+import { RunBatchButton } from './run-batch-button'
 
 interface AccountsTableProps {
   initialData: Account[]
@@ -127,7 +128,7 @@ export function AccountsTable({ initialData, initialSource = 'file' }: AccountsT
     router.replace(pathname, { scroll: false })
   }
 
-  const isLoading = accountsQuery.isLoading && !accountsQuery.data?.length
+  const isLoading = accountsQuery.isLoading && accounts.length === 0
   const isEmpty = !isLoading && accounts.length === 0
 
   return (
@@ -141,6 +142,8 @@ export function AccountsTable({ initialData, initialSource = 'file' }: AccountsT
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <RunBatchButton source={source} disabled={accounts.length === 0} />
+          
           <div className="flex items-center gap-1 rounded-full border border-border/60 p-1 text-xs font-medium">
             {SOURCE_OPTIONS.map((option) => {
               const isActive = source === option.value
@@ -256,12 +259,33 @@ export function AccountsTable({ initialData, initialSource = 'file' }: AccountsT
                   <TableCell>
                     <StatusBadge status={account.status} />
                   </TableCell>
-                  <TableCell>{account.tier}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(account.pointsBalance)}
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        account.tier === 'Level 1' && 'border-orange-500/50 bg-orange-500/10 text-orange-600',
+                        account.tier === 'Level 2' && 'border-slate-500/50 bg-slate-500/10 text-slate-600',
+                        account.tier === 'Level 3' && 'border-amber-500/50 bg-amber-500/10 text-amber-600'
+                      )}
+                    >
+                      {account.tier}
+                    </Badge>
                   </TableCell>
-                  <TableCell className="text-right text-sm text-muted-foreground">
-                    {formatCurrency(account.dailyEarnings)}
+                  <TableCell className="text-right">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(account.pointsBalance)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">pontos</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className="font-medium text-blue-600 dark:text-blue-400">
+                        +{formatCurrency(account.dailyEarnings)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">hoje</span>
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatRelativeDate(account.lastActivity)}

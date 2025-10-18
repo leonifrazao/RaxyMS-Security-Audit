@@ -5,12 +5,6 @@ import { fetchAccounts } from '@/features/accounts/data/fetch-accounts'
 import { type KpiStats } from '../types'
 
 export async function fetchDashboardKpis(): Promise<KpiStats> {
-  const baseUrl = getApiBaseUrl()
-
-  if (!baseUrl) {
-    throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
-  }
-
   try {
     const [fileAccounts, databaseAccounts] = await Promise.all([
       fetchAccounts('file'),

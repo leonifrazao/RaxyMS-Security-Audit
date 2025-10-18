@@ -3,7 +3,7 @@ let
   version = "311";
   python = pkgs."python${pkgs.lib.versions.majorMinor version}";
   qt = pkgs.libsForQt5; # garante consistência Qt + PyQt
-  burpsuite = pkgs.callPackage ./burp.nix {};
+  burpsuite = pkgs.callPackage ./utils/burp.nix {};
   nodejs = pkgs.nodejs_22; # ambiente Node.js moderno para Next.js
   runtimeLibs = with pkgs; [
     stdenv.cc.cc.lib   # <-- provides libstdc++.so.6
@@ -69,6 +69,7 @@ pkgs.mkShell {
     jdk
 
     xray
+    windsurf
   ]) ++ [
     burpsuite
   ];
