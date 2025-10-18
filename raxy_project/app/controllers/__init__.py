@@ -8,6 +8,8 @@ from .rewards_controller import router as rewards_router
 from .suggestion_controller import router as suggestion_router
 from .executor_controller import router as executor_router
 from .logging_controller import router as logging_router
+from .flyout_controller import router as flyout_router
+from .mailtm_controller import router as mailtm_router
 
 __all__ = [
     "accounts_router",
@@ -17,4 +19,6 @@ __all__ = [
     "suggestion_router",
     "executor_router",
     "logging_router",
+    "flyout_router",
+    "mailtm_router",
 ]

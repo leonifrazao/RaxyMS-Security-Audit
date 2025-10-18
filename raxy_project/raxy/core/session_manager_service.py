@@ -11,16 +11,23 @@ from botasaurus.profiles import Profiles
 
 from botasaurus.browser import Driver, Wait, browser
 from botasaurus.lang import Lang
-from botasaurus.soupify import soupify
 from botasaurus.request import Request, request
+from botasaurus.soupify import soupify
 
 from raxy.domain.accounts import Conta
 from raxy.core.network_service import NetWork
 from raxy.services.logging_service import log
-from raxy.interfaces.services import IProxyService, IMailTmService
-
-
+from raxy.core.exceptions import (
+    SessionException,
+    ProxyRotationRequiredException,
+    ProfileException,
+    InvalidCredentialsException,
+    ElementNotFoundException,
+    LoginException,
+    wrap_exception,
+)
 def _extract_request_verification_token(html: str | None) -> str | None:
+    """Extrai o token de verificação do HTML, retornando None em caso de falha."""
     if not html:
         return None
     try:
@@ -28,17 +35,12 @@ def _extract_request_verification_token(html: str | None) -> str | None:
         campo = soup.find("input", {"name": "__RequestVerificationToken"})
         if campo and campo.get("value"):
             return campo["value"].strip() or None
-    except Exception:
+    except Exception as e:
+        log.debug("Falha ao extrair token de verificação", erro=str(e))
         return None
     return None
 
 
-class ProxyRotationRequiredException(Exception):
-    """Sinaliza necessidade de rotacionar a proxy quando um erro HTTP 400+ ocorre durante login/fluxo."""
-    def __init__(self, status_code: int, proxy_id: str | int | None):
-        self.status_code = status_code
-        self.proxy_id = proxy_id
-        super().__init__(f"Erro HTTP {status_code} — rotacionar proxy (ID: {proxy_id})")
 
 
 class SessionManagerService:
@@ -89,34 +91,47 @@ class SessionManagerService:
         com o User-Agent do perfil.
         """
         if not perfil:
-            raise ValueError("Perfil deve ser informado")
-            
-        email = self.conta.email
-        senha = self.conta.senha
-        perfil_data = Profiles.get_profile(perfil)
+            raise ProfileException("Perfil deve ser informado", details={"conta": self.conta.email})
+        
+        try:
+            email = self.conta.email
+            senha = self.conta.senha
+            perfil_data = Profiles.get_profile(perfil)
+        except Exception as e:
+            raise wrap_exception(e, ProfileException, "Erro ao acessar perfil", perfil=perfil, conta=self.conta.email)
         
         if not perfil_data:
             if not self._mail_service:
                 self._logger.erro("IMailTmService não foi fornecido. Não é possível criar novo perfil.")
-                raise ValueError("IMailTmService é obrigatório para garantir um novo perfil.")
+                raise ProfileException(
+                    "IMailTmService é obrigatório para garantir um novo perfil.",
+                    details={"perfil": perfil, "conta": self.conta.email}
+                )
 
             self._logger.info(f"Perfil '{perfil}' não encontrado. Criando novo perfil e e-mail temporário.")
             
-            # 1. Cria conta de email temporário
-            random_email_account = self._mail_service.create_random_account(password=senha)
-            
-            # 2. Gera um novo UA
-            novo_ua = self._ua_provedor.get_random_user_agent()
-            
-            # 3. Persiste os dados no perfil
-            Profiles.set_profile(perfil, {
-                "UA": novo_ua, 
-                "email": email, 
-                "senha": senha, 
-                "tmpmail_mail": random_email_account.get("address")
-            })
-            self._logger.sucesso(f"Novo perfil '{perfil}' criado com UA e credenciais salvas.")
-            agente = novo_ua
+            try:
+                # 1. Cria conta de email temporário
+                #random_email_account = self._mail_service.create_random_account(password=senha)
+                
+                # 2. Gera um novo UA
+                novo_ua = self._ua_provedor.get_random_user_agent()
+                
+                # 3. Persiste os dados no perfil
+                Profiles.set_profile(perfil, {
+                    "UA": novo_ua, 
+                    "email": email, 
+                    "senha": senha, 
+                    #"tmpmail_mail": random_email_account.get("address")
+                })
+                self._logger.sucesso(f"Novo perfil '{perfil}' criado com UA e credenciais salvas.")
+                agente = novo_ua
+            except Exception as e:
+                raise wrap_exception(
+                    e, ProfileException,
+                    "Erro ao criar novo perfil",
+                    perfil=perfil, conta=self.conta.email
+                )
         else:
             # Perfil existe, recupera o UA
             agente = perfil_data.get("UA")
@@ -153,7 +168,6 @@ class SessionManagerService:
         driver.google_get("https://rewards.bing.com/")
         driver.short_random_sleep()
         
-        # ... (Restante da lógica de login inalterada)
 
         if driver.run_js("return document.title").lower() == "microsoft rewards":
             registro.sucesso("Conta já autenticada")
@@ -161,6 +175,11 @@ class SessionManagerService:
             registro.info("Coletando cookies do domínio de pesquisa...")
             driver.google_get("https://www.bing.com")
             driver.short_random_sleep()
+            if driver.is_element_present('span[id="id_s"]', wait=Wait.VERY_LONG):
+                registro.info("Conta logada com sucesso no bing")
+            else:
+                registro.aviso("Conta não logada no bing")
+            
             token = _extract_request_verification_token(html)
             return {
                 "cookies": driver.get_cookies_dict(),
@@ -169,36 +188,59 @@ class SessionManagerService:
                 "driver": driver,
             }
 
-        # Lógica de login e tratamento de exceções (inalterada)
+        # Lógica de login e tratamento de exceções
         if not driver.is_element_present("input[type='email']", wait=Wait.VERY_LONG):
             registro.erro("Campo de email não encontrado na página, rotação de proxy necessária")
-            raise ProxyRotationRequiredException(400, proxy_id)
+            raise ProxyRotationRequiredException(400, proxy_id, url=driver.current_url)
 
         email_normalizado = str(driver.profile.get("email", "")).strip()
         senha_normalizada = str(driver.profile.get("senha", "")).strip()
         if not email_normalizado or "@" not in email_normalizado:
-            registro.erro("Email ausente/ inválido para login do Rewards")
-            raise ValueError("Email ausente ou inválido para login do Rewards")
+            registro.erro("Email ausente/inválido para login do Rewards")
+            raise InvalidCredentialsException(
+                "Email ausente ou inválido para login do Rewards",
+                details={"email": email_normalizado}
+            )
         if not senha_normalizada:
             registro.erro("Senha ausente para login do Rewards")
-            raise ValueError("Senha ausente para login do Rewards")
+            raise InvalidCredentialsException(
+                "Senha ausente para login do Rewards",
+                details={"email": email_normalizado}
+            )
 
         registro.info("Digitando email")
-        driver.type("input[type='email'], #i0116", email_normalizado, wait=Wait.VERY_LONG)
-        driver.click("button[type='submit'], #idSIButton9")
-        driver.short_random_sleep()
+        try:
+            driver.type("input[type='email'], #i0116", email_normalizado, wait=Wait.VERY_LONG)
+            driver.click("button[type='submit'], #idSIButton9")
+            driver.short_random_sleep()
+        except Exception as e:
+            raise wrap_exception(
+                e, ElementNotFoundException,
+                "Erro ao interagir com campo de email",
+                email=email_normalizado
+            )
 
         if driver.run_js("return document.title").lower() == "verify your email" and driver.is_element_present("#view > div > span:nth-child(6) > div > span", wait=Wait.VERY_LONG):
             driver.click("#view > div > span:nth-child(6) > div > span")
 
         if not driver.is_element_present("input[type='password'], #i0118", wait=Wait.VERY_LONG):
             registro.erro("Campo de senha não encontrado após informar email")
-            raise RuntimeError("Campo de senha não encontrado após informar email")
+            raise ElementNotFoundException(
+                "Campo de senha não encontrado após informar email",
+                details={"email": email_normalizado, "url": driver.current_url}
+            )
 
         registro.info("Digitando senha")
-        driver.type("input[type='password'], #i0118", senha_normalizada, wait=Wait.VERY_LONG)
-        driver.click("button[type='submit'], #idSIButton9")
-        driver.short_random_sleep()
+        try:
+            driver.type("input[type='password'], #i0118", senha_normalizada, wait=Wait.VERY_LONG)
+            driver.click("button[type='submit'], #idSIButton9")
+            driver.short_random_sleep()
+        except Exception as e:
+            raise wrap_exception(
+                e, ElementNotFoundException,
+                "Erro ao interagir com campo de senha",
+                email=email_normalizado
+            )
         
         while driver.run_js("return document.title").lower() == "let's protect your account":
             driver.short_random_sleep()
@@ -215,7 +257,7 @@ class SessionManagerService:
         network = NetWork(driver)
         network.limpar_respostas()
 
-        if "rewards.bing.com" in driver.current_url or driver.is_element_present("a[aria-label='Página inicial do Rewards']", wait=Wait.VERY_LONG):
+        if "rewards.bing.com" in driver.current_url or driver.is_element_present("span[role='presentation']", wait=Wait.VERY_LONG):
             registro.sucesso("Login finalizado")
 
             status_final = network.get_status()
@@ -230,7 +272,23 @@ class SessionManagerService:
             registro.info("Coletando cookies do domínio de pesquisa...")
             driver.google_get("https://www.bing.com")
             driver.short_random_sleep()
-
+            if driver.is_element_present('span[id="id_s"]', wait=Wait.VERY_LONG):
+                registro.info("Conta logada com sucesso no bing")
+            else:
+                registro.aviso("Conta não logada no bing")
+            
+            driver.google_get("https://www.bing.com/rewards/panelflyout?channel=bingflyout&partnerId=BingRewards&isDarkMode=1&requestedLayout=onboarding&form=rwfobc")
+            driver.short_random_sleep()
+            if driver.is_element_present('a[class="joinNowText"]', wait=Wait.VERY_LONG):
+                driver.click('a[class="joinNowText"]')
+                driver.short_random_sleep()
+            while not driver.is_element_present('span[id="id_s"]', wait=Wait.VERY_LONG):
+                driver.short_random_sleep()
+            driver.google_get("https://www.bing.com/rewards/panelflyout?channel=bingflyout&partnerId=BingRewards&isDarkMode=1&requestedLayout=onboarding&form=rwfobc")
+            driver.short_random_sleep()
+            if driver.is_element_present('div[id="Card_0"]', wait=Wait.LONG):
+                registro.info("Cartões de metas detectados no flyout.")
+                
             token = _extract_request_verification_token(html)
             return {
                 "cookies": driver.get_cookies_dict(),
@@ -242,24 +300,37 @@ class SessionManagerService:
         status = network.get_status()
         if status and status >= 400:
             registro.erro(f"Erro HTTP detectado: {status}")
-            raise ProxyRotationRequiredException(status, proxy_id)
+            raise ProxyRotationRequiredException(status, proxy_id, url=driver.current_url)
 
         if status is not None:
             registro.erro("Login não confirmado mesmo após tentativa", status=status)
         else:
             registro.erro("Login não confirmado: nenhuma resposta de rede capturada")
 
-        raise RuntimeError(f"Não foi possível confirmar o login para {email_normalizado}.")
+        raise LoginException(
+            f"Não foi possível confirmar o login para {email_normalizado}.",
+            details={"email": email_normalizado, "status": status, "url": driver.current_url}
+        )
 
     def start(self) -> None:
+        """Inicia a sessão com tratamento robusto de erros."""
         perfil_nome = self.conta.id_perfil or self.conta.email
         dados = {"proxy_id": self.proxy.get("id")}
         
         # 1. GARANTIR PERFIL e OBTER ARGS UA em uma única chamada
         self._logger.info("Garantindo perfil e obtendo argumentos do User-Agent...")
-        # user_agent_args recebe o valor de retorno de _garantir_perfil
-        user_agent_args = self._garantir_perfil(perfil_nome)
-        self._logger.sucesso(f"Perfil '{perfil_nome}' pronto. Argumentos UA obtidos: {user_agent_args}")
+        try:
+            # user_agent_args recebe o valor de retorno de _garantir_perfil
+            user_agent_args = self._garantir_perfil(perfil_nome)
+            self._logger.sucesso(f"Perfil '{perfil_nome}' pronto. Argumentos UA obtidos: {user_agent_args}")
+        except ProfileException:
+            raise
+        except Exception as e:
+            raise wrap_exception(
+                e, ProfileException,
+                "Erro inesperado ao garantir perfil",
+                perfil=perfil_nome, conta=self.conta.email
+            )
         
         self._logger.info("Iniciando sessão/driver", perfil=perfil_nome, proxy_id=dados["proxy_id"])
 
@@ -285,19 +356,38 @@ class SessionManagerService:
             except ProxyRotationRequiredException as e:
                 self._logger.aviso(f"Exceção de rotação: {e}. Tentando próxima proxy.")
                 if self._proxy_service:
-                    self._proxy_service.rotate_proxy(self.proxy.get("id"))
+                    try:
+                        self._proxy_service.rotate_proxy(self.proxy.get("id"))
+                    except Exception as rotate_err:
+                        self._logger.erro(f"Erro ao rotacionar proxy: {rotate_err}")
+                        if tentativas == 1:
+                            raise wrap_exception(
+                                rotate_err, ProxyRotationRequiredException,
+                                "Falha ao rotacionar proxy",
+                                proxy_id=self.proxy.get("id"), attempts_left=tentativas
+                            )
                 else:
                     self._logger.erro("ProxyRotationRequiredException, mas _proxy_service ausente para rotação.")
                     raise e
+            except (LoginException, InvalidCredentialsException, ElementNotFoundException):
+                # Exceções de login não devem ser retentadas
+                raise
             except Exception as e:
-                self._logger.erro(f"Erro inesperado ao abrir driver: {e}")
+                self._logger.erro(f"Erro inesperado ao abrir driver: {e}", erro=e, tentativas_restantes=tentativas-1)
                 if tentativas == 1:
-                    raise e
+                    raise wrap_exception(
+                        e, SessionException,
+                        "Falha ao iniciar sessão após múltiplas tentativas",
+                        conta=self.conta.email, proxy_id=self.proxy.get("id")
+                    )
             finally:
                 tentativas -= 1
         
         if not self.driver:
-            raise RuntimeError(f"Falha ao iniciar a sessão após 5 tentativas.")
+            raise SessionException(
+                "Falha ao iniciar a sessão após 5 tentativas.",
+                details={"conta": self.conta.email, "proxy_id": self.proxy.get("id")}
+            )
 
         self._logger.sucesso("Sessão iniciada com sucesso.")
         
@@ -316,14 +406,37 @@ class SessionManagerService:
         use_cookies: bool = True,
         bypass_request_token: bool = True,
     ) -> Any:
+        """Executa um template de requisição com tratamento robusto de erros."""
         if not self.driver:
-            raise RuntimeError("Sessão não iniciada")
+            raise SessionException(
+                "Sessão não iniciada",
+                details={"conta": self.conta.email}
+            )
 
-        if isinstance(template_path_or_dict, (str, Path)):
-            with open(template_path_or_dict, encoding="utf-8") as f:
-                template = json.load(f)
-        else:
-            template = dict(template_path_or_dict)
+        try:
+            if isinstance(template_path_or_dict, (str, Path)):
+                with open(template_path_or_dict, encoding="utf-8") as f:
+                    template = json.load(f)
+            else:
+                template = dict(template_path_or_dict)
+        except FileNotFoundError as e:
+            raise wrap_exception(
+                e, SessionException,
+                "Template não encontrado",
+                template=str(template_path_or_dict)
+            )
+        except json.JSONDecodeError as e:
+            raise wrap_exception(
+                e, SessionException,
+                "Template JSON inválido",
+                template=str(template_path_or_dict)
+            )
+        except Exception as e:
+            raise wrap_exception(
+                e, SessionException,
+                "Erro ao carregar template",
+                template=str(template_path_or_dict)
+            )
 
         ph = dict(placeholders or {})
 
@@ -369,8 +482,16 @@ class SessionManagerService:
             "json": json_payload,
         }
 
-        resposta = self._enviar(args, proxy=self.proxy.get("url"))
+        try:
+            resposta = self._enviar(args, proxy=self.proxy.get("url"))
+        except Exception as e:
+            raise wrap_exception(
+                e, SessionException,
+                "Erro ao enviar requisição",
+                url=args.get("url"), metodo=args.get("metodo")
+            )
+        
         status = getattr(resposta, "status_code", None)
         if status and status >= 400:
-            raise ProxyRotationRequiredException(status, self.proxy.get("id"))
+            raise ProxyRotationRequiredException(status, self.proxy.get("id"), url=args.get("url"))
         return resposta

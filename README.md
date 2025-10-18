@@ -1,186 +1,363 @@
 # Raxy Farm
 
-**Raxy Farm** é uma solução completa para automação e gerenciamento de contas Microsoft Rewards. O projeto é composto por um backend robusto em Python que realiza as automações e uma interface de painel de controle (dashboard) moderna e reativa para monitoramento e operação.
+A comprehensive automation and management platform for Microsoft Rewards accounts, designed with enterprise-grade architecture and modern development practices.
 
-## ✨ Principais Funcionalidades
+## Overview
 
-### Backend (`raxy_project`)
+Raxy Farm is a full-stack application that automates Microsoft Rewards point farming across multiple accounts. The system consists of a robust Python backend handling automation logic and a modern React dashboard for monitoring, management, and operations.
 
-  - **Executor em Lote:** Processa múltiplas contas em paralelo usando `ThreadPoolExecutor`, otimizando o tempo de execução.
-  - **Gerenciamento de Proxy:** Integração com Xray/V2Ray para testar, rotacionar e gerenciar proxies, garantindo a conectividade das contas.
-  - **Fontes de Dados Flexíveis:** Suporte para carregar contas a partir de arquivos de texto (`users.txt`) ou de um banco de dados (configurado para **Supabase**).
-  - **Arquitetura Limpa:** Código modularizado com injeção de dependências, separando responsabilidades entre serviços, repositórios e domínio.
-  - **API RESTful:** Uma API FastAPI (`/api/v1`) expõe todas as funcionalidades do backend, permitindo a comunicação com o dashboard ou outros clientes.
-  - **CLI Robusta:** Uma interface de linha de comando com `Typer` para executar o farm, testar proxies e listar contas diretamente do terminal.
-  - **Logging Estruturado:** Utiliza a biblioteca `rich` para logs coloridos e contextuais, facilitando a depuração e o monitoramento.
+Built for scalability and reliability, the platform supports both file-based and database-driven account management, parallel execution, intelligent proxy rotation, and real-time monitoring capabilities.
 
-### Frontend (`raxy-dashboard`)
+---
 
-  - **Painel de Controle Reativo:** Dashboard construído com **Next.js (App Router)** e **React** para visualização de dados em tempo real.
-  - **Visualização de Contas:** Tabela detalhada com busca, filtragem por fonte (arquivo/banco de dados) e seleção de contas.
-  - **Métricas e KPIs:** Exibição de indicadores-chave de performance, como total de contas, pontos acumulados e farms ativos.
-  - **Gerenciamento de Operações:** Permite adicionar novas contas, iniciar o farm para todas as contas elegíveis e executar farms individuais.
-  - **UI Moderna:** Interface construída com **Tailwind CSS** e **shadcn/ui**, oferecendo uma experiência de usuário limpa, responsiva e com suporte a temas (claro/escuro).
-  - **Data Fetching Eficiente:** Utiliza **React Query (TanStack Query)** para gerenciar o estado do servidor, cache e revalidação de dados da API.
+## Key Features
 
-## 🏗️ Arquitetura
+### Backend Automation Engine
 
-O projeto segue uma arquitetura de monorepo, dividida em duas partes principais:
+**Batch Processing**  
+Execute farming operations across multiple accounts simultaneously using `ThreadPoolExecutor`, dramatically reducing total processing time while respecting rate limits and system resources.
 
-1.  **`raxy_project/` (Backend):**
+**Intelligent Proxy Management**  
+Seamless integration with Xray/V2Ray proxies for connection routing. The system automatically tests proxy health, rotates connections, and manages proxy pools to ensure consistent account access without geographic restrictions.
 
-      - Um **monolito modular** em Python.
-      - **`app/`**: Camada da API **FastAPI**, responsável por expor os endpoints HTTP. Atua como um gateway para os serviços principais.
-      - **`raxy/`**: O core da aplicação, contendo a lógica de negócio. É estruturado com base em princípios de arquitetura limpa e injeção de dependências:
-          - **`domain/`**: Entidades centrais (ex: `Conta`).
-          - **`interfaces/`**: Contratos (interfaces abstratas) para serviços e repositórios.
-          - **`services/`**: Implementações da lógica de negócio (autenticação, execução, etc.).
-          - **`repositories/`**: Implementações para acesso a dados (arquivos, banco de dados).
-          - **`api/`**: Clientes para APIs externas (Bing, Supabase).
-          - **`container.py`**: Container de injeção de dependências que conecta as interfaces às suas implementações.
+**Flexible Data Sources**  
+Dual-mode account management supporting both traditional file-based configuration (`users.txt`) and modern cloud database storage via Supabase. Switch between sources dynamically based on operational needs.
 
-2.  **`raxy-dashboard/` (Frontend):**
+**Clean Architecture**  
+Enterprise-grade codebase structured around SOLID principles with dependency injection, clear separation of concerns between domain entities, services, repositories, and API clients. The modular design ensures maintainability and testability.
 
-      - Uma aplicação web moderna construída com **Next.js** e o **App Router**.
-      - **`src/app/`**: Estrutura de rotas principal.
-      - **`src/components/`**: Componentes React reutilizáveis, incluindo a biblioteca de UI `shadcn/ui`.
-      - **`src/features/`**: Lógica de UI e estado específicos para cada funcionalidade (ex: `accounts`, `dashboard`).
-      - **`src/lib/` e `src/hooks/`**: Utilitários, hooks personalizados e clientes de API para comunicação com o backend.
-      - **`src/providers/`**: Provedores de contexto globais (Tema, React Query).
+**RESTful API**  
+Comprehensive FastAPI implementation exposing all backend functionality through well-documented HTTP endpoints at `/api/v1`. Enables integration with the dashboard, CLI tools, or third-party applications.
 
-## 🛠️ Tecnologias Utilizadas
+**Powerful CLI Interface**  
+Feature-rich command-line interface built with Typer for direct terminal operations. Execute farms, test proxies, list accounts, and perform administrative tasks without starting the API server.
 
-| Backend (`raxy_project`) | Frontend (`raxy-dashboard`) |
-| ------------------------ | ----------------------------- |
-| Python 3.11+             | TypeScript                    |
-| FastAPI                  | Next.js 15+ (App Router)      |
-| Typer (CLI)              | React 19+                     |
-| Botasaurus               | Tailwind CSS                  |
-| Supabase (Cliente DB)    | shadcn/ui                     |
-| Rich (Logging)           | React Query (TanStack Query)  |
-| SQLAlchemy (Opcional)    | Zustand (State Management)    |
-| Xray/V2Ray (via `Proxy`) | Zod (Validação)               |
-| pydantic                 | Lucide Icons                  |
+**Structured Logging**  
+Production-ready logging system using Rich library for colorful, contextual console output and Loguru for advanced log management. Track execution flow, debug issues, and monitor system health in real-time.
 
-## 🚀 Configuração e Instalação
+### Frontend Dashboard
 
-### Pré-requisitos
+**Reactive Control Panel**  
+Modern single-page application built with Next.js 15 App Router and React 19. Real-time data visualization with instant updates as operations progress.
 
-  - Python 3.11+
-  - Node.js 18+
-  - `pnpm` (ou `npm`/`yarn`)
-  - Um executável do **Xray** ou **V2Ray** no `PATH` do sistema (usado pelo `raxy/api/proxy/manager.py`).
+**Advanced Account Management**  
+Comprehensive account table with search, filtering by data source, multi-select operations, and detailed status indicators. View points, activity history, and per-account metrics at a glance.
 
-### 1\. Backend (`raxy_project`)
+**Performance Metrics**  
+Key performance indicators dashboard displaying total accounts, accumulated points, active farms, success rates, and historical trends. Make data-driven decisions about account operations.
 
-1.  **Navegue até a pasta do backend:**
+**Operational Controls**  
+Intuitive interface for adding accounts, launching batch farm operations, executing individual account runs, and managing proxy configurations. All operations provide immediate feedback and progress tracking.
 
-    ```bash
-    cd raxy_project
-    ```
+**Modern UI/UX**  
+Built with Tailwind CSS and shadcn/ui component library for a polished, professional appearance. Full theme support (light/dark modes), responsive design for desktop and mobile, and accessibility compliant.
 
-2.  **Crie e ative um ambiente virtual:**
+**Efficient State Management**  
+TanStack Query (React Query) for server state management with intelligent caching, automatic background revalidation, and optimistic updates. Zustand for client-side state coordination across components.
 
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # No Windows: .venv\Scripts\activate
-    ```
+---
 
-3.  **Instale as dependências Python:**
+## Architecture
 
-    ```bash
-    pip install -r requirements.txt 
-    ```
+### System Design
 
-    *(Nota: Se o `requirements.txt` não existir, instale as dependências principais: `fastapi uvicorn python-dotenv botasaurus supabase rich typer random-user-agent`)*
+Raxy Farm follows a monorepo structure with clear separation between backend and frontend concerns.
 
-4.  **Configure as variáveis de ambiente:**
+#### Backend (`raxy_project/`)
 
-      - Crie um arquivo `.env` na raiz de `raxy_project/`.
-      - Adicione as credenciais do Supabase se for usar o banco de dados:
-        ```env
-        SUPABASE_URL="https://your-project-ref.supabase.co"
-        SUPABASE_KEY="your-supabase-anon-key"
-        ```
+A modular monolith in Python with layered architecture:
 
-5.  **Configure as contas (se usar arquivo):**
+**Application Layer (`app/`)**  
+FastAPI application serving as the HTTP gateway. Controllers handle request/response, validate inputs, and delegate to core services. Provides OpenAPI documentation and CORS configuration.
 
-      - Crie um arquivo `users.txt` na raiz de `raxy_project/`.
-      - Adicione as contas no formato `email:senha`, uma por linha.
+**Core Library (`raxy/`)**  
+The heart of the system containing all business logic:
 
-### 2\. Frontend (`raxy-dashboard`)
+- **`domain/`**: Core entities like `Conta` (Account) with business rules and validation logic
+- **`interfaces/`**: Abstract base classes defining contracts for services, repositories, and external APIs
+- **`services/`**: Business logic implementation - authentication, execution orchestration, proxy management, and scoring
+- **`repositories/`**: Data access layer with implementations for file storage and database persistence
+- **`api/`**: External API clients for Bing Rewards, Microsoft authentication, and Supabase
+- **`core/`**: Cross-cutting concerns like configuration management and utility functions
+- **`container.py`**: Dependency injection container wiring interfaces to concrete implementations
+- **`proxy/`**: Proxy pool management, health checking, and rotation strategies
 
-1.  **Navegue até a pasta do frontend:**
+**CLI (`cli.py`)**  
+Typer-based command-line interface for direct system interaction outside the API server.
 
-    ```bash
-    cd raxy-dashboard
-    ```
+#### Frontend (`raxy-dashboard/`)
 
-2.  **Instale as dependências Node.js:**
+Next.js application with modern React patterns:
 
-    ```bash
-    pnpm install
-    ```
+- **`src/app/`**: App Router pages and route handlers
+- **`src/components/`**: Reusable UI components including full shadcn/ui integration
+- **`src/features/`**: Feature-specific modules with co-located components, hooks, and logic
+- **`src/lib/`**: Utilities, API clients, and helper functions
+- **`src/hooks/`**: Custom React hooks for shared functionality
+- **`src/providers/`**: React Context providers for theming and global state
+- **`src/stores/`**: Zustand stores for client-side state management
 
-3.  **Configure as variáveis de ambiente:**
+---
 
-      - Crie um arquivo `.env.local` na raiz de `raxy-dashboard/`.
-      - Adicione a URL da API do backend:
-        ```env
-        NEXT_PUBLIC_RAXY_API_URL="http://127.0.0.1:8000"
-        ```
+## Technology Stack
 
-## ▶️ Como Executar
+### Backend
+- **Python 3.11+** - Modern Python with type hints and async support
+- **FastAPI** - High-performance async web framework with automatic OpenAPI documentation
+- **Typer** - CLI framework with automatic help generation and type validation
+- **Botasaurus** - Browser automation engine for reward farming
+- **Supabase Client** - Python client for Supabase database operations
+- **Rich** - Terminal output formatting and progress tracking
+- **Loguru** - Advanced logging with rotation, filtering, and formatting
+- **Pydantic** - Data validation using Python type annotations
+- **Xray/V2Ray** - Proxy protocol support via external process management
 
-### 1\. Iniciar o Backend
+### Frontend
+- **TypeScript** - Static typing for JavaScript
+- **Next.js 15** - React framework with App Router and server components
+- **React 19** - Modern React with concurrent features
+- **Tailwind CSS** - Utility-first CSS framework
+- **shadcn/ui** - High-quality accessible component library
+- **TanStack Query** - Powerful asynchronous state management
+- **Zustand** - Lightweight state management
+- **Zod** - TypeScript-first schema validation
+- **React Hook Form** - Performant form handling
+- **Lucide React** - Clean, consistent icon set
 
-Você pode iniciar o backend de duas formas: como servidor API ou via CLI.
+---
 
-**Opção A: Iniciar o Servidor API (para usar com o Dashboard)**
+## Installation and Setup
 
-Na pasta `raxy_project/`, execute:
+### Prerequisites
+
+- Python 3.11 or higher
+- Node.js 18 or higher
+- pnpm (recommended) or npm/yarn
+- Xray or V2Ray executable in system PATH (for proxy functionality)
+
+### Backend Configuration
+
+1. **Navigate to backend directory:**
+   ```bash
+   cd raxy_project
+   ```
+
+2. **Create virtual environment:**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # Windows: .venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r ../requirements.txt
+   ```
+
+4. **Environment configuration:**
+   
+   Create `.env` in `raxy_project/` root:
+   ```env
+   # Supabase Configuration (if using database source)
+   SUPABASE_URL=https://your-project-ref.supabase.co
+   SUPABASE_KEY=your-supabase-anon-key
+   
+   # Optional: Proxy configuration
+   PROXY_TEST_URL=https://www.bing.com
+   ```
+
+5. **Account configuration (file-based):**
+   
+   Create `users.txt` in `raxy_project/` root with accounts (one per line):
+   ```
+   email@example.com:password123
+   another@example.com:password456
+   ```
+
+### Frontend Configuration
+
+1. **Navigate to frontend directory:**
+   ```bash
+   cd raxy-dashboard
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
+
+3. **Environment configuration:**
+   
+   Create `.env.local` in `raxy-dashboard/` root:
+   ```env
+   NEXT_PUBLIC_RAXY_API_URL=http://127.0.0.1:8000
+   ```
+
+---
+
+## Running the Application
+
+### Backend Server
+
+Start the FastAPI server for dashboard integration:
 
 ```bash
+cd raxy_project
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-A API estará disponível em `http://127.0.0.1:8000`.
+API documentation available at `http://127.0.0.1:8000/docs`
 
-**Opção B: Usar a Interface de Linha de Comando (CLI)**
+### Frontend Dashboard
 
-A CLI é poderosa para executar tarefas diretamente. Na pasta `raxy_project/`:
+With the backend running, start the development server:
 
-  - **Executar o farm (usando `users.txt`):**
+```bash
+cd raxy-dashboard
+pnpm dev
+```
 
-    ```bash
-    python cli.py run
-    ```
+Access the dashboard at `http://localhost:3000`
 
-  - **Executar o farm (usando o banco de dados):**
+### CLI Operations
 
-    ```bash
-    python cli.py run --source database
-    ```
+Execute operations directly without the API server:
 
-  - **Testar proxies:**
+**Run farm with file accounts:**
+```bash
+cd raxy_project
+python cli.py run
+```
 
-    ```bash
-    python cli.py proxy test --threads 20 --country US
-    ```
+**Run farm with database accounts:**
+```bash
+python cli.py run --source database
+```
 
-  - **Listar contas do arquivo:**
+**Test proxy pool:**
+```bash
+python cli.py proxy test --threads 20 --country US
+```
 
-    ```bash
-    python cli.py accounts list-file
-    ```
+**List file accounts:**
+```bash
+python cli.py accounts list-file
+```
 
-### 2\. Iniciar o Frontend
+**List database accounts:**
+```bash
+python cli.py accounts list-db
+```
 
-Com o servidor do backend em execução, inicie o dashboard:
+---
 
-1.  Navegue até a pasta `raxy-dashboard/`.
-2.  Execute o servidor de desenvolvimento:
-    ```bash
-    pnpm dev
-    ```
-3.  Abra **http://localhost:3000** em seu navegador para acessar o Raxy Farm Dashboard.
+## Project Structure
+
+```
+Raxy Farm/
+├── raxy_project/              # Backend Python application
+│   ├── app/                   # FastAPI application layer
+│   │   ├── controllers/       # HTTP request handlers
+│   │   ├── main.py           # Application entry point
+│   │   └── dependencies.py   # DI container setup
+│   ├── raxy/                 # Core business logic library
+│   │   ├── api/              # External API clients
+│   │   ├── core/             # Configuration and utilities
+│   │   ├── domain/           # Domain entities
+│   │   ├── interfaces/       # Abstract contracts
+│   │   ├── repositories/     # Data access layer
+│   │   ├── services/         # Business logic
+│   │   ├── proxy/            # Proxy management
+│   │   └── container.py      # DI container
+│   └── cli.py                # CLI interface
+├── raxy-dashboard/           # Frontend Next.js application
+│   ├── src/
+│   │   ├── app/              # Next.js pages
+│   │   ├── components/       # UI components
+│   │   ├── features/         # Feature modules
+│   │   ├── hooks/            # Custom hooks
+│   │   ├── lib/              # Utilities and API clients
+│   │   ├── providers/        # Context providers
+│   │   └── stores/           # State management
+│   └── public/               # Static assets
+├── requirements.txt          # Python dependencies
+└── README.md                 # This file
+```
+
+---
+
+## API Documentation
+
+When the backend is running, comprehensive API documentation is available at:
+
+- **Swagger UI**: `http://127.0.0.1:8000/docs`
+- **ReDoc**: `http://127.0.0.1:8000/redoc`
+
+### Key Endpoints
+
+- `GET /api/v1/accounts` - List all accounts with filtering
+- `POST /api/v1/accounts` - Add new account
+- `POST /api/v1/farm/run` - Execute farm for all accounts
+- `POST /api/v1/farm/run/{account_id}` - Execute farm for specific account
+- `GET /api/v1/metrics` - Retrieve performance metrics
+- `GET /api/v1/proxies` - List available proxies
+- `POST /api/v1/proxies/test` - Test proxy health
+
+---
+
+## Development
+
+### Backend Development
+
+The backend follows clean architecture principles:
+
+1. Define entities in `raxy/domain/`
+2. Create interfaces in `raxy/interfaces/`
+3. Implement services in `raxy/services/`
+4. Wire dependencies in `raxy/container.py`
+5. Expose via controllers in `app/controllers/`
+
+### Frontend Development
+
+The frontend uses feature-based organization:
+
+1. Create feature directory in `src/features/`
+2. Implement components, hooks, and types
+3. Add API client methods in `src/lib/api/`
+4. Create pages in `src/app/` using feature components
+
+### Testing
+
+**Backend:**
+```bash
+cd raxy_project
+python -m pytest raxy/tests/
+```
+
+**Frontend:**
+```bash
+cd raxy-dashboard
+pnpm test
+```
+
+---
+
+## Security Considerations
+
+- Never commit `.env` or `.env.local` files
+- Store sensitive credentials in environment variables
+- Use service accounts with minimal required permissions
+- Regularly rotate API keys and database credentials
+- Review proxy sources for security and reliability
+- Implement rate limiting in production deployments
+
+---
+
+## License
+
+This project is provided as-is for educational and personal use. Please review Microsoft Rewards terms of service and ensure compliance with all applicable regulations.
+
+---
+
+## Acknowledgments
+
+Built with modern development practices and enterprise-grade tools to provide a reliable, scalable, and maintainable solution for Microsoft Rewards automation.

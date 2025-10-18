@@ -161,3 +161,37 @@ class ExecutorBatchResponse(BaseModel):
     status: str
     detail: str
     source: AccountSource
+
+
+class FlyoutExecuteRequest(BaseModel):
+    session_id: str = Field(..., description="ID da sessão autenticada.")
+
+
+class FlyoutExecuteResponse(BaseModel):
+    status: str
+    detail: str
+    session_id: str
+
+
+class MailTmCreateAccountRequest(BaseModel):
+    address: Optional[str] = Field(None, description="Endereço de email desejado (sem random).")
+    password: Optional[str] = Field(None, description="Senha para a conta.")
+    random: bool = Field(True, description="Se True, cria conta com endereço aleatório.")
+
+
+class MailTmCreateAccountResponse(BaseModel):
+    address: str
+    password: str
+    token: str
+
+
+class MailTmGetDomainsResponse(BaseModel):
+    domains: List[str]
+
+
+class MailTmGetMessagesResponse(BaseModel):
+    messages: List[Dict[str, Any]]
+
+
+class MailTmGetMessageResponse(BaseModel):
+    message: Dict[str, Any]

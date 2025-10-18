@@ -1,5 +1,5 @@
 const FALLBACK_BASE_URL =
-  process.env.NEXT_PUBLIC_RAXY_API_URL ?? process.env.RAXY_API_URL ?? ''
+  process.env.NEXT_PUBLIC_RAXY_API_URL ?? process.env.RAXY_API_URL ?? 'http://localhost:8000'
 
 interface ApiFetchOptions extends RequestInit {
   parseJson?: boolean
@@ -43,11 +43,8 @@ function resolveUrl(path: string) {
     return path
   }
 
-  if (!FALLBACK_BASE_URL) {
-    throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada.')
-  }
-
-  return `${FALLBACK_BASE_URL}${path}`
+  const baseUrl = FALLBACK_BASE_URL || 'http://localhost:8000'
+  return `${baseUrl}${path}`
 }
 
 async function extractError(response: Response) {

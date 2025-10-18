@@ -20,6 +20,8 @@ from controllers import (
     proxy_router,
     rewards_router,
     suggestion_router,
+    flyout_router,
+    mailtm_router,
 )
 
 
@@ -76,6 +78,8 @@ app.include_router(rewards_router, prefix=PREFIX)
 app.include_router(suggestion_router, prefix=PREFIX)
 app.include_router(logging_router, prefix=PREFIX)
 app.include_router(executor_router, prefix=PREFIX)
+app.include_router(flyout_router, prefix=PREFIX)
+app.include_router(mailtm_router, prefix=PREFIX)
 
 __all__ = ["app"]
 

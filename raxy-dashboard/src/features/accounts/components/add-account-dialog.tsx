@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, Mail, Key, Link2, Sparkles } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -85,7 +85,10 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Adicionar nova conta</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-2xl">
+            <Sparkles className="h-6 w-6 text-primary" />
+            Adicionar nova conta
+          </DialogTitle>
           <DialogDescription>
             Informe as credenciais da conta Microsoft Rewards e, se necessário, a configuração de proxy.
           </DialogDescription>
@@ -98,7 +101,10 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>E-mail</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    E-mail
+                  </FormLabel>
                   <FormControl>
                     <Input type="email" autoComplete="email" placeholder="conta@exemplo.com" {...field} />
                   </FormControl>
@@ -112,7 +118,10 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Senha</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    Senha
+                  </FormLabel>
                   <FormControl>
                     <Input type="password" autoComplete="new-password" placeholder="********" {...field} />
                   </FormControl>
@@ -126,7 +135,10 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
               name="proxy"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Proxy (opcional)</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Link2 className="h-4 w-4" />
+                    Proxy (opcional)
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="http://usuario:senha@host:porta" {...field} />
                   </FormControl>

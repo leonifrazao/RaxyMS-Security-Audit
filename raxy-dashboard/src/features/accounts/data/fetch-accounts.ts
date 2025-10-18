@@ -6,12 +6,6 @@ const DEFAULT_TIER: Account['tier'] = 'Level 1'
 const DEFAULT_STATUS: Account['status'] = 'idle'
 
 export async function fetchAccounts(source: AccountSource = 'file'): Promise<Account[]> {
-  const baseUrl = getApiBaseUrl()
-
-  if (!baseUrl) {
-    throw new Error('NEXT_PUBLIC_RAXY_API_URL não configurada para o dashboard.')
-  }
-
   const endpoint = source === 'database' ? '/api/v1/accounts/database' : '/api/v1/accounts'
   const response = await apiFetch<AccountsResponse>(endpoint)
   return response.accounts.map((account) => normalizeAccount(account, source))

@@ -8,6 +8,7 @@ from raxy.container import SimpleInjector
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
     IBingSuggestion,
+    IBingFlyoutService,
     IExecutorEmLoteService,
     ILoggingService,
     IProxyService,
@@ -62,6 +63,10 @@ def get_account_repository(request: Request) -> IContaRepository:
 
 def get_mailtm_service(request: Request) -> IMailTmService:
     return _get_injector(request).get(IMailTmService)
+
+
+def get_bingflyout_service(request: Request) -> IBingFlyoutService:
+    return _get_injector(request).get(IBingFlyoutService)
 
 
 def get_session_store(request: Request) -> Dict[str, SessaoSolicitacoes]:

@@ -6,6 +6,14 @@ import string
 import time
 from typing import List, Optional, Callable
 from raxy.domain.mailtm_data import Domain, Account, AuthenticatedSession, Message, MessageAddress
+from raxy.core.exceptions import (
+    MailTmAPIException,
+    RequestException,
+    RequestTimeoutException,
+    InvalidAPIResponseException,
+    TimeoutException,
+    wrap_exception,
+)
 
 # Importando os dataclasses do arquivo de modelos
 # from mailtm_models import Domain, Account, AuthenticatedSession, Message, MessageAddress
@@ -13,7 +21,8 @@ from raxy.domain.mailtm_data import Domain, Account, AuthenticatedSession, Messa
 # Configuração de logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class MailTmError(Exception):
+# Manter compatibilidade com código existente
+class MailTmError(MailTmAPIException):
     """Exceção base para erros específicos da API Mail.tm."""
     pass
 
@@ -31,7 +40,7 @@ class MailTm:
         self.session = requests.Session()
 
     def _request(self, method: str, endpoint: str, token: Optional[str] = None, **kwargs):
-        """Método central para realizar requisições HTTP."""
+        """Método central para realizar requisições HTTP com tratamento robusto de erros."""
         url = f"{self.base_url}{endpoint}"
         
         headers = {
@@ -47,49 +56,140 @@ class MailTm:
             if response.status_code == 204:
                 return None
             return response.json()
+        except requests.exceptions.Timeout as e:
+            error_msg = f"Timeout ao acessar {url}"
+            logging.error(error_msg)
+            raise RequestTimeoutException(
+                error_msg,
+                details={"url": url, "method": method, "endpoint": endpoint}
+            ) from e
         except requests.exceptions.HTTPError as e:
-            error_msg = f"Erro na API: {e.response.status_code} - {e.response.text}"
+            status_code = e.response.status_code if e.response else None
+            error_msg = f"Erro na API: {status_code} - {e.response.text if e.response else 'Sem resposta'}"
             logging.error(f"Erro HTTP ao acessar {url}: {error_msg}")
-            raise MailTmError(error_msg) from e
+            raise MailTmAPIException(
+                error_msg,
+                details={"url": url, "method": method, "status_code": status_code}
+            ) from e
+        except requests.exceptions.ConnectionError as e:
+            error_msg = f"Erro de conexão ao acessar {url}"
+            logging.error(error_msg)
+            raise RequestException(
+                error_msg,
+                details={"url": url, "method": method}
+            ) from e
         except requests.exceptions.RequestException as e:
-            error_msg = f"Erro de conexão: {e}"
-            logging.error(f"Erro de conexão ao acessar {url}: {e}")
-            raise MailTmError(error_msg) from e
+            error_msg = f"Erro de requisição: {e}"
+            logging.error(f"Erro ao acessar {url}: {e}")
+            raise wrap_exception(
+                e, RequestException,
+                error_msg,
+                url=url, method=method
+            )
 
     # --- Gerenciamento de Domínios ---
     
     def get_domains(self) -> List[Domain]:
-        """Recupera a lista de domínios disponíveis."""
+        """Recupera a lista de domínios disponíveis com tratamento de erros."""
         logging.info("Buscando domínios disponíveis...")
-        response = self._request("GET", "/domains")
+        try:
+            response = self._request("GET", "/domains")
+        except MailTmAPIException:
+            raise
+        except Exception as e:
+            raise wrap_exception(
+                e, MailTmAPIException,
+                "Erro ao buscar domínios"
+            )
+        
         if isinstance(response, dict) and "hydra:member" in response:
-            return [Domain(id=d['id'], domain=d['domain'], is_active=d['isActive'], is_private=d['isPrivate'], created_at=d['createdAt'], updated_at=d['updatedAt']) for d in response['hydra:member']]
+            try:
+                return [Domain(
+                    id=d['id'],
+                    domain=d['domain'],
+                    is_active=d['isActive'],
+                    is_private=d['isPrivate'],
+                    created_at=d['createdAt'],
+                    updated_at=d['updatedAt']
+                ) for d in response['hydra:member']]
+            except (KeyError, TypeError) as e:
+                raise wrap_exception(
+                    e, InvalidAPIResponseException,
+                    "Resposta de domínios com formato inválido"
+                )
         return []
 
     # --- Gerenciamento de Contas e Autenticação ---
 
     def create_account(self, address: str, password: str) -> AuthenticatedSession:
-        """Cria uma nova conta e retorna uma sessão autenticada."""
+        """Cria uma nova conta e retorna uma sessão autenticada com tratamento de erros."""
         logging.info(f"Criando conta para o endereço: {address}")
         payload = {"address": address, "password": password}
-        account_data = self._request("POST", "/accounts", json=payload)
         
-        account = Account(id=account_data['id'], address=account_data['address'], is_disabled=account_data['isDisabled'], is_deleted=account_data['isDeleted'], created_at=account_data['createdAt'], updated_at=account_data['updatedAt'])
+        try:
+            account_data = self._request("POST", "/accounts", json=payload)
+        except MailTmAPIException:
+            raise
+        except Exception as e:
+            raise wrap_exception(
+                e, MailTmAPIException,
+                "Erro ao criar conta",
+                address=address
+            )
         
-        token = self.get_token(address, password)
+        try:
+            account = Account(
+                id=account_data['id'],
+                address=account_data['address'],
+                is_disabled=account_data['isDisabled'],
+                is_deleted=account_data['isDeleted'],
+                created_at=account_data['createdAt'],
+                updated_at=account_data['updatedAt']
+            )
+        except (KeyError, TypeError) as e:
+            raise wrap_exception(
+                e, InvalidAPIResponseException,
+                "Resposta de criação de conta com formato inválido",
+                address=address
+            )
+        
+        try:
+            token = self.get_token(address, password)
+        except MailTmAPIException:
+            raise
+        except Exception as e:
+            raise wrap_exception(
+                e, MailTmAPIException,
+                "Erro ao obter token após criar conta",
+                address=address
+            )
+        
         logging.info(f"Conta {account.address} criada com sucesso.")
         
         return AuthenticatedSession(account=account, token=token)
 
     def get_token(self, address: str, password: str) -> str:
-        """Obtém um token JWT para uma conta existente."""
+        """Obtém um token JWT para uma conta existente com tratamento de erros."""
         logging.info(f"Obtendo token para {address}...")
         payload = {"address": address, "password": password}
-        response = self._request("POST", "/token", json=payload)
         
-        token = response.get("token")
+        try:
+            response = self._request("POST", "/token", json=payload)
+        except MailTmAPIException:
+            raise
+        except Exception as e:
+            raise wrap_exception(
+                e, MailTmAPIException,
+                "Erro ao obter token",
+                address=address
+            )
+        
+        token = response.get("token") if response else None
         if not token:
-            raise MailTmError("Falha ao obter o token.")
+            raise MailTmAPIException(
+                "Falha ao obter o token.",
+                details={"address": address, "response": str(response)}
+            )
         return token
 
     def get_me(self, token: str) -> Account:
@@ -145,10 +245,22 @@ class MailTm:
     # --- Métodos de Alto Nível (Helpers) ---
 
     def create_random_account(self, password: Optional[str] = None, max_attempts: int = 20, delay: int = 1) -> AuthenticatedSession:
-        """Cria uma conta com endereço aleatório de forma independente."""
-        domains = self.get_domains()
+        """Cria uma conta com endereço aleatório de forma independente com tratamento de erros."""
+        try:
+            domains = self.get_domains()
+        except MailTmAPIException:
+            raise
+        except Exception as e:
+            raise wrap_exception(
+                e, MailTmAPIException,
+                "Erro ao buscar domínios para conta aleatória"
+            )
+        
         if not domains:
-            raise MailTmError("Nenhum domínio disponível para criar conta.")
+            raise MailTmAPIException(
+                "Nenhum domínio disponível para criar conta.",
+                details={"domains_count": 0}
+            )
         domain = domains[0].domain
 
         final_password = password or ''.join(random.choices(string.ascii_letters + string.digits, k=12))
@@ -159,24 +271,48 @@ class MailTm:
             try:
                 logging.info(f"Tentativa {attempt}: criando conta {address}...")
                 return self.create_account(address, final_password)
-            except MailTmError as e:
+            except MailTmAPIException as e:
                 if "422" in str(e) or "already exists" in str(e).lower():
                     logging.warning(f"E-mail {address} já existe. Tentando outro...")
                     time.sleep(delay)
                     continue
                 else:
                     raise
-        raise MailTmError("Falha ao criar conta aleatória após várias tentativas.")
+            except Exception as e:
+                raise wrap_exception(
+                    e, MailTmAPIException,
+                    "Erro inesperado ao criar conta aleatória",
+                    attempt=attempt, address=address
+                )
+        
+        raise MailTmAPIException(
+            "Falha ao criar conta aleatória após várias tentativas.",
+            details={"max_attempts": max_attempts, "domain": domain}
+        )
     
     def wait_for_message(self, token: str, timeout: int = 60, interval: int = 5, filter_func: Optional[Callable[[Message], bool]] = None) -> Optional[Message]:
-        """Aguarda até que uma nova mensagem chegue, usando um token."""
+        """Aguarda até que uma nova mensagem chegue, usando um token com tratamento de erros."""
         logging.info(f"Aguardando mensagem por até {timeout} segundos...")
         start_time = time.time()
 
         while time.time() - start_time < timeout:
-            messages = self.get_messages(token)
-            if filter_func:
-                messages = [m for m in messages if filter_func(m)]
+            try:
+                messages = self.get_messages(token)
+            except MailTmAPIException as e:
+                logging.warning(f"Erro ao buscar mensagens: {e}. Tentando novamente...")
+                time.sleep(interval)
+                continue
+            except Exception as e:
+                logging.error(f"Erro inesperado ao buscar mensagens: {e}")
+                time.sleep(interval)
+                continue
+            
+            try:
+                if filter_func:
+                    messages = [m for m in messages if filter_func(m)]
+            except Exception as e:
+                logging.warning(f"Erro ao aplicar filtro: {e}")
+            
             if messages:
                 logging.info("Mensagem recebida!")
                 return messages[0]
