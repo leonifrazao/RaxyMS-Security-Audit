@@ -1,154 +1,268 @@
-"""Implementação do repositório de banco de dados utilizando Supabase."""
+"""
+Repositório refatorado para banco de dados Supabase.
+
+Implementa interface de repositório com Supabase seguindo
+padrões de arquitetura limpa e tratamento robusto de erros.
+"""
 
 from __future__ import annotations
+
 import os
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence
+from typing import Any, Dict, Optional, Mapping, Sequence
 
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-from raxy.interfaces.repositories.IDatabaseRepository import IDatabaseRepository
-from raxy.services.logging_service import log
+from raxy.interfaces.repositories import IDatabaseRepository
+from raxy.interfaces.services import ILoggingService
+from raxy.core.exceptions import (
+    DatabaseException,
+    ValidationException,
+    wrap_exception,
+)
 
-# Carrega variáveis de ambiente de um arquivo .env, se existir
+# Carrega variáveis de ambiente
 load_dotenv()
 
-class SupabaseRepository(IDatabaseRepository):
-    """Implementa a interface de repositório de banco de dados com a biblioteca Supabase."""
+class SupabaseConfig:
+    """Configuração para Supabase."""
+    
+    # Tabelas
+    TABLE_CONTAS = "contas"
+    
+    # Campos obrigatórios
+    REQUIRED_ENV_VARS = ["SUPABASE_URL", "SUPABASE_KEY"]
+    
+    # Timeouts
+    DEFAULT_TIMEOUT = 30
+    
+    @classmethod
+    def from_env(cls) -> tuple[str, str]:
+        """
+        Carrega configurações do ambiente.
+        
+        Returns:
+            tuple[str, str]: URL e chave do Supabase
+            
+        Raises:
+            ValidationException: Se configuração faltando
+        """
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY")
+        
+        if not url or not key:
+            missing = []
+            if not url:
+                missing.append("SUPABASE_URL")
+            if not key:
+                missing.append("SUPABASE_KEY")
+            
+            raise ValidationException(
+                "Credenciais do Supabase não encontradas",
+                details={"missing_vars": missing}
+            )
+        
+        return url, key
 
-    def __init__(self) -> None:
+
+class SupabaseRepository(IDatabaseRepository):
+    """
+    Repositório de banco de dados usando Supabase.
+    
+    Implementa a interface IDatabaseRepository com Supabase,
+    fornecendo acesso estruturado ao banco de dados.
+    """
+    
+    def __init__(
+        self,
+        url: Optional[str] = None,
+        key: Optional[str] = None,
+        logger: Optional[ILoggingService] = None
+    ):
+        """
+        Inicializa o repositório.
+        
+        Args:
+            url: URL do Supabase (opcional, usa env se não fornecido)
+            key: Chave do Supabase (opcional, usa env se não fornecido)
+            logger: Serviço de logging
+        """
+        self._logger = logger or self._get_default_logger()
+        self.config = SupabaseConfig()
+        
+        # Obtém credenciais
+        if not url or not key:
+            url, key = self.config.from_env()
+        
+        # Inicializa cliente
+        self._initialize_client(url, key)
+    
+    def _get_default_logger(self) -> ILoggingService:
+        """Obtém logger padrão."""
+        from raxy.core.logging import get_logger
+        return get_logger()
+    
+    def _initialize_client(self, url: str, key: str) -> None:
         """
         Inicializa o cliente Supabase.
+        
+        Args:
+            url: URL do Supabase
+            key: Chave de API
+            
+        Raises:
+            DatabaseException: Se erro ao conectar
         """
-        url: str | None = os.environ.get("SUPABASE_URL")
-        key: str | None = os.environ.get("SUPABASE_KEY")
-
-        if not url or not key:
-            log.critico("As variáveis de ambiente SUPABASE_URL e SUPABASE_KEY são necessárias.")
-            raise ValueError("Credenciais do Supabase não encontradas no ambiente.")
-
         try:
             self.supabase: Client = create_client(url, key)
-            log.info("Cliente Supabase inicializado com sucesso.")
+            self._logger.info("Cliente Supabase inicializado com sucesso")
         except Exception as e:
-            log.critico("Falha ao criar o cliente Supabase.", erro=e)
-            raise
-
-    def adicionar_registro_farm(self, email: str, pontos: int) -> Mapping[str, Any] | None:
-        """
-        Adiciona ou atualiza o registro de uma conta na tabela 'contas'.
-        """
-        logger = log.com_contexto(conta=email, pontos=pontos)
-        logger.info("Adicionando/atualizando registro de farm no banco de dados.")
-
-        try:
-            timestamp_atual = datetime.now(timezone.utc).isoformat()
-            data_para_enviar = {
-                "email": email,
-                "pontos": pontos,
-                "ultima_farm": timestamp_atual,
-            }
-
-            # --- ALTERAÇÃO AQUI ---
-            # Adicionamos 'returning="minimal"' para dizer à API para não retornar os dados,
-            # apenas executar a ação. Isso evita o erro de resposta vazia.
-            response = (
-                self.supabase.table("contas")
-                .upsert(
-                    data_para_enviar,
-                    on_conflict="email",  # <--- Esta é a parte mágica
-                    returning="minimal"
-                )
-                .execute()
+            self._logger.erro("Falha ao criar cliente Supabase", exception=e)
+            raise wrap_exception(
+                e, DatabaseException,
+                "Erro ao conectar com Supabase"
             )
 
-            # A resposta com 'returning=minimal' não tem 'data' nem 'error' em caso de sucesso
-            # A biblioteca pode retornar um erro em 'response.error' se houver um problema real.
-            # Vamos verificar se existe um erro real na resposta.
-            if hasattr(response, 'error') and response.error:
-                logger.erro("Erro retornado pelo Supabase ao registrar farm.", erro=response.error)
-                return None
+    def adicionar_registro_farm(self, email: str, pontos: int) -> Optional[Dict[str, Any]]:
+        """
+        Adiciona ou atualiza registro de farm.
+        
+        Args:
+            email: Email da conta
+            pontos: Pontos obtidos
             
-            # Se não houve erro, a operação foi um sucesso.
-            logger.sucesso("Registro de farm salvo no banco de dados com sucesso.")
-            # Como não pedimos dados de volta, retornamos o que enviamos como confirmação.
-            return data_para_enviar
-
-        except Exception as e:
-            logger.critico("Exceção inesperada ao tentar registrar farm no Supabase.", erro=e)
-            return None
-
-    def consultar_conta(self, email: str) -> Mapping[str, Any] | None:
+        Returns:
+            Optional[Dict[str, Any]]: Registro atualizado ou None se erro
         """
-        Consulta uma conta na tabela 'contas' pelo email.
-        """
-        logger = log.com_contexto(conta=email)
-        logger.info("Consultando conta no banco de dados.")
+        # Valida entrada
+        self._validate_farm_input(email, pontos)
+        
+        self._logger.info(
+            "Adicionando/atualizando registro de farm",
+            email=email,
+            pontos=pontos
+        )
         
         try:
-            data, error = (
-                self.supabase.table("contas")
+            # Prepara dados
+            timestamp = datetime.now(timezone.utc).isoformat()
+            data = {
+                "email": email,
+                "pontos": pontos,
+                "ultima_farm": timestamp,
+            }
+            
+            # Operação upsert (insert ou update)
+            response = self.supabase.table(self.config.TABLE_CONTAS).upsert(
+                data,
+                on_conflict="email"
+            ).execute()
+            
+            if response.data:
+                self._logger.sucesso(
+                    "Registro farm atualizado",
+                    email=email,
+                    pontos=pontos
+                )
+                return response.data[0] if response.data else None
+            else:
+                self._logger.erro(
+                    "Falha ao atualizar registro",
+                    error=getattr(response, "error", None)
+                )
+                return None
+                
+        except Exception as e:
+            self._logger.erro(
+                "Erro ao adicionar registro farm",
+                exception=e,
+                email=email
+            )
+            return None
+    
+    def consultar_conta(self, email: str) -> Optional[Dict[str, Any]]:
+        """
+        Consulta uma conta pelo email.
+        
+        Args:
+            email: Email da conta
+            
+        Returns:
+            Optional[Dict[str, Any]]: Dados da conta ou None
+        """
+        self._logger.debug(f"Consultando conta: {email}")
+        
+        try:
+            response = (
+                self.supabase.table(self.config.TABLE_CONTAS)
                 .select("*")
                 .eq("email", email)
                 .limit(1)
                 .execute()
             )
-
-            if error:
-                logger.erro("Erro retornado pelo Supabase ao consultar conta.", erro=error)
-                return None
-
-            if data and data[1]:
-                logger.info("Conta encontrada no banco de dados.")
-                return data[1][0]
             
-            logger.info("Nenhuma conta encontrada com o email fornecido.")
-            return None
-
+            if response.data:
+                self._logger.info(f"Conta encontrada: {email}")
+                return response.data[0]
+            else:
+                self._logger.info(f"Nenhuma conta encontrada: {email}")
+                return None
+                
         except Exception as e:
-            logger.critico("Exceção inesperada ao consultar conta no Supabase.", erro=e)
+            self._logger.erro(
+                "Erro ao consultar conta",
+                exception=e,
+                email=email
+            )
             return None
+    
+    def _validate_farm_input(self, email: str, pontos: int) -> None:
+        """
+        Valida entrada para registro de farm.
+        
+        Args:
+            email: Email da conta
+            pontos: Pontos obtidos
+            
+        Raises:
+            ValidationException: Se entrada inválida
+        """
+        if not email or not isinstance(email, str):
+            raise ValidationException(
+                "Email inválido",
+                details={"email": email}
+            )
+        
+        if not isinstance(pontos, int) or pontos < 0:
+            raise ValidationException(
+                "Pontos inválidos",
+                details={"pontos": pontos}
+            )
 
-    def listar_contas(self) -> Sequence[Mapping[str, Any]]:
+    def listar_contas(self) -> Sequence[Dict[str, Any]]:
         """
-        Retorna todas as contas salvas no Supabase.
+        Lista todas as contas no banco.
+        
+        Returns:
+            Sequence[Dict[str, Any]]: Lista de contas
         """
-        logger = log.com_contexto(recurso="contas_supabase")
+        self._logger.debug("Listando todas as contas")
+        
         try:
-            resultado = self.supabase.table("contas").select("*").execute()
-        except Exception as exc:
-            logger.critico("Falha ao listar contas no Supabase.", erro=exc)
+            response = self.supabase.table(self.config.TABLE_CONTAS).select("*").execute()
+            
+            if response.data:
+                self._logger.info(f"Total de {len(response.data)} conta(s) encontrada(s)")
+                return response.data
+            else:
+                self._logger.info("Nenhuma conta encontrada")
+                return []
+                
+        except Exception as e:
+            self._logger.erro(
+                "Erro ao listar contas",
+                exception=e,
+                details={"error": getattr(e, "error", None)}
+            )
             return []
-
-        data = None
-        error = None
-        if isinstance(resultado, tuple):
-            if len(resultado) >= 2:
-                data, error = resultado[0], resultado[1]
-            elif resultado:
-                data = resultado[0]
-        else:
-            data = getattr(resultado, "data", None)
-            error = getattr(resultado, "error", None)
-
-        if error:
-            logger.erro("Erro retornado pelo Supabase ao listar contas.", erro=error)
-            return []
-
-        if not data:
-            logger.aviso("Nenhuma conta encontrada no Supabase ao listar.")
-            return []
-
-        if isinstance(data, dict):
-            registros = data.get("data")
-            if isinstance(registros, list):
-                return registros
-            logger.aviso("Formato de resposta inesperado ao listar contas no Supabase.", corpo=str(data)[:200])
-            return []
-
-        if isinstance(data, list):
-            return data
-
-        logger.aviso("Tipo de dado inesperado ao listar contas no Supabase.", tipo=str(type(data)))
-        return []
