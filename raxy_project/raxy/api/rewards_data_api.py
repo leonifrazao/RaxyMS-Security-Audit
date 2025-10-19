@@ -1,13 +1,18 @@
-"""Camada de API para consumo das chamadas HTTP do Microsoft Rewards usando SessionManagerService."""
+"""
+API refatorada para Microsoft Rewards.
+
+Fornece interface para interação com a API do Microsoft Rewards
+com tratamento robusto de erros e arquitetura modular.
+"""
 
 from __future__ import annotations
 
 import json
 from copy import deepcopy
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Dict, Any, List, Optional, Mapping, Iterable
 
-from raxy.interfaces.services import IRewardsDataService
+from raxy.interfaces.services import IRewardsDataService, ILoggingService
 from raxy.core.session_manager_service import SessionManagerService
 from raxy.core.exceptions import (
     RewardsAPIException,
@@ -16,132 +21,300 @@ from raxy.core.exceptions import (
     DataExtractionException,
     wrap_exception,
 )
+from .base_api import BaseAPIClient
 
-REQUESTS_DIR = Path(__file__).resolve().parent / "requests_templates"
+
+class RewardsConfig:
+    """Configuração para API do Microsoft Rewards."""
+    
+    # URLs e endpoints
+    BASE_URL = "https://rewards.microsoft.com"
+    
+    # Templates
+    TEMPLATE_OBTER_PONTOS = "rewards_obter_pontos.json"
+    TEMPLATE_EXECUTAR_TAREFA = "pegar_recompensa_rewards.json"
+    
+    # Palavras de erro
+    DEFAULT_ERROR_WORDS = ["captcha", "temporarily unavailable", "error", "blocked"]
 
 
-class RewardsDataAPI(IRewardsDataService):
-    _TEMPLATE_OBTER_PONTOS = "rewards_obter_pontos.json"
-    _TEMPLATE_EXECUTAR_TAREFA = "pegar_recompensa_rewards.json"
-
-    def __init__(
-        self,
-        palavras_erro: Iterable[str] | None = None,
-    ) -> None:
-        self._palavras_erro = tuple(palavra.lower() for palavra in palavras_erro or ("captcha", "temporarily unavailable", "error"))
-
-    def obter_pontos(self, sessao: SessionManagerService, *, bypass_request_token: bool = True) -> int:
-        """Obtém os pontos disponíveis com tratamento robusto de erros."""
-        caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
+class RewardsDataParser:
+    """Parser para dados do Microsoft Rewards."""
+    
+    @staticmethod
+    def extract_points(response_data: Dict[str, Any]) -> int:
+        """
+        Extrai pontos da resposta.
+        
+        Args:
+            response_data: Dados da resposta
+            
+        Returns:
+            int: Pontos disponíveis
+            
+        Raises:
+            DataExtractionException: Se erro ao extrair
+        """
+        if not isinstance(response_data, dict) or "dashboard" not in response_data:
+            raise InvalidAPIResponseException(
+                "Formato de resposta inesperado",
+                details={"has_dashboard": "dashboard" in response_data if isinstance(response_data, dict) else False}
+            )
         
         try:
-            resposta = sessao.execute_template(caminho_template, bypass_request_token=bypass_request_token)
-        except Exception as e:
-            raise wrap_exception(
-                e, RewardsAPIException,
-                "Erro ao executar template de pontos",
-                template=str(caminho_template)
-            )
-
-        if resposta is None or not getattr(resposta, "ok", False):
-            status = getattr(resposta, 'status_code', 'N/A')
-            raise InvalidAPIResponseException(
-                f"Request falhou com status {status}",
-                details={"status_code": status, "template": str(caminho_template)}
-            )
-
-        try:
-            resposta_json = resposta.json()
-        except json.JSONDecodeError as exc:
-            raise wrap_exception(
-                exc, JSONParsingException,
-                "Falha ao decodificar resposta JSON de pontos",
-                status_code=getattr(resposta, 'status_code', None)
-            )
-
-        if not isinstance(resposta_json, dict) or "dashboard" not in resposta_json:
-            raise InvalidAPIResponseException(
-                "Formato de resposta inesperado ao obter pontos",
-                details={"has_dashboard": "dashboard" in resposta_json if isinstance(resposta_json, dict) else False}
-            )
-
-        try:
-            return int(resposta_json["dashboard"]["userStatus"]["availablePoints"])
+            return int(response_data["dashboard"]["userStatus"]["availablePoints"])
         except (KeyError, ValueError, TypeError) as e:
             raise wrap_exception(
                 e, DataExtractionException,
                 "Erro ao extrair pontos da resposta",
-                response_keys=list(resposta_json.keys()) if isinstance(resposta_json, dict) else None
+                response_keys=list(response_data.keys()) if isinstance(response_data, dict) else None
             )
+    
+    @staticmethod
+    def parse_promotion(item: Dict[str, Any], date_ref: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Monta objeto de promoção dos dados brutos.
+        
+        Args:
+            item: Item de promoção
+            date_ref: Data de referência
+            
+        Returns:
+            Dict[str, Any]: Promoção formatada
+        """
+        # Extrai atributos
+        attributes = {}
+        try:
+            attrs_obj = item.get("attributes")
+            attributes = attrs_obj if isinstance(attrs_obj, dict) else {}
+        except Exception:
+            pass
+        
+        # Extrai pontos
+        points = None
+        try:
+            points = (
+                RewardsDataParser._to_int(item.get("pointProgressMax")) or
+                RewardsDataParser._to_int(attributes.get("max")) or
+                RewardsDataParser._to_int(attributes.get("link_text"))
+            )
+        except Exception:
+            pass
+        
+        # Extrai tipo
+        promo_type = None
+        try:
+            for key in ("type", "promotionType", "promotionSubtype"):
+                value = item.get(key)
+                if not isinstance(value, str) and isinstance(attributes.get(key), str):
+                    value = attributes.get(key)
+                if isinstance(value, str) and value.strip():
+                    promo_type = value.strip()
+                    break
+        except Exception:
+            pass
+        
+        # Extrai status de completude
+        complete = False
+        try:
+            complete = bool(item.get("complete"))
+            complete_attr = attributes.get("complete")
+            if isinstance(complete_attr, str) and not complete:
+                complete = complete_attr.strip().lower() == "true"
+        except Exception:
+            pass
+        
+        return {
+            "id": item.get("name") or item.get("offerId"),
+            "hash": item.get("hash"),
+            "title": item.get("title") or attributes.get("title"),
+            "description": item.get("description") or attributes.get("description"),
+            "points": points,
+            "complete": complete,
+            "url": item.get("destinationUrl") or attributes.get("destination"),
+            "date": date_ref,
+            "type": promo_type,
+        }
+    
+    @staticmethod
+    def _to_int(value: Any) -> Optional[int]:
+        """Converte valor para inteiro."""
+        if isinstance(value, (int, float)):
+            return int(value)
+        if isinstance(value, str):
+            digits = [ch for ch in value if ch.isdigit()]
+            if digits:
+                return int("".join(digits))
+        return None
+
+
+class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
+    """
+    Cliente de API para Microsoft Rewards.
+    
+    Implementa a interface IRewardsDataService com arquitetura modular
+    e tratamento robusto de erros.
+    """
+    
+    def __init__(
+        self,
+        logger: Optional[ILoggingService] = None,
+        palavras_erro: Optional[Iterable[str]] = None,
+    ) -> None:
+        """
+        Inicializa o cliente de Rewards.
+        
+        Args:
+            logger: Serviço de logging
+            palavras_erro: Palavras que indicam erro na resposta
+        """
+        super().__init__(
+            base_url=RewardsConfig.BASE_URL,
+            logger=logger,
+            error_words=palavras_erro or RewardsConfig.DEFAULT_ERROR_WORDS
+        )
+        
+        self.config = RewardsConfig()
+        self.parser = RewardsDataParser()
+
+    def obter_pontos(self, sessao: SessionManagerService, *, bypass_request_token: bool = True) -> int:
+        """
+        Obtém os pontos disponíveis.
+        
+        Args:
+            sessao: Sessão do usuário
+            bypass_request_token: Se deve bypass do token
+            
+        Returns:
+            int: Pontos disponíveis
+            
+        Raises:
+            RewardsAPIException: Se erro na API
+        """
+        self.logger.debug("Obtendo pontos do Rewards")
+        
+        # Carrega template
+        template_path = self.TEMPLATES_DIR / self.config.TEMPLATE_OBTER_PONTOS
+        
+        try:
+            response = sessao.execute_template(
+                template_path,
+                bypass_request_token=bypass_request_token
+            )
+        except Exception as e:
+            raise wrap_exception(
+                e, RewardsAPIException,
+                "Erro ao executar template de pontos",
+                template=str(template_path)
+            )
+        
+        # Valida resposta
+        if response is None or not getattr(response, "ok", False):
+            status = getattr(response, "status_code", "N/A")
+            raise InvalidAPIResponseException(
+                f"Request falhou com status {status}",
+                details={"status_code": status}
+            )
+        
+        # Parse JSON
+        try:
+            response_data = response.json()
+        except json.JSONDecodeError as e:
+            raise wrap_exception(
+                e, JSONParsingException,
+                "Erro ao decodificar resposta JSON",
+                status_code=getattr(response, "status_code", None)
+            )
+        
+        # Extrai pontos
+        points = self.parser.extract_points(response_data)
+        
+        self.logger.info(f"Pontos obtidos: {points}")
+        return points
 
     def obter_recompensas(
         self,
         sessao: SessionManagerService,
         *,
         bypass_request_token: bool = True,
-    ) -> Mapping[str, object]:
-        """Obtém as recompensas disponíveis com tratamento robusto de erros."""
-        caminho_template = REQUESTS_DIR / self._TEMPLATE_OBTER_PONTOS
+    ) -> Mapping[str, Any]:
+        """
+        Obtém as recompensas disponíveis.
+        
+        Args:
+            sessao: Sessão do usuário
+            bypass_request_token: Se deve bypass do token
+            
+        Returns:
+            Mapping[str, Any]: Recompensas formatadas
+        """
+        self.logger.debug("Obtendo recompensas disponíveis")
+        
+        # Usa mesmo template de pontos que contém todas as infos
+        template_path = self.TEMPLATES_DIR / self.config.TEMPLATE_OBTER_PONTOS
         
         try:
-            resposta = sessao.execute_template(caminho_template, bypass_request_token=bypass_request_token)
+            response = sessao.execute_template(
+                template_path,
+                bypass_request_token=bypass_request_token
+            )
         except Exception as e:
             raise wrap_exception(
                 e, RewardsAPIException,
                 "Erro ao executar template de recompensas",
-                template=str(caminho_template)
+                template=str(template_path)
             )
-
+        
+        # Parse JSON
         try:
-            corpo = resposta.json()
-        except json.JSONDecodeError as exc:
+            response_data = response.json()
+        except json.JSONDecodeError as e:
             raise wrap_exception(
-                exc, JSONParsingException,
-                "Falha ao decodificar resposta JSON de recompensas"
+                e, JSONParsingException,
+                "Erro ao decodificar resposta JSON"
             )
-
-        if not isinstance(corpo, dict):
-            return {"daily_sets": [], "more_promotions": [], "error": "Resposta não é um dicionário"}
-
-        dashboard = corpo.get("dashboard")
+        
+        # Valida estrutura básica
+        if not isinstance(response_data, dict):
+            return {"daily_sets": [], "more_promotions": [], "error": "Resposta inválida"}
+        
+        dashboard = response_data.get("dashboard")
         if not isinstance(dashboard, dict):
-            return {"daily_sets": [], "more_promotions": [], "error": "Dashboard ausente ou inválido"}
-
-        promocoes = []
-        try:
-            for item in dashboard.get("morePromotions") or []:
-                if isinstance(item, dict):
-                    try:
-                        promocoes.append(self._montar_promocao(item))
-                    except Exception as e:
-                        # Log mas não interrompe
-                        pass
-        except Exception:
-            # Se falhar ao processar mais promoções, continua
-            pass
-
-        conjuntos = []
-        try:
-            for data_ref, itens in (dashboard.get("dailySetPromotions") or {}).items():
-                if isinstance(itens, list):
-                    promos_data = []
-                    for it in itens:
-                        if isinstance(it, dict):
-                            try:
-                                promos_data.append(self._montar_promocao(it, data_ref))
-                            except Exception:
-                                # Log mas não interrompe
-                                pass
-                    if promos_data:
-                        conjuntos.append({"date": data_ref, "promotions": promos_data})
-        except Exception:
-            # Se falhar ao processar daily sets, continua
-            pass
-
+            return {"daily_sets": [], "more_promotions": [], "error": "Dashboard ausente"}
+        
+        # Processa promoções mais
+        more_promotions = []
+        for item in dashboard.get("morePromotions", []):
+            if isinstance(item, dict):
+                try:
+                    more_promotions.append(self.parser.parse_promotion(item))
+                except Exception as e:
+                    self.logger.debug(f"Erro ao processar promoção: {e}")
+        
+        # Processa conjuntos diários
+        daily_sets = []
+        for date_ref, items in dashboard.get("dailySetPromotions", {}).items():
+            if isinstance(items, list):
+                promotions = []
+                for item in items:
+                    if isinstance(item, dict):
+                        try:
+                            promotions.append(self.parser.parse_promotion(item, date_ref))
+                        except Exception as e:
+                            self.logger.debug(f"Erro ao processar promoção diária: {e}")
+                
+                if promotions:
+                    daily_sets.append({"date": date_ref, "promotions": promotions})
+        
+        self.logger.info(
+            f"Recompensas obtidas: {len(daily_sets)} conjuntos diários, "
+            f"{len(more_promotions)} promoções adicionais"
+        )
+        
         return {
-            "daily_sets": conjuntos,
-            "more_promotions": promocoes,
-            "raw": corpo,
+            "daily_sets": daily_sets,
+            "more_promotions": more_promotions,
+            "raw": response_data,
             "raw_dashboard": dashboard,
         }
 
@@ -150,8 +323,18 @@ class RewardsDataAPI(IRewardsDataService):
         sessao: SessionManagerService,
         *,
         bypass_request_token: bool = True,
-    ) -> Mapping[str, object]:
-        """Coleta as recompensas com tratamento de erros individual."""
+    ) -> Mapping[str, Any]:
+        """
+        Coleta as recompensas disponíveis.
+        
+        Args:
+            sessao: Sessão do usuário
+            bypass_request_token: Se deve bypass do token
+            
+        Returns:
+            Mapping[str, Any]: Resultado das coletas
+        """
+        self.logger.debug("Iniciando coleta de recompensas")
         try:
             recompensas = self.obter_recompensas(sessao, bypass_request_token=bypass_request_token)
         except Exception as e:
@@ -164,150 +347,153 @@ class RewardsDataAPI(IRewardsDataService):
         more_promotions = recompensas.get("more_promotions", []) if isinstance(recompensas, dict) else []
 
         if not daily_sets and not more_promotions:
+            self.logger.info("Nenhuma recompensa para coletar")
             return {"daily_sets": [], "more_promotions": []}
-
-        template_path = REQUESTS_DIR / self._TEMPLATE_EXECUTAR_TAREFA
+        
+        # Carrega template de execução
+        template_base = self._load_execution_template()
+        
+        # Processa conjuntos diários
+        daily_results = []
+        for daily_set in daily_sets:
+            date_ref = daily_set.get("date")
+            result = self._process_promotions(
+                sessao,
+                template_base,
+                daily_set.get("promotions", []),
+                date_ref
+            )
+            if result.get("promotions"):
+                daily_results.append(result)
+        
+        # Processa promoções adicionais
+        more_results = []
+        if more_promotions:
+            result = self._process_promotions(
+                sessao,
+                template_base,
+                more_promotions
+            )
+            if result.get("promotions"):
+                more_results = result["promotions"]
+        
+        self.logger.info(
+            f"Recompensas coletadas: {len(daily_results)} conjuntos, "
+            f"{len(more_results)} promoções"
+        )
+        
+        return {
+            "daily_sets": daily_results,
+            "more_promotions": more_results,
+        }
+    
+    def _load_execution_template(self) -> Dict[str, Any]:
+        """
+        Carrega template de execução de tarefa.
+        
+        Returns:
+            Dict[str, Any]: Template carregado
+        """
+        template_path = self.TEMPLATES_DIR / self.config.TEMPLATE_EXECUTAR_TAREFA
+        
+        # Cria template padrão se não existir
+        if not template_path.exists():
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+            default_template = {"data": {}}
+            with open(template_path, 'w', encoding="utf-8") as f:
+                json.dump(default_template, f)
+            return default_template
+        
+        # Carrega template existente
         try:
-            if not template_path.exists():
-                template_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(template_path, 'w', encoding="utf-8") as f:
-                    json.dump({"data": {}}, f)
-
-            with open(template_path, encoding="utf-8") as arquivo:
-                template_base = json.load(arquivo)
+            with open(template_path, encoding="utf-8") as f:
+                return json.load(f)
         except (IOError, json.JSONDecodeError) as e:
             raise wrap_exception(
                 e, RewardsAPIException,
-                "Erro ao carregar template de execução de tarefa",
+                "Erro ao carregar template de execução",
                 template=str(template_path)
             )
-
-        def processar_promocoes(lista_promocoes: list[dict], data_referencia: str | None = None) -> Mapping[str, object]:
-            promocoes_resultado = []
-            for promocao in lista_promocoes:
-                identificador = promocao.get("id")
-                hash_promocao = promocao.get("hash")
-                if not identificador or not hash_promocao:
-                    continue
-
-                template = deepcopy(template_base)
-                payload = dict(template.get("data") or {})
-                payload["id"] = identificador
-                payload["hash"] = hash_promocao
-                payload["__RequestVerificationToken"] = sessao.token_antifalsificacao
-                template["data"] = payload
-
-                try:
-                    resposta = sessao.execute_template(template, bypass_request_token=False)
-                except RewardsAPIException as erro:
-                    promocoes_resultado.append(
-                        {
-                            "id": identificador,
-                            "hash": hash_promocao,
-                            "ok": False,
-                            "status_code": None,
-                            "erro": erro.message,
-                            "erro_tipo": "RewardsAPIException",
-                        }
-                    )
-                    continue
-                except Exception as erro:
-                    promocoes_resultado.append(
-                        {
-                            "id": identificador,
-                            "hash": hash_promocao,
-                            "ok": False,
-                            "status_code": None,
-                            "erro": repr(erro),
-                            "erro_tipo": type(erro).__name__,
-                        }
-                    )
-                    continue
-
-                promocoes_resultado.append(
-                    {
-                        "id": identificador,
-                        "hash": hash_promocao,
-                        "ok": bool(getattr(resposta, "ok", False)),
-                        "status_code": getattr(resposta, "status_code", None),
-                    }
+    
+    def _process_promotions(
+        self,
+        sessao: SessionManagerService,
+        template_base: Dict[str, Any],
+        promotions: List[Dict[str, Any]],
+        date_ref: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Processa lista de promoções.
+        
+        Args:
+            sessao: Sessão do usuário
+            template_base: Template base para execução
+            promotions: Lista de promoções
+            date_ref: Data de referência
+            
+        Returns:
+            Dict[str, Any]: Resultado do processamento
+        """
+        results = []
+        
+        for promotion in promotions:
+            promo_id = promotion.get("id")
+            promo_hash = promotion.get("hash")
+            
+            if not promo_id or not promo_hash:
+                self.logger.debug(f"Promoção sem ID/hash: {promotion}")
+                continue
+            
+            # Prepara template para esta promoção
+            template = deepcopy(template_base)
+            payload = dict(template.get("data", {}))
+            payload.update({
+                "id": promo_id,
+                "hash": promo_hash,
+                "__RequestVerificationToken": sessao.token_antifalsificacao
+            })
+            template["data"] = payload
+            
+            # Executa e registra resultado
+            try:
+                response = sessao.execute_template(
+                    template,
+                    bypass_request_token=False
                 )
+                
+                results.append({
+                    "id": promo_id,
+                    "hash": promo_hash,
+                    "ok": bool(getattr(response, "ok", False)),
+                    "status_code": getattr(response, "status_code", None),
+                })
+                
+                self.logger.debug(f"Promoção processada: {promo_id}")
+                
+            except RewardsAPIException as e:
+                results.append({
+                    "id": promo_id,
+                    "hash": promo_hash,
+                    "ok": False,
+                    "status_code": None,
+                    "error": str(e),
+                    "error_type": "RewardsAPIException",
+                })
+                self.logger.debug(f"Erro em promoção {promo_id}: {e}")
+                
+            except Exception as e:
+                results.append({
+                    "id": promo_id,
+                    "hash": promo_hash,
+                    "ok": False,
+                    "status_code": None,
+                    "error": repr(e),
+                    "error_type": type(e).__name__,
+                })
+                self.logger.debug(f"Erro inesperado em promoção {promo_id}: {e}")
+        
+        # Formata resultado
+        if date_ref:
+            return {"date": date_ref, "promotions": results}
+        return {"promotions": results}
 
-            if data_referencia:
-                return {"date": data_referencia, "promotions": promocoes_resultado}
-            return {"promotions": promocoes_resultado}
-
-        resultados_daily_sets = []
-        for conjunto in daily_sets:
-            data_referencia = conjunto.get("date")
-            resultado = processar_promocoes(conjunto.get("promotions", []), data_referencia)
-            if resultado.get("promotions"):
-                resultados_daily_sets.append(resultado)
-
-        resultados_more_promotions = []
-        if more_promotions:
-            resultado = processar_promocoes(more_promotions)
-            if resultado.get("promotions"):
-                resultados_more_promotions = resultado["promotions"]
-
-        return {
-            "daily_sets": resultados_daily_sets,
-            "more_promotions": resultados_more_promotions,
-        }
-
-    def _montar_promocao(self, item: Mapping[str, object], data_ref: str | None = None) -> Mapping[str, object]:
-        """Monta objeto de promoção a partir dos dados brutos."""
-        try:
-            atributos_obj = item.get("attributes")
-            atributos = atributos_obj if isinstance(atributos_obj, dict) else {}
-        except Exception:
-            atributos = {}
-
-        try:
-            pontos = self._para_int(item.get("pointProgressMax")) or self._para_int(atributos.get("max")) or self._para_int(atributos.get("link_text"))
-        except Exception:
-            pontos = None
-
-        tipo = None
-        try:
-            for chave in ("type", "promotionType", "promotionSubtype"):
-                valor = item.get(chave)
-                if not isinstance(valor, str) and isinstance(atributos.get(chave), str):
-                    valor = atributos.get(chave)
-                if isinstance(valor, str):
-                    valor_limpo = valor.strip()
-                    if valor_limpo:
-                        tipo = valor_limpo
-                        break
-        except Exception:
-            pass
-
-        try:
-            completo_atributo = atributos.get("complete")
-            completo = bool(item.get("complete"))
-            if isinstance(completo_atributo, str) and not completo:
-                completo = completo_atributo.strip().lower() == "true"
-        except Exception:
-            completo = False
-
-        return {
-            "id": item.get("name") or item.get("offerId"),
-            "hash": item.get("hash"),
-            "title": item.get("title") or atributos.get("title"),
-            "description": item.get("description") or atributos.get("description"),
-            "points": pontos,
-            "complete": completo,
-            "url": item.get("destinationUrl") or atributos.get("destination"),
-            "date": data_ref,
-            "type": tipo,
-        }
-
-    @staticmethod
-    def _para_int(valor: object) -> int | None:
-        if isinstance(valor, (int, float)):
-            return int(valor)
-        if isinstance(valor, str):
-            numeros = [ch for ch in valor if ch.isdigit()]
-            if numeros:
-                return int("".join(numeros))
-        return None

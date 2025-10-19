@@ -221,6 +221,11 @@ class RepositoryException(RaxyBaseException):
     pass
 
 
+class DatabaseException(RepositoryException):
+    """Exceção para erros de banco de dados."""
+    pass
+
+
 class DataNotFoundException(RepositoryException):
     """Dados não encontrados."""
     pass

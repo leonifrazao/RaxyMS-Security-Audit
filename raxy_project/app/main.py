@@ -3,6 +3,15 @@
 """Ponto de entrada FastAPI que atua como API Gateway para a biblioteca raxy."""
 
 from __future__ import annotations
+import sys
+import os
+# Adiciona o diretório pai ao path para encontrar o módulo raxy
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Carrega variáveis de ambiente do arquivo .env
+from dotenv import load_dotenv
+load_dotenv()
+
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -16,7 +25,6 @@ from controllers import (
     auth_router,
     executor_router,
     logging_router,
-    # profile_router foi removido
     proxy_router,
     rewards_router,
     suggestion_router,

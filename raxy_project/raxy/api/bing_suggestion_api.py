@@ -1,175 +1,306 @@
-"""API para obter sugestões de pesquisa do Bing utilizando templates com SessionManagerService."""
+"""
+API refatorada para sugestões de pesquisa do Bing.
+
+Fornece interface para obter sugestões de busca do Bing de forma
+modular e com tratamento robusto de erros.
+"""
 
 from __future__ import annotations
 
-import json
 import random
 from copy import deepcopy
-from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from raxy.interfaces.services import IBingSuggestion
+from raxy.interfaces.services import IBingSuggestion, ILoggingService
 from raxy.core.session_manager_service import SessionManagerService
 from raxy.core.exceptions import (
     BingAPIException,
     InvalidAPIResponseException,
-    JSONParsingException,
     InvalidInputException,
     wrap_exception,
 )
-
-REQUESTS_DIR = Path(__file__).resolve().parent / "requests_templates"
-_TEMPLATE_SUGGESTION_BING = "suggestion_search.json"
-_ERRO_PADRAO = ("captcha", "temporarily unavailable", "error")
+from .base_api import BaseAPIClient
 
 
-class BingSuggestionAPI(IBingSuggestion):
-    def __init__(self, *, palavras_erro: Sequence[str] | None = None) -> None:
-        self._palavras_erro = tuple(palavra.lower() for palavra in (palavras_erro or _ERRO_PADRAO))
+class BingSuggestionConfig:
+    """Configuração para API de sugestões do Bing."""
+    
+    # URLs e endpoints
+    BASE_URL = "https://www.bing.com"
+    SUGGESTION_ENDPOINT = "/AS/Suggestions"
+    
+    # Templates
+    TEMPLATE_FILE = "suggestion_search.json"
+    
+    # Palavras de erro
+    DEFAULT_ERROR_WORDS = ["captcha", "temporarily unavailable", "error", "blocked"]
+    
+    # Parâmetros de query
+    QUERY_PARAM = "qry"
 
-    def get_all(self, sessao: SessionManagerService, keyword: str) -> list[dict[str, Any]]:
-        """Obtém todas as sugestões do Bing com tratamento robusto de erros."""
-        if not isinstance(keyword, str) or not keyword.strip():
-            raise InvalidInputException(
-                "A palavra-chave não pode ser vazia.",
-                details={"keyword": keyword, "type": type(keyword).__name__}
-            )
 
-        try:
-            template = self._carregar_template()
-        except Exception as e:
-            raise wrap_exception(
-                e, BingAPIException,
-                "Erro ao carregar template de sugestões"
+class SuggestionParser:
+    """Parser para respostas de sugestões."""
+    
+    @staticmethod
+    def parse_suggestions(response_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Extrai sugestões da resposta.
+        
+        Args:
+            response_data: Dados da resposta
+            
+        Returns:
+            List[Dict[str, Any]]: Lista de sugestões
+            
+        Raises:
+            InvalidAPIResponseException: Se formato inválido
+        """
+        suggestions = response_data.get("s")
+        
+        if not isinstance(suggestions, list):
+            raise InvalidAPIResponseException(
+                "Resposta não contém lista de sugestões válida",
+                details={
+                    "response_type": type(suggestions).__name__,
+                    "response_keys": list(response_data.keys()) if isinstance(response_data, dict) else None
+                }
             )
         
-        try:
-            template_personalizado = self._aplicar_consulta(template, keyword.strip())
-        except Exception as e:
-            raise wrap_exception(
-                e, BingAPIException,
-                "Erro ao aplicar consulta ao template",
-                keyword=keyword
-            )
+        return suggestions
+    
+    @staticmethod
+    def update_url_with_query(url: str, query: str) -> str:
+        """
+        Atualiza URL com a query de busca.
         
+        Args:
+            url: URL original
+            query: Query de busca
+            
+        Returns:
+            str: URL atualizada
+        """
         try:
-            resposta = sessao.execute_template(template_personalizado, bypass_request_token=False)
+            parsed = urlparse(url)
+            params = list(parse_qsl(parsed.query, keep_blank_values=True))
+            
+            # Atualiza ou adiciona parâmetro de query
+            query_updated = False
+            for i, (key, _) in enumerate(params):
+                if key == BingSuggestionConfig.QUERY_PARAM:
+                    params[i] = (key, query)
+                    query_updated = True
+                    break
+            
+            if not query_updated:
+                params.append((BingSuggestionConfig.QUERY_PARAM, query))
+            
+            new_query = urlencode(params, doseq=True)
+            return urlunparse(parsed._replace(query=new_query))
+            
+        except Exception:
+            # Se falhar, retorna URL original
+            return url
+
+
+class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
+    """
+    Cliente de API para sugestões do Bing.
+    
+    Implementa a interface IBingSuggestion com arquitetura modular
+    e tratamento robusto de erros.
+    """
+    
+    def __init__(
+        self,
+        logger: Optional[ILoggingService] = None,
+        palavras_erro: Optional[Sequence[str]] = None
+    ):
+        """
+        Inicializa o cliente de sugestões.
+        
+        Args:
+            logger: Serviço de logging
+            palavras_erro: Palavras que indicam erro na resposta
+        """
+        super().__init__(
+            base_url=BingSuggestionConfig.BASE_URL,
+            logger=logger,
+            error_words=palavras_erro or BingSuggestionConfig.DEFAULT_ERROR_WORDS
+        )
+        
+        self.config = BingSuggestionConfig()
+        self.parser = SuggestionParser()
+
+    def get_all(self, sessao: SessionManagerService, keyword: str) -> List[Dict[str, Any]]:
+        """
+        Obtém todas as sugestões para uma palavra-chave.
+        
+        Args:
+            sessao: Sessão do usuário
+            keyword: Palavra-chave para buscar sugestões
+            
+        Returns:
+            List[Dict[str, Any]]: Lista de sugestões
+            
+        Raises:
+            InvalidInputException: Se entrada inválida
+            BingAPIException: Se erro na API
+        """
+        # Valida entrada
+        self._validate_keyword(keyword)
+        
+        self.logger.debug(f"Obtendo sugestões para: {keyword}")
+        
+        # Carrega e prepara template
+        template = self._prepare_template(keyword.strip())
+        
+        # Executa requisição via sessão
+        try:
+            response = sessao.execute_template(
+                template,
+                bypass_request_token=False
+            )
         except Exception as e:
             raise wrap_exception(
                 e, BingAPIException,
                 "Erro ao executar requisição de sugestões",
                 keyword=keyword
             )
-
-        texto = getattr(resposta, "text", "")
-        if not texto:
-            raise InvalidAPIResponseException(
-                "Bing retornou resposta sem corpo.",
-                details={"status_code": getattr(resposta, "status_code", None), "keyword": keyword}
-            )
-
-        texto_lower = texto.lower()
-        for palavra in self._palavras_erro:
-            if palavra and palavra in texto_lower:
-                raise BingAPIException(
-                    f"Resposta contém termo de erro: {palavra}",
-                    details={"keyword": keyword, "error_term": palavra, "response_preview": texto[:200]}
-                )
-
+        
+        # Valida resposta
+        self._validate_response(response, keyword)
+        
+        # Parse da resposta
         try:
-            dados = resposta.json()
-        except json.JSONDecodeError as e:
-            raise wrap_exception(
-                e, JSONParsingException,
-                "Falha ao decodificar a resposta JSON do Bing.",
-                keyword=keyword, response_preview=texto[:200]
-            )
-
-        suggestions = dados.get("s")
-        if not isinstance(suggestions, list):
-            raise InvalidAPIResponseException(
-                "A resposta da API de sugestões não continha uma lista válida.",
-                details={"keyword": keyword, "response_type": type(suggestions).__name__, "response_keys": list(dados.keys()) if isinstance(dados, dict) else None}
-            )
-        return suggestions
-
-    def get_random(self, sessao: SessionManagerService, keyword: str) -> dict[str, Any]:
-        """Obtém uma sugestão aleatória com tratamento de erros."""
-        try:
-            all_suggestions = self.get_all(sessao, keyword)
-        except BingAPIException:
-            raise
+            response_data = response.json()
         except Exception as e:
             raise wrap_exception(
                 e, BingAPIException,
-                "Erro ao obter sugestões para seleção aleatória",
+                "Erro ao decodificar resposta JSON",
                 keyword=keyword
             )
         
-        if not all_suggestions:
+        # Extrai sugestões
+        suggestions = self.parser.parse_suggestions(response_data)
+        
+        self.logger.info(
+            f"Obtidas {len(suggestions)} sugestões",
+            keyword=keyword,
+            count=len(suggestions)
+        )
+        
+        return suggestions
+
+    def get_random(self, sessao: SessionManagerService, keyword: str) -> Dict[str, Any]:
+        """
+        Obtém uma sugestão aleatória.
+        
+        Args:
+            sessao: Sessão do usuário
+            keyword: Palavra-chave para buscar sugestões
+            
+        Returns:
+            Dict[str, Any]: Sugestão aleatória
+            
+        Raises:
+            BingAPIException: Se erro ou nenhuma sugestão encontrada
+        """
+        suggestions = self.get_all(sessao, keyword)
+        
+        if not suggestions:
             raise BingAPIException(
-                f"Nenhuma sugestão encontrada para a palavra-chave: {keyword}",
+                f"Nenhuma sugestão encontrada para: {keyword}",
                 details={"keyword": keyword}
             )
-        return random.choice(all_suggestions)
+        
+        selected = random.choice(suggestions)
+        
+        self.logger.debug(
+            "Sugestão aleatória selecionada",
+            keyword=keyword,
+            suggestion=selected
+        )
+        
+        return selected
 
-    def _carregar_template(self) -> dict[str, object]:
-        """Carrega o template de sugestões com tratamento de erros."""
-        caminho = REQUESTS_DIR / _TEMPLATE_SUGGESTION_BING
-        try:
-            with caminho.open("r", encoding="utf-8") as arquivo:
-                return json.load(arquivo)
-        except FileNotFoundError as e:
-            raise wrap_exception(
-                e, BingAPIException,
-                "Template de sugestões não encontrado",
-                template_path=str(caminho)
+    def _validate_keyword(self, keyword: str) -> None:
+        """
+        Valida a palavra-chave.
+        
+        Args:
+            keyword: Palavra-chave
+            
+        Raises:
+            InvalidInputException: Se inválida
+        """
+        if not isinstance(keyword, str) or not keyword.strip():
+            raise InvalidInputException(
+                "Palavra-chave não pode ser vazia",
+                details={
+                    "keyword": keyword,
+                    "type": type(keyword).__name__
+                }
             )
-        except json.JSONDecodeError as e:
-            raise wrap_exception(
-                e, JSONParsingException,
-                "Template de sugestões contém JSON inválido",
-                template_path=str(caminho)
+    
+    def _prepare_template(self, keyword: str) -> Dict[str, Any]:
+        """
+        Prepara template com a palavra-chave.
+        
+        Args:
+            keyword: Palavra-chave
+            
+        Returns:
+            Dict[str, Any]: Template preparado
+        """
+        # Carrega template base
+        template = self.load_template(self.config.TEMPLATE_FILE)
+        
+        # Faz cópia profunda para não modificar original
+        template_copy = deepcopy(template)
+        
+        # Atualiza URL com query
+        if "url" in template_copy and isinstance(template_copy["url"], str):
+            template_copy["url"] = self.parser.update_url_with_query(
+                template_copy["url"],
+                keyword
             )
-        except Exception as e:
-            raise wrap_exception(
-                e, BingAPIException,
-                "Erro ao abrir template de sugestões",
-                template_path=str(caminho)
+        
+        return template_copy
+    
+    def _validate_response(self, response: Any, keyword: str) -> None:
+        """
+        Valida a resposta da API.
+        
+        Args:
+            response: Resposta da API
+            keyword: Palavra-chave usada
+            
+        Raises:
+            InvalidAPIResponseException: Se resposta inválida
+        """
+        # Verifica se há corpo na resposta
+        text = getattr(response, "text", "")
+        if not text:
+            raise InvalidAPIResponseException(
+                "Resposta sem corpo",
+                details={
+                    "status_code": getattr(response, "status_code", None),
+                    "keyword": keyword
+                }
             )
-
-    def _aplicar_consulta(self, template: dict[str, object], consulta: str) -> dict[str, object]:
-        """Aplica a consulta ao template com tratamento de erros."""
-        try:
-            resultado = deepcopy(template)
-            url = resultado.get("url")
-            if isinstance(url, str):
-                resultado["url"] = self._atualizar_url_com_consulta(url, consulta)
-            return resultado
-        except Exception as e:
-            raise wrap_exception(
-                e, BingAPIException,
-                "Erro ao aplicar consulta ao template",
-                consulta=consulta
-            )
-
-    @staticmethod
-    def _atualizar_url_com_consulta(url: str, consulta: str) -> str:
-        """Atualiza a URL com a consulta fornecida."""
-        try:
-            analise = urlparse(url)
-            parametros = list(parse_qsl(analise.query, keep_blank_values=True))
-            chave_atualizada = False
-            for indice, (chave, _) in enumerate(parametros):
-                if chave == "qry":
-                    parametros[indice] = (chave, consulta)
-                    chave_atualizada = True
-                    break
-            if not chave_atualizada:
-                parametros.append(("qry", consulta))
-            nova_query = urlencode(parametros, doseq=True)
-            return urlunparse(analise._replace(query=nova_query))
-        except Exception as e:
-            # Se falhar, retorna URL original
-            return url
+        
+        # Verifica palavras de erro
+        text_lower = text.lower()
+        for error_word in self.error_words:
+            if error_word in text_lower:
+                raise BingAPIException(
+                    f"Resposta contém termo de erro: {error_word}",
+                    details={
+                        "keyword": keyword,
+                        "error_word": error_word,
+                        "preview": text[:200]
+                    }
+                )

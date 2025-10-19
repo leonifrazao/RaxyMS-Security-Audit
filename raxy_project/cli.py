@@ -11,6 +11,7 @@ from rich.table import Table
 from typing_extensions import Annotated
 
 from raxy.container import SimpleInjector, create_injector
+from raxy.core.config import AppConfig, ExecutorConfig
 from raxy.domain.accounts import Conta
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
@@ -19,7 +20,6 @@ from raxy.interfaces.services import (
     IProxyService,
 )
 from raxy.proxy import Proxy
-from raxy.services.executor_service import ExecutorConfig
 
 # --- Configuração da Aplicação CLI ---
 app = typer.Typer(
@@ -92,10 +92,14 @@ def run(
     if workers:
         config_params['max_workers'] = workers
     
-    config = ExecutorConfig(**config_params)
+    executor_config = ExecutorConfig(**config_params)
+    
+    # Cria AppConfig com o ExecutorConfig customizado
+    app_config = AppConfig()
+    app_config.executor = executor_config
     
     # Cria um injetor customizado para esta execução
-    injector = SimpleInjector(config)
+    injector = SimpleInjector(app_config)
     
     # Sobrescreve o serviço de proxy se necessário
     if not use_proxy:
@@ -153,7 +157,7 @@ def run(
                 console.print(f"[bold red]❌ Arquivo de contas não encontrado no caminho configurado.[/bold red]")
                 raise typer.Exit(code=1)
 
-    acoes_finais = actions or config.actions
+    acoes_finais = actions or executor_config.actions
     console.print(f"   - [b]Ações:[/b] {acoes_finais}")
     
     executor.executar(acoes=acoes_finais, contas=contas_para_executar)

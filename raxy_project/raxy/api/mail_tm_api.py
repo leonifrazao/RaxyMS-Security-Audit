@@ -1,10 +1,21 @@
-# mailtm_service.py
-import requests
+"""
+API refatorada para serviço de email temporário Mail.tm.
+
+Fornece interface para criar e gerenciar emails temporários
+através do serviço Mail.tm com arquitetura modular.
+"""
+
+from __future__ import annotations
+
 import logging
 import random
 import string
 import time
-from typing import List, Optional, Callable
+from typing import List, Optional, Dict, Any, Callable
+
+import requests
+
+from raxy.interfaces.services import IMailTmService, ILoggingService
 from raxy.domain.mailtm_data import Domain, Account, AuthenticatedSession, Message, MessageAddress
 from raxy.core.exceptions import (
     MailTmAPIException,
@@ -14,30 +25,115 @@ from raxy.core.exceptions import (
     TimeoutException,
     wrap_exception,
 )
+from .base_api import BaseAPIClient
 
-# Importando os dataclasses do arquivo de modelos
-# from mailtm_models import Domain, Account, AuthenticatedSession, Message, MessageAddress
-
-# Configuração de logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Manter compatibilidade com código existente
-class MailTmError(MailTmAPIException):
-    """Exceção base para erros específicos da API Mail.tm."""
-    pass
-
-class MailTm:
-    """
-    Um wrapper Python stateless para a API Mail.tm.
+class MailTmConfig:
+    """Configuração para API Mail.tm."""
     
-    Esta classe não armazena estado (como tokens ou IDs de conta). Cada método
-    recebe toda a informação necessária para operar, tornando o uso mais flexível e previsível.
+    # URLs e endpoints
+    BASE_URL = "https://api.mail.tm"
+    
+    # Endpoints
+    ENDPOINT_DOMAINS = "/domains"
+    ENDPOINT_ACCOUNTS = "/accounts"
+    ENDPOINT_TOKEN = "/token"
+    ENDPOINT_MESSAGES = "/messages"
+    
+    # Timeouts
+    DEFAULT_TIMEOUT = 30
+    MAX_WAIT_TIME = 300  # 5 minutos
+    POLL_INTERVAL = 2  # segundos
+    
+    # Geração de conta
+    USERNAME_LENGTH = 10
+    PASSWORD_LENGTH = 10
+
+
+class MailTmHelper:
+    """Helper para operações do Mail.tm."""
+    
+    @staticmethod
+    def generate_random_string(length: int) -> str:
+        """
+        Gera string aleatória para username/password.
+        
+        Args:
+            length: Comprimento da string
+            
+        Returns:
+            str: String aleatória
+        """
+        return ''.join(
+            random.choice(string.ascii_lowercase + string.digits)
+            for _ in range(length)
+        )
+    
+    @staticmethod
+    def parse_domain(domain_data: Dict[str, Any]) -> Domain:
+        """
+        Parse de dados de domínio.
+        
+        Args:
+            domain_data: Dados do domínio
+            
+        Returns:
+            Domain: Objeto de domínio
+        """
+        return Domain(
+            id=domain_data["id"],
+            domain=domain_data["domain"],
+            isActive=domain_data.get("isActive", True),
+            isPrivate=domain_data.get("isPrivate", False),
+            createdAt=domain_data.get("createdAt"),
+            updatedAt=domain_data.get("updatedAt")
+        )
+    
+    @staticmethod
+    def parse_account(account_data: Dict[str, Any]) -> Account:
+        """
+        Parse de dados de conta.
+        
+        Args:
+            account_data: Dados da conta
+            
+        Returns:
+            Account: Objeto de conta
+        """
+        return Account(
+            id=account_data["id"],
+            address=account_data["address"],
+            quota=account_data.get("quota"),
+            used=account_data.get("used"),
+            isDisabled=account_data.get("isDisabled", False),
+            isDeleted=account_data.get("isDeleted", False),
+            createdAt=account_data.get("createdAt"),
+            updatedAt=account_data.get("updatedAt")
+        )
+
+
+class MailTm(BaseAPIClient, IMailTmService):
+    """
+    Cliente de API para Mail.tm.
+    
+    Implementa a interface IMailTmService com arquitetura modular
+    e tratamento robusto de erros.
     """
     
-    def __init__(self):
-        """Inicializa o cliente da API."""
-        self.base_url = "https://api.mail.tm"
-        self.session = requests.Session()
+    def __init__(self, logger: Optional[ILoggingService] = None):
+        """
+        Inicializa o cliente Mail.tm.
+        
+        Args:
+            logger: Serviço de logging
+        """
+        super().__init__(
+            base_url=MailTmConfig.BASE_URL,
+            logger=logger,
+            timeout=MailTmConfig.DEFAULT_TIMEOUT
+        )
+        
+        self.config = MailTmConfig()
+        self.helper = MailTmHelper()
 
     def _request(self, method: str, endpoint: str, token: Optional[str] = None, **kwargs):
         """Método central para realizar requisições HTTP com tratamento robusto de erros."""
@@ -320,3 +416,36 @@ class MailTm:
 
         logging.warning("Nenhuma mensagem recebida dentro do tempo limite.")
         return None
+    
+    def filter_messages(
+        self,
+        token: str,
+        subject_contains: Optional[str] = None,
+        from_address: Optional[str] = None
+    ) -> List[Message]:
+        """
+        Filtra mensagens já recebidas.
+        
+        Args:
+            token: Token de autenticação
+            subject_contains: Filtro para assunto
+            from_address: Filtro para endereço do remetente
+            
+        Returns:
+            List[Message]: Lista de mensagens filtradas
+        """
+        messages = self.get_messages(token)
+        
+        if subject_contains:
+            messages = [
+                m for m in messages 
+                if subject_contains.lower() in m.subject.lower()
+            ]
+        
+        if from_address:
+            messages = [
+                m for m in messages 
+                if from_address.lower() in m.from_address.address.lower()
+            ]
+        
+        return messages
