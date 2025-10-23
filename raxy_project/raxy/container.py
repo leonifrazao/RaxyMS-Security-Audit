@@ -1,14 +1,16 @@
 """
 Sistema de injeção de dependências do Raxy.
 
-Gerencia todas as dependências da aplicação usando um container IoC
-(Inversion of Control) simplificado mas eficiente.
+Gerencia todas as dependências da aplicação usando dependency-injector
+(Inversion of Control) para gerenciamento profissional de dependências.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, Type, TypeVar
+from pathlib import Path
+from typing import Callable
+
+from dependency_injector import containers, providers
 
 # Configuração centralizada
 from raxy.core.config import AppConfig, ExecutorConfig, get_config
@@ -37,213 +39,124 @@ from raxy.proxy import Proxy
 from raxy.api.mail_tm_api import MailTm
 from raxy.domain import InfraServices
 
-_T = TypeVar("_T")
 
-
-@dataclass(slots=True)
-class _Binding:
+class ApplicationContainer(containers.DeclarativeContainer):
     """
-    Binding interno para gerenciamento de dependências.
+    Container de injeção de dependências da aplicação.
     
-    Attributes:
-        factory: Função factory para criar instância
-        singleton: Se deve manter única instância
-        instance: Instância criada (para singletons)
-        has_instance: Flag indicando se instância já foi criada
-    """
-    factory: Callable[["SimpleInjector"], Any]
-    singleton: bool
-    instance: Any = None
-    has_instance: bool = False
-
-
-class SimpleInjector:
-    """
-    Container de injeção de dependências simplificado.
-    
-    Implementa padrão IoC (Inversion of Control) para gerenciar
-    dependências da aplicação de forma centralizada e testável.
+    Usa o framework dependency-injector para gerenciar todas as
+    dependências da aplicação de forma declarativa e profissional.
     """
     
-    def __init__(self, config: AppConfig | None = None) -> None:
-        """
-        Inicializa o injetor.
-        
-        Args:
-            config: Configuração da aplicação (opcional)
-        """
-        self._bindings: Dict[Type[Any], _Binding] = {}
-        self._config = config or get_config()
-        self._registrar_padrao()
+    # Configuração da aplicação
+    config = providers.Singleton(get_config)
     
-    def _registrar_padrao(self) -> None:
-        """Registra todos os bindings padrão da aplicação."""
-        # Configuração
-        self.bind_instance(AppConfig, self._config)
-        self.bind_instance(ExecutorConfig, self._config.executor)
-        
-        # Logging
-        self.bind_singleton(ILoggingService, lambda _: get_logger())
-        
-        # Proxies
-        self.bind_singleton(IProxyService, lambda inj: Proxy(
-            country=inj.get(AppConfig).proxy.country,
-            sources=inj.get(AppConfig).proxy.sources,
-            use_console=inj.get(AppConfig).proxy.use_console
-        ))
-        
-        # APIs
-        self.bind_singleton(IRewardsDataService, lambda _: RewardsDataAPI())
-        self.bind_singleton(IBingSuggestion, lambda _: BingSuggestionAPI())
-        self.bind_singleton(IBingFlyoutService, lambda _: BingFlyoutService())
-        self.bind_singleton(IMailTmService, lambda _: MailTm())
-        
-        # Repositórios
-        self.bind_singleton(IDatabaseRepository, lambda inj: SupabaseRepository(
-            url=inj.get(AppConfig).api.supabase_url,
-            key=inj.get(AppConfig).api.supabase_key
-        ) if inj.get(AppConfig).api.has_supabase else None)
-        
-        self.bind_singleton(IContaRepository, lambda inj: ArquivoContaRepository(
-            inj.get(ExecutorConfig).users_file
-        ))
-
-        # Serviços de infraestrutura
-        self.bind_singleton(InfraServices, lambda inj: InfraServices(
-            conta_repository=inj.get(IContaRepository),
-            rewards_data=inj.get(IRewardsDataService),
-            db_repository=inj.get(IDatabaseRepository),
-            bing_search=inj.get(IBingSuggestion),
-            bing_flyout_service=inj.get(IBingFlyoutService),
-            proxy_manager=inj.get(IProxyService),
-            logger=inj.get(ILoggingService),
-            mail_tm_service=inj.get(IMailTmService),
-        ))
-        
-        # Executor em lote
-        self.bind_singleton(IExecutorEmLoteService, lambda inj: ExecutorEmLote(
-            services=inj.get(InfraServices),
-            config=inj.get(ExecutorConfig),
-            logger=inj.get(ILoggingService),
-        ))
-
-    def bind_instance(self, chave: Type[_T], instancia: _T) -> None:
-        """
-        Registra uma instância específica.
-        
-        Args:
-            chave: Tipo/interface para binding
-            instancia: Instância a ser registrada
-        """
-        self._bindings[chave] = _Binding(
-            factory=lambda _: instancia,
-            singleton=True,
-            instance=instancia,
-            has_instance=True
-        )
+    executor_config = providers.Singleton(
+        lambda config: config.executor,
+        config=config
+    )
     
-    def bind_singleton(self, chave: Type[_T], fabrica: Callable[["SimpleInjector"], _T]) -> None:
-        """
-        Registra um singleton (instância única).
-        
-        Args:
-            chave: Tipo/interface para binding
-            fabrica: Factory function para criar instância
-        """
-        self._bindings[chave] = _Binding(factory=fabrica, singleton=True)
+    # Logging
+    logger = providers.Singleton(get_logger)
     
-    def bind_factory(self, chave: Type[_T], fabrica: Callable[["SimpleInjector"], _T]) -> None:
-        """
-        Registra uma factory (nova instância a cada chamada).
-        
-        Args:
-            chave: Tipo/interface para binding
-            fabrica: Factory function para criar instâncias
-        """
-        self._bindings[chave] = _Binding(factory=fabrica, singleton=False)
+    # Proxies
+    proxy_service = providers.Singleton(
+        Proxy,
+        country=config.provided.proxy.country,
+        sources=config.provided.proxy.sources,
+        use_console=config.provided.proxy.use_console,
+        # Usa o cache padrão do manager
+        cache_path=Path(__file__).parent / "proxy" / "proxy_cache.json"
+    )
     
-    def get(self, chave: Type[_T]) -> _T:
-        """
-        Resolve uma dependência.
-        
-        Args:
-            chave: Tipo/interface a resolver
-            
-        Returns:
-            Instância resolvida
-            
-        Raises:
-            KeyError: Se nenhum binding foi registrado
-        """
-        if chave not in self._bindings:
-            raise KeyError(f"Nenhum binding registrado para {chave!r}")
-        
-        binding = self._bindings[chave]
-        
-        if binding.singleton:
-            if not binding.has_instance:
-                binding.instance = binding.factory(self)
-                binding.has_instance = True
-            return binding.instance
-        
-        return binding.factory(self)
+    # APIs
+    rewards_data_service = providers.Singleton(RewardsDataAPI)
+    bing_suggestion_service = providers.Singleton(BingSuggestionAPI)
+    bing_flyout_service = providers.Singleton(BingFlyoutService)
+    mail_tm_service = providers.Singleton(MailTm)
     
-    def has_binding(self, chave: Type) -> bool:
-        """
-        Verifica se existe binding para o tipo.
-        
-        Args:
-            chave: Tipo/interface a verificar
-            
-        Returns:
-            True se existe binding
-        """
-        return chave in self._bindings
+    # Repositórios
+    database_repository = providers.Singleton(
+        lambda config: SupabaseRepository(
+            url=config.api.supabase_url,
+            key=config.api.supabase_key
+        ) if config.api.has_supabase else None,
+        config=config
+    )
     
-    def clear(self) -> None:
-        """Limpa todos os bindings."""
-        self._bindings.clear()
-
-
-def create_injector(config: AppConfig | None = None) -> SimpleInjector:
-    """
-    Cria um novo injetor de dependências.
+    conta_repository = providers.Singleton(
+        ArquivoContaRepository,
+        caminho_arquivo=executor_config.provided.users_file
+    )
     
-    Args:
-        config: Configuração da aplicação (opcional)
-        
-    Returns:
-        SimpleInjector: Novo injetor configurado
-    """
-    return SimpleInjector(config)
+    # Serviços de infraestrutura
+    infra_services = providers.Singleton(
+        InfraServices,
+        conta_repository=conta_repository,
+        rewards_data=rewards_data_service,
+        db_repository=database_repository,
+        bing_search=bing_suggestion_service,
+        bing_flyout_service=bing_flyout_service,
+        proxy_manager=proxy_service,
+        logger=logger,
+        mail_tm_service=mail_tm_service
+    )
+    
+    # Configuração de proxy
+    proxy_config = providers.Singleton(
+        lambda config: config.proxy,
+        config=config
+    )
+    
+    # Executor em lote
+    executor_service = providers.Singleton(
+        ExecutorEmLote,
+        services=infra_services,
+        config=executor_config,
+        proxy_config=proxy_config,
+        logger=logger
+    )
 
 
 # Container global (singleton)
-_global_injector: SimpleInjector | None = None
+_container: ApplicationContainer | None = None
 
 
-def get_injector() -> SimpleInjector:
+def get_container() -> ApplicationContainer:
     """
-    Obtém o injetor global.
+    Obtém o container global da aplicação.
     
     Returns:
-        SimpleInjector: Injetor global
+        ApplicationContainer: Instância singleton do container
     """
-    global _global_injector
-    if _global_injector is None:
-        _global_injector = create_injector()
-    return _global_injector
+    global _container
+    if _container is None:
+        _container = ApplicationContainer()
+    return _container
 
 
-def reset_injector() -> None:
-    """Reseta o injetor global."""
-    global _global_injector
-    _global_injector = None
+def override_config(config: AppConfig) -> None:
+    """
+    Sobrescreve a configuração do container global.
+    
+    Args:
+        config: Nova configuração da aplicação
+    """
+    container = get_container()
+    container.config.override(providers.Singleton(lambda: config))
+
+
+def reset_container() -> None:
+    """Reseta o container global e suas dependências."""
+    global _container
+    if _container is not None:
+        _container.reset_singletons()
+        _container = None
 
 
 __all__ = [
-    "SimpleInjector",
-    "create_injector",
-    "get_injector",
-    "reset_injector",
+    "ApplicationContainer",
+    "get_container",
+    "override_config",
+    "reset_container",
 ]

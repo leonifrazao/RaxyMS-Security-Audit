@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Dict
 from fastapi import HTTPException, Request
 
-from raxy.container import SimpleInjector
+from raxy.container import ApplicationContainer
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
     IBingSuggestion,
@@ -18,11 +18,11 @@ from raxy.interfaces.services import (
 from raxy.core.session_manager_service import SessionManagerService as SessaoSolicitacoes
 
 
-def _get_injector(request: Request) -> SimpleInjector:
-    injector = getattr(request.app.state, "injector", None)
-    if injector is None:
+def _get_container(request: Request) -> ApplicationContainer:
+    container = getattr(request.app.state, "container", None)
+    if container is None:
         raise RuntimeError("Container de dependências não foi inicializado.")
-    return injector
+    return container
 
 
 def _ensure_session_store(request: Request) -> Dict[str, SessaoSolicitacoes]:
@@ -34,39 +34,39 @@ def _ensure_session_store(request: Request) -> Dict[str, SessaoSolicitacoes]:
 
 
 def get_proxy_service(request: Request) -> IProxyService:
-    return _get_injector(request).get(IProxyService)
+    return _get_container(request).proxy_service()
 
 
 def get_logging_service(request: Request) -> ILoggingService:
-    return _get_injector(request).get(ILoggingService)
+    return _get_container(request).logger()
 
 
 def get_rewards_data_service(request: Request) -> IRewardsDataService:
-    return _get_injector(request).get(IRewardsDataService)
+    return _get_container(request).rewards_data_service()
 
 
 def get_bing_suggestion_service(request: Request) -> IBingSuggestion:
-    return _get_injector(request).get(IBingSuggestion)
+    return _get_container(request).bing_suggestion_service()
 
 
 def get_executor_service(request: Request) -> IExecutorEmLoteService:
-    return _get_injector(request).get(IExecutorEmLoteService)
+    return _get_container(request).executor_service()
 
 
 def get_database_repository(request: Request) -> IDatabaseRepository:
-    return _get_injector(request).get(IDatabaseRepository)
+    return _get_container(request).database_repository()
 
 
 def get_account_repository(request: Request) -> IContaRepository:
-    return _get_injector(request).get(IContaRepository)
+    return _get_container(request).conta_repository()
 
 
 def get_mailtm_service(request: Request) -> IMailTmService:
-    return _get_injector(request).get(IMailTmService)
+    return _get_container(request).mail_tm_service()
 
 
 def get_bingflyout_service(request: Request) -> IBingFlyoutService:
-    return _get_injector(request).get(IBingFlyoutService)
+    return _get_container(request).bing_flyout_service()
 
 
 def get_session_store(request: Request) -> Dict[str, SessaoSolicitacoes]:

@@ -10,8 +10,10 @@ from rich.console import Console
 from rich.table import Table
 from typing_extensions import Annotated
 
-from raxy.container import SimpleInjector, create_injector
-from raxy.core.config import AppConfig, ExecutorConfig
+from dependency_injector import providers
+
+from raxy.container import ApplicationContainer, get_container
+from raxy.core.config import AppConfig, ExecutorConfig, get_config
 from raxy.domain.accounts import Conta
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
@@ -95,21 +97,22 @@ def run(
     executor_config = ExecutorConfig(**config_params)
     
     # Cria AppConfig com o ExecutorConfig customizado
-    app_config = AppConfig()
+    app_config = get_config()
     app_config.executor = executor_config
     
-    # Cria um injetor customizado para esta execução
-    injector = SimpleInjector(app_config)
+    # Cria um container customizado para esta execução
+    container = ApplicationContainer()
+    container.config.override(providers.Singleton(lambda: app_config))
     
     # Sobrescreve o serviço de proxy se necessário
     if not use_proxy:
-        injector.bind_instance(IProxyService, DummyProxyService())
+        container.proxy_service.override(providers.Object(DummyProxyService()))
     elif email and proxy_uri: # Apenas para conta única, usa o proxy especificado
         single_proxy_service = Proxy(proxies=[proxy_uri], use_console=True)
-        injector.bind_instance(IProxyService, single_proxy_service)
+        container.proxy_service.override(providers.Object(single_proxy_service))
 
-    executor = injector.get(IExecutorEmLoteService)
-    logger = injector.get(ILoggingService)
+    executor = container.executor_service()
+    logger = container.logger()
 
     # --- Lógica de Execução ---
     contas_para_executar: list[Conta] = []
@@ -132,7 +135,7 @@ def run(
         
         if source.lower() == "database":
             console.print("[yellow]Carregando contas do banco de dados...[/yellow]")
-            db_repo = injector.get(IDatabaseRepository)
+            db_repo = container.database_repository()
             registros = db_repo.listar_contas()
             for registro in registros:
                 if not isinstance(registro, dict): continue
@@ -148,7 +151,7 @@ def run(
                 raise typer.Exit(code=1)
         else: # source == 'file'
             try:
-                file_repo = injector.get(IContaRepository)
+                file_repo = container.conta_repository()
                 contas_para_executar = file_repo.listar()
                 if not contas_para_executar:
                     console.print(f"[bold red]❌ Nenhuma conta encontrada no arquivo de origem.[/bold red]")
@@ -168,7 +171,8 @@ def run(
 @accounts_app.command("list-file", help="Lista as contas do arquivo (ex: users.txt).")
 def list_file_accounts() -> None:
     """Exibe as contas configuradas no arquivo de texto."""
-    repo = create_injector().get(IContaRepository)
+    container = get_container()
+    repo = container.conta_repository()
     try:
         contas = repo.listar()
         if not contas:
@@ -189,7 +193,8 @@ def list_file_accounts() -> None:
 @accounts_app.command("list-db", help="Lista as contas do banco de dados.")
 def list_db_accounts() -> None:
     """Exibe as contas configuradas no banco de dados."""
-    repo = create_injector().get(IDatabaseRepository)
+    container = get_container()
+    repo = container.database_repository()
     contas = repo.listar_contas()
 
     if not contas:
@@ -225,7 +230,8 @@ def test_proxies(
     ),
 ) -> None:
     """Executa o teste de proxies e exibe um relatório."""
-    proxy_service = create_injector().get(IProxyService)
+    container = get_container()
+    proxy_service = container.proxy_service()
     console.print("[bold cyan]Iniciando teste de proxies...[/bold cyan]")
     proxy_service.test(
         threads=threads,
@@ -247,7 +253,8 @@ def start_proxies(
     ),
 ) -> None:
     """Inicia os proxies e mantém o processo em execução."""
-    proxy_service = create_injector().get(IProxyService)
+    container = get_container()
+    proxy_service = container.proxy_service()
     console.print("[bold cyan]Iniciando pontes de proxy...[/bold cyan]")
     proxy_service.start(
         amounts=amounts,
@@ -261,7 +268,8 @@ def start_proxies(
 @proxy_app.command("stop", help="Para todas as pontes de proxy ativas.")
 def stop_proxies() -> None:
     """Para os processos de proxy em background."""
-    proxy_service = create_injector().get(IProxyService)
+    container = get_container()
+    proxy_service = container.proxy_service()
     console.print("[bold yellow]Parando pontes de proxy...[/bold yellow]")
     proxy_service.stop()
     console.print("[bold green]✅ Pontes paradas com sucesso.[/bold green]")
@@ -272,7 +280,8 @@ def rotate_proxy(
     bridge_id: int = typer.Argument(..., help="O ID da ponte a ser rotacionada."),
 ) -> None:
     """Troca a proxy de uma ponte específica por outra disponível."""
-    proxy_service = create_injector().get(IProxyService)
+    container = get_container()
+    proxy_service = container.proxy_service()
     if not proxy_service.get_http_proxy():
         console.print("[yellow]Nenhuma ponte ativa. Iniciando pontes antes de rotacionar...[/yellow]")
         proxy_service.start(auto_test=True, wait=False)
@@ -288,6 +297,35 @@ def rotate_proxy(
     else:
         console.print("[bold green]✅ Proxy rotacionado com sucesso![/bold green]")
         console.print(proxy_service.get_http_proxy())
+
+
+@proxy_app.command("clear", help="Limpa o cache de proxies.")
+def clear_cache(
+    age: Optional[str] = typer.Option(
+        None, 
+        help="Limpa apenas proxies mais antigos que o especificado (ex: '1S,2D', '12H'). Formato: S=semana, D=dia, H=hora, M=minuto."
+    ),
+) -> None:
+    """Limpa o cache de proxies testados."""
+    from pathlib import Path
+    
+    cache_path = Path(__file__).parent / "raxy" / "proxy" / "proxy_cache.json"
+    
+    if not cache_path.exists():
+        console.print("[yellow]⚠️  Cache não encontrado.[/yellow]")
+        return
+    
+    if age:
+        console.print(f"[yellow]⚠️  Limpeza por idade ainda não implementada. Limpando todo o cache...[/yellow]")
+    
+    try:
+        # Remove o arquivo de cache
+        cache_path.unlink()
+        console.print("[bold green]✅ Cache limpo com sucesso![/bold green]")
+        console.print(f"[dim]Arquivo removido: {cache_path}[/dim]")
+    except Exception as e:
+        console.print(f"[bold red]❌ Erro ao limpar cache: {e}[/bold red]")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

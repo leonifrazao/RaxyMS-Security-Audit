@@ -126,9 +126,10 @@ class SessionManagerService(BaseService):
         while tentativas > 0:
             try:
                 # 2. Executar login via BrowserLoginHandler
+                proxy_url = self.proxy.get("url") if self.proxy else None
                 resultado = BrowserLoginHandler.executar_login(
                     profile=perfil_nome,
-                    proxy=self.proxy.get("url"),
+                    proxy=proxy_url,
                     data=dados,
                     browser_arguments=user_agent_args
                 )

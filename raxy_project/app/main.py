@@ -17,8 +17,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from raxy.container import create_injector
-from raxy.interfaces.services import IProxyService
+from raxy.container import get_container
 
 from controllers import (
     accounts_router,
@@ -37,14 +36,14 @@ from controllers import (
 async def lifespan(app: FastAPI):
     """Gerencia recursos globais ao iniciar/encerrar a API."""
 
-    injector = create_injector()
-    app.state.injector = injector
+    container = get_container()
+    app.state.container = container
     app.state.sessions = {}
     try:
         yield
     finally:
         try:
-            proxy_service = injector.get(IProxyService)
+            proxy_service = container.proxy_service()
             proxy_service.stop()
         except Exception:  # pragma: no cover - apenas tentativa de limpeza
             pass

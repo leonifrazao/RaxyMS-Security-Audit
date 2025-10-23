@@ -71,6 +71,14 @@ class BrowserLoginHandler:
         """
         registro = log.com_contexto(fluxo="browser_login", perfil=driver.config.profile)
         proxy_id = (data or {}).get("proxy_id")
+        
+        # Verifica se proxy foi aplicado no Chrome
+        proxy_usado = getattr(driver.config, 'proxy', None)
+        if proxy_usado:
+            registro.info(f"✅ Chrome configurado COM proxy: {proxy_usado}")
+        else:
+            registro.aviso("⚠️ Chrome SEM proxy configurado!")
+        
         registro.debug("Iniciando login no Rewards", proxy_id=proxy_id)
         
         # Ativa modo humano e navega para Rewards
@@ -86,6 +94,22 @@ class BrowserLoginHandler:
         return BrowserLoginHandler._executar_fluxo_login(driver, registro, proxy_id)
     
     @staticmethod
+    def _extrair_market_do_rewards(html_soup) -> str:
+        """Extrai market da página Rewards via scraping do script portal-telemetry."""
+        try:
+            import re
+            # Busca script específico pelo id
+            script = html_soup.find("script", {"id": "portal-telemetry"})
+            if script and script.string:
+                # Regex para extrair: market: "br",
+                match = re.search(r'market:\s*"(\w+)"', script.string)
+                if match:
+                    return match.group(1).lower()
+            return None
+        except Exception:
+            return None
+    
+    @staticmethod
     def _processar_login_existente(driver: Driver, registro) -> dict[str, Any]:
         """
         Processa quando conta já está autenticada.
@@ -99,6 +123,17 @@ class BrowserLoginHandler:
         """
         registro.sucesso("Conta já autenticada")
         html = soupify(driver)
+        
+        # Valida market (país) detectado pelo Rewards
+        market = BrowserLoginHandler._extrair_market_do_rewards(html)
+        if market and market != "us":
+            registro.erro(f"❌ MARKET INCORRETO: '{market.upper()}' (esperado: US)")
+            raise LoginException(
+                f"Market incorreto: {market.upper()}. Proxy não identificado como EUA.",
+                details={"market": market}
+            )
+        elif market == "us":
+            registro.sucesso(f"✅ Market correto: US")
         
         # Coleta cookies do domínio de pesquisa
         registro.info("Coletando cookies do domínio de pesquisa...")
@@ -300,6 +335,17 @@ class BrowserLoginHandler:
             Dicionário com dados da sessão
         """
         html = soupify(driver)
+        
+        # Valida market (país) detectado pelo Rewards
+        market = BrowserLoginHandler._extrair_market_do_rewards(html)
+        if market and market != "us":
+            registro.erro(f"❌ MARKET INCORRETO: '{market.upper()}' (esperado: US)")
+            raise LoginException(
+                f"Market incorreto: {market.upper()}. Proxy não identificado como EUA.",
+                details={"market": market}
+            )
+        elif market == "us":
+            registro.sucesso(f"✅ Market correto: US")
         
         # Coleta cookies do domínio de pesquisa
         registro.info("Coletando cookies do domínio de pesquisa...")

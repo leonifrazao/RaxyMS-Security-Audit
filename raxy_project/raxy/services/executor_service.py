@@ -18,7 +18,7 @@ from rich import box
 
 from raxy.domain import Conta, InfraServices
 from raxy.core.session_manager_service import SessionManagerService
-from raxy.core.config import ExecutorConfig
+from raxy.core.config import ExecutorConfig, ProxyConfig
 from raxy.core.exceptions import (
     InvalidCredentialsException,
     ProxyRotationRequiredException,
@@ -368,6 +368,7 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         self,
         services: InfraServices,
         config: Optional[ExecutorConfig] = None,
+        proxy_config: Optional[ProxyConfig] = None,
         logger: Optional[ILoggingService] = None
     ) -> None:
         """
@@ -376,10 +377,12 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         Args:
             services: Serviços de infraestrutura
             config: Configuração do executor
+            proxy_config: Configuração de proxy
             logger: Serviço de logging
         """
         super().__init__(logger)
         self._config = config or ExecutorConfig()
+        self._proxy_config = proxy_config or ProxyConfig()
         self._services = services
         
         # Injeção de dependências específicas (melhor desacoplamento)
@@ -427,7 +430,7 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
             self._stats.total_contas = len(contas_proc)
             
             # Prepara proxies se necessário
-            proxies = self._preparar_proxies() if self._config.use_proxies else []
+            proxies = self._preparar_proxies() if self._proxy_config.enabled else []
             
             # Executa processamento paralelo
             self._processar_paralelo(contas_proc, acoes_norm, proxies)
@@ -482,10 +485,12 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         self.logger.info("Iniciando gerenciador de proxies")
         
         try:
+            # find_first: Para após encontrar N proxies OK (otimiza tempo de teste)
+            # Valor maior garante proxies suficientes para distribuir entre contas
             proxies = self._services.proxy_manager.start(
-                auto_test=self._config.proxy_auto_test,
-                threads=self._config.proxy_workers,
-                find_first=self._config.proxy_amounts or 4
+                auto_test=self._proxy_config.auto_test,
+                threads=self._config.max_workers,
+                find_first=20  # Aumentado de 4 para 20 para melhor distribuição
             )
             
             self.logger.info(f"Proxies carregados: {len(proxies)}")
