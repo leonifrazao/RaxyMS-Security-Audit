@@ -1,7 +1,7 @@
 """API pública do pacote Raxy."""
 
 from raxy.api.rewards_data_api import RewardsDataAPI
-from raxy.container import create_injector, get_injector
+from raxy.container import ApplicationContainer, get_container
 from raxy.domain import Conta
 from raxy.repositories.file_account_repository import (
     ArquivoContaRepository,

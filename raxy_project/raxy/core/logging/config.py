@@ -55,7 +55,7 @@ class LoggerConfig:
     formato_detalhado: bool = False
     
     # Diretórios especiais
-    diretorio_erros: Optional[Path] = Path("logs/errors")
+    diretorio_erros: Optional[Path] = None
     
     # Performance
     max_workers: int = 2
