@@ -21,21 +21,14 @@ from raxy.core.exceptions import (
     DataExtractionException,
     wrap_exception,
 )
+from raxy.core.config import get_config
 from .base_api import BaseAPIClient
 
 
-class RewardsConfig:
-    """Configuração para API do Microsoft Rewards."""
-    
-    # URLs e endpoints
-    BASE_URL = "https://rewards.microsoft.com"
-    
-    # Templates
-    TEMPLATE_OBTER_PONTOS = "rewards_obter_pontos.json"
-    TEMPLATE_EXECUTAR_TAREFA = "pegar_recompensa_rewards.json"
-    
-    # Palavras de erro
-    DEFAULT_ERROR_WORDS = ["captcha", "temporarily unavailable", "error", "blocked"]
+# Constantes locais (não configuráveis)
+BASE_URL = "https://rewards.microsoft.com"
+TEMPLATE_OBTER_PONTOS = "rewards_obter_pontos.json"
+TEMPLATE_EXECUTAR_TAREFA = "pegar_recompensa_rewards.json"
 
 
 class RewardsDataParser:
@@ -160,6 +153,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         self,
         logger: Optional[ILoggingService] = None,
         palavras_erro: Optional[Iterable[str]] = None,
+        event_bus: Optional[Any] = None,
     ) -> None:
         """
         Inicializa o cliente de Rewards.
@@ -167,15 +161,31 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         Args:
             logger: Serviço de logging
             palavras_erro: Palavras que indicam erro na resposta
+            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(
-            base_url=RewardsConfig.BASE_URL,
+            base_url=BASE_URL,
             logger=logger,
-            error_words=palavras_erro or RewardsConfig.DEFAULT_ERROR_WORDS
+            error_words=palavras_erro or get_config().api.rewards_error_words
         )
         
-        self.config = RewardsConfig()
         self.parser = RewardsDataParser()
+        self._event_bus = event_bus
+    
+    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
+        """
+        Publica um evento no Event Bus se disponível.
+        
+        Args:
+            event_name: Nome do evento (ex: "rewards.collected")
+            data: Dados do evento
+        """
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                # Silenciosamente ignora erros de publicação
+                pass
 
     def obter_pontos(self, sessao: SessionManagerService, *, bypass_request_token: bool = True) -> int:
         """
@@ -194,7 +204,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         self.logger.debug("Obtendo pontos do Rewards")
         
         # Carrega template
-        template_path = self.TEMPLATES_DIR / self.config.TEMPLATE_OBTER_PONTOS
+        template_path = self.TEMPLATES_DIR / TEMPLATE_OBTER_PONTOS
         
         try:
             response = sessao.execute_template(
@@ -230,6 +240,13 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         points = self.parser.extract_points(response_data)
         
         self.logger.info(f"Pontos obtidos: {points}")
+        
+        # Publica evento de pontos obtidos
+        self._publish_event("rewards.points.fetched", {
+            "account_id": sessao.conta.email,
+            "points": points,
+        })
+        
         return points
 
     def obter_recompensas(
@@ -251,7 +268,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         self.logger.debug("Obtendo recompensas disponíveis")
         
         # Usa mesmo template de pontos que contém todas as infos
-        template_path = self.TEMPLATES_DIR / self.config.TEMPLATE_OBTER_PONTOS
+        template_path = self.TEMPLATES_DIR / TEMPLATE_OBTER_PONTOS
         
         try:
             response = sessao.execute_template(
@@ -377,10 +394,29 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
             if result.get("promotions"):
                 more_results = result["promotions"]
         
+        # Calcula estatísticas
+        total_tasks = sum(len(ds.get("promotions", [])) for ds in daily_results) + len(more_results)
+        tasks_completed = sum(
+            1 for ds in daily_results 
+            for promo in ds.get("promotions", []) 
+            if promo.get("ok")
+        ) + sum(1 for promo in more_results if promo.get("ok"))
+        tasks_failed = total_tasks - tasks_completed
+        
         self.logger.info(
             f"Recompensas coletadas: {len(daily_results)} conjuntos, "
             f"{len(more_results)} promoções"
         )
+        
+        # Publica evento de coleta de recompensas
+        self._publish_event("rewards.collected", {
+            "account_id": sessao.conta.email,
+            "tasks_completed": tasks_completed,
+            "tasks_failed": tasks_failed,
+            "total_tasks": total_tasks,
+            "daily_sets_count": len(daily_results),
+            "more_promotions_count": len(more_results),
+        })
         
         return {
             "daily_sets": daily_results,
@@ -394,7 +430,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         Returns:
             Dict[str, Any]: Template carregado
         """
-        template_path = self.TEMPLATES_DIR / self.config.TEMPLATE_EXECUTAR_TAREFA
+        template_path = self.TEMPLATES_DIR / TEMPLATE_EXECUTAR_TAREFA
         
         # Cria template padrão se não existir
         if not template_path.exists():
@@ -461,14 +497,34 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
                     bypass_request_token=False
                 )
                 
+                is_ok = bool(getattr(response, "ok", False))
+                status_code = getattr(response, "status_code", None)
+                
                 results.append({
                     "id": promo_id,
                     "hash": promo_hash,
-                    "ok": bool(getattr(response, "ok", False)),
-                    "status_code": getattr(response, "status_code", None),
+                    "ok": is_ok,
+                    "status_code": status_code,
                 })
                 
                 self.logger.debug(f"Promoção processada: {promo_id}")
+                
+                # Publica evento de tarefa
+                if is_ok:
+                    self._publish_event("task.completed", {
+                        "account_id": sessao.conta.email,
+                        "task_id": promo_id,
+                        "task_type": promotion.get("type", "unknown"),
+                        "points_earned": promotion.get("points", 0),
+                    })
+                else:
+                    self._publish_event("task.failed", {
+                        "account_id": sessao.conta.email,
+                        "task_id": promo_id,
+                        "task_type": promotion.get("type", "unknown"),
+                        "error_message": f"HTTP {status_code}",
+                        "retry_count": 0,
+                    })
                 
             except RewardsAPIException as e:
                 results.append({
@@ -481,6 +537,15 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
                 })
                 self.logger.debug(f"Erro em promoção {promo_id}: {e}")
                 
+                # Publica evento de falha
+                self._publish_event("task.failed", {
+                    "account_id": sessao.conta.email,
+                    "task_id": promo_id,
+                    "task_type": promotion.get("type", "unknown"),
+                    "error_message": str(e),
+                    "retry_count": 0,
+                })
+                
             except Exception as e:
                 results.append({
                     "id": promo_id,
@@ -491,6 +556,15 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
                     "error_type": type(e).__name__,
                 })
                 self.logger.debug(f"Erro inesperado em promoção {promo_id}: {e}")
+                
+                # Publica evento de falha
+                self._publish_event("task.failed", {
+                    "account_id": sessao.conta.email,
+                    "task_id": promo_id,
+                    "task_type": promotion.get("type", "unknown"),
+                    "error_message": repr(e),
+                    "retry_count": 0,
+                })
         
         # Formata resultado
         if date_ref:

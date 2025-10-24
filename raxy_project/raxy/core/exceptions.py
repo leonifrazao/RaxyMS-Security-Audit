@@ -337,6 +337,28 @@ class DependencyException(ResourceException):
     pass
 
 
+class ContainerException(ResourceException):
+    """Container de dependências não disponível ou não inicializado."""
+    pass
+
+
+# ==================== Exceções de Sistema ====================
+
+class SystemException(RaxyBaseException):
+    """Exceção base para erros de sistema."""
+    pass
+
+
+class ConfigLockedError(SystemException):
+    """Configuração está bloqueada e não pode ser modificada."""
+    pass
+
+
+class InvalidFormatterException(SystemException):
+    """Formatador de logging inválido."""
+    pass
+
+
 # ==================== Helpers ====================
 
 def wrap_exception(exc: Exception, wrapper_class: type[RaxyBaseException], message: str, **details: Any) -> RaxyBaseException:
@@ -402,6 +424,7 @@ __all__ = [
     "DataNotFoundException",
     "DataValidationException",
     "FileRepositoryException",
+    "DatabaseException",
     # Browser
     "BrowserException",
     "ElementNotFoundException",
@@ -422,6 +445,11 @@ __all__ = [
     "ResourceNotFoundException",
     "ResourceUnavailableException",
     "DependencyException",
+    "ContainerException",
+    # System
+    "SystemException",
+    "ConfigLockedError",
+    "InvalidFormatterException",
     # Helpers
     "wrap_exception",
 ]

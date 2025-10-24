@@ -25,40 +25,31 @@ from raxy.core.exceptions import (
     DataExtractionException,
     wrap_exception,
 )
+from raxy.core.config import get_config
 from .base_service import BaseService
 
 
-class BingFlyoutConfig:
-    """Configuração para o serviço BingFlyout."""
-    
-    # URLs
-    FLYOUT_URL = (
-        "https://www.bing.com/rewards/panelflyout"
-        "?channel=bingflyout&partnerId=BingRewards&isDarkMode=1&requestedLayout=onboarding&form=rwfobc"
-    )
-    
-    # Templates
-    TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "api/requests_templates"
-    TEMPLATE_SET_GOAL = TEMPLATES_DIR / "set_redemption_goal.json"
-    TEMPLATE_REPORT_ACTIVITY = TEMPLATES_DIR / "report_onboarding_activity.json"
-    
-    # Browser config
-    BROWSER_OPTIONS = {
-        'reuse_driver': False,
-        'remove_default_browser_check_argument': True,
-        'wait_for_complete_page_load': False,
-        'raise_exception': True,
-        'close_on_crash': True,
-        'block_images': True,
-        'output': None,
-        'tiny_profile': True,
-        'lang': Lang.English,
-    }
-    
-    # Timeouts
-    TIMEOUT_SHORT = Wait.SHORT
-    TIMEOUT_LONG = Wait.LONG
-    MAX_WAIT_ITERATIONS = 10
+# Constantes locais (não configuráveis)
+FLYOUT_URL = (
+    "https://www.bing.com/rewards/panelflyout"
+    "?channel=bingflyout&partnerId=BingRewards&isDarkMode=1&requestedLayout=onboarding&form=rwfobc"
+)
+
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "api/requests_templates"
+TEMPLATE_SET_GOAL = TEMPLATES_DIR / "set_redemption_goal.json"
+TEMPLATE_REPORT_ACTIVITY = TEMPLATES_DIR / "report_onboarding_activity.json"
+
+BROWSER_OPTIONS = {
+    'reuse_driver': False,
+    'remove_default_browser_check_argument': True,
+    'wait_for_complete_page_load': False,
+    'raise_exception': True,
+    'close_on_crash': True,
+    'block_images': True,
+    'output': None,
+    'tiny_profile': True,
+    'lang': Lang.English,
+}
 
 
 class FlyoutDataExtractor:
@@ -140,11 +131,10 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
             logger: Serviço de logging (opcional)
         """
         super().__init__(logger)
-        self.config = BingFlyoutConfig()
         self.extractor = FlyoutDataExtractor()
 
     @staticmethod
-    @browser(**BingFlyoutConfig.BROWSER_OPTIONS)
+    @browser(**BROWSER_OPTIONS)
     def _abrir_flyout(driver: Driver, data: Mapping[str, object] | None = None) -> Dict[str, str]:
         """
         Abre o flyout do Bing Rewards e retorna dados extraídos.
@@ -158,32 +148,30 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
         Returns:
             Dict[str, str]: Dados extraídos do flyout
         """
-        config = BingFlyoutConfig()
-        
         try:
             driver.enable_human_mode()
-            driver.google_get(config.FLYOUT_URL)
+            driver.google_get(FLYOUT_URL)
             driver.short_random_sleep()
         except Exception as e:
             raise wrap_exception(
                 e, BrowserException,
                 "Erro ao acessar flyout do Bing Rewards",
-                url=config.FLYOUT_URL
+                url=FLYOUT_URL
             )
 
         # Trata botão "Join Now" se presente
         try:
-            if driver.is_element_present('a[class="joinNowText"]', wait=config.TIMEOUT_SHORT):
+            if driver.is_element_present('a[class="joinNowText"]', wait=get_config().bingflyout.timeout_short):
                 driver.click('a[class="joinNowText"]')
                 driver.short_random_sleep()
-                driver.google_get(config.FLYOUT_URL)
+                driver.google_get(FLYOUT_URL)
                 driver.short_random_sleep()
         except Exception:
             pass  # Ignora se não encontrar
 
         # Interage com cartões de metas se presentes
         try:
-            if driver.is_element_present('div[id="Card_0"]', wait=config.TIMEOUT_SHORT):
+            if driver.is_element_present('div[id="Card_0"]', wait=get_config().bingflyout.timeout_short):
                 driver.click(f'div[id="Card_{random.randint(0, 3)}"]')
                 driver.short_random_sleep()
                 try:
@@ -197,7 +185,8 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
         # Aguarda checklist aparecer
         try:
             timeout_count = 0
-            while not driver.is_element_present('div[class="onboarding_checklist_title"]', wait=config.TIMEOUT_SHORT) and timeout_count < config.MAX_WAIT_ITERATIONS:
+            cfg = get_config().bingflyout
+            while not driver.is_element_present('div[class="onboarding_checklist_title"]', wait=cfg.timeout_short) and timeout_count < cfg.max_wait_iterations:
                 driver.short_random_sleep()
                 timeout_count += 1
         except Exception:

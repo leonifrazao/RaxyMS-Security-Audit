@@ -100,6 +100,7 @@ class Proxy(IProxyService):
         cache_path: Optional[Union[str, os.PathLike]] = None,
         command_output: bool = True,
         requests_session: Optional[Any] = None,
+        event_bus: Optional[Any] = None,
     ) -> None:
         """Inicializa o gerenciador carregando proxys, fontes e cache se necessário."""
         self.country_filter = country
@@ -110,6 +111,9 @@ class Proxy(IProxyService):
         self.console = Console() if self.use_console and Console else None
         self._port_allocation_lock = threading.Lock()
         self._allocated_ports = set()
+        
+        # Event Bus para comunicação assíncrona
+        self._event_bus = event_bus
 
         self._outbounds: List[Tuple[str, Proxy.Outbound]] = []
         self._entries: List[Dict[str, Any]] = []
@@ -139,6 +143,21 @@ class Proxy(IProxyService):
             self._prime_entries_from_cache()
 
     # ----------- utilidades básicas -----------
+    
+    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
+        """
+        Publica um evento no Event Bus se disponível.
+        
+        Args:
+            event_name: Nome do evento (ex: "proxy.tested")
+            data: Dados do evento
+        """
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                # Silenciosamente ignora erros de publicação para não quebrar o fluxo
+                pass
 
     def _make_base_entry(self, index: int, raw_uri: str, outbound: Proxy.Outbound) -> Dict[str, Any]:
         """Monta o dicionário padrão com as informações mínimas de um outbound."""
@@ -1416,6 +1435,25 @@ class Proxy(IProxyService):
         self.country_filter = country_filter
         self._save_cache(results)
 
+        # Publica eventos de teste
+        for entry in results:
+            if entry.get("status") == "OK":
+                self._publish_event("proxy.tested.success", {
+                    "proxy_id": entry.get("tag"),
+                    "proxy_url": entry.get("uri"),
+                    "country": entry.get("country_code"),
+                    "ping_ms": entry.get("ping"),
+                    "ip": entry.get("proxy_ip"),
+                    "tested_at": entry.get("tested_at"),
+                })
+            elif entry.get("status") == "ERRO":
+                self._publish_event("proxy.tested.failed", {
+                    "proxy_id": entry.get("tag"),
+                    "proxy_url": entry.get("uri"),
+                    "error": entry.get("error"),
+                    "tested_at": entry.get("tested_at"),
+                })
+
         if self.console is not None and (verbose is None or verbose):
             self._render_test_summary(results, country_filter)
 
@@ -1809,5 +1847,16 @@ class Proxy(IProxyService):
             self.console.print(
                 f"[green]Sucesso:[/green] Ponte [bold]ID {bridge_id}[/] (porta {bridge.port}) rotacionada para a proxy '[bold]{new_outbound.tag}[/]'"
             )
+        
+        # Publica evento de rotação
+        self._publish_event("proxy.rotated", {
+            "bridge_id": bridge_id,
+            "old_proxy_id": bridge.tag,
+            "new_proxy_id": new_outbound.tag,
+            "old_proxy_url": uri_to_replace,
+            "new_proxy_url": new_raw_uri,
+            "port": bridge.port,
+            "reason": "Manual rotation",
+        })
 
         return True

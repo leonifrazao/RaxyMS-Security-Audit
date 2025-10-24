@@ -259,9 +259,11 @@ class RaxyLogger(ILoggingService):
         Args:
             level: Nível mínimo (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         """
+        from raxy.core.exceptions import InvalidConfigException
+        
         level_value = LEVEL_VALUES.get(level.upper())
         if level_value is None:
-            raise ValueError(f"Nível inválido: {level}")
+            raise InvalidConfigException(f"Nível inválido: {level}", details={"level": level})
         
         self.config.nivel_minimo = level.upper()
         

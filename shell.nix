@@ -68,6 +68,9 @@ pkgs.mkShell {
 
     jdk
 
+    # Redis (Event Bus para microserviços)
+    redis
+
     xray
     windsurf
   ]) ++ [
@@ -82,6 +85,9 @@ pkgs.mkShell {
     mkdir -p "$PNPM_HOME"
     export PATH="$PNPM_HOME:$PATH"
 
+    # Redis disponível no PATH
+    echo "[Raxy] Redis disponível: $(which redis-server)"
+    
     primeiro_setup=false
     if [ ! -d "$venvDir" ]; then
       echo "[Raxy] Criando ambiente virtual em $venvDir"

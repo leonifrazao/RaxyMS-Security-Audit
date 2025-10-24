@@ -25,6 +25,7 @@ from raxy.core.exceptions import (
     wrap_exception
 )
 from raxy.core.logging import get_logger
+from raxy.core.config import get_config
 
 log = get_logger()
 
@@ -125,15 +126,16 @@ class BrowserLoginHandler:
         html = soupify(driver)
         
         # Valida market (país) detectado pelo Rewards
+        expected_country = get_config().proxy.country.lower()
         market = BrowserLoginHandler._extrair_market_do_rewards(html)
-        if market and market != "us":
-            registro.erro(f"❌ MARKET INCORRETO: '{market.upper()}' (esperado: US)")
+        if market and market != expected_country:
+            registro.erro(f"❌ MARKET INCORRETO: '{market.upper()}' (esperado: {expected_country.upper()})")
             raise LoginException(
-                f"Market incorreto: {market.upper()}. Proxy não identificado como EUA.",
-                details={"market": market}
+                f"Market incorreto: {market.upper()}. Proxy não identificado como {expected_country.upper()}.",
+                details={"market": market, "expected": expected_country}
             )
-        elif market == "us":
-            registro.sucesso(f"✅ Market correto: US")
+        elif market == expected_country:
+            registro.sucesso(f"✅ Market correto: {expected_country.upper()}")
         
         # Coleta cookies do domínio de pesquisa
         registro.info("Coletando cookies do domínio de pesquisa...")
@@ -337,15 +339,16 @@ class BrowserLoginHandler:
         html = soupify(driver)
         
         # Valida market (país) detectado pelo Rewards
+        expected_country = get_config().proxy.country.lower()
         market = BrowserLoginHandler._extrair_market_do_rewards(html)
-        if market and market != "us":
-            registro.erro(f"❌ MARKET INCORRETO: '{market.upper()}' (esperado: US)")
+        if market and market != expected_country:
+            registro.erro(f"❌ MARKET INCORRETO: '{market.upper()}' (esperado: {expected_country.upper()})")
             raise LoginException(
-                f"Market incorreto: {market.upper()}. Proxy não identificado como EUA.",
-                details={"market": market}
+                f"Market incorreto: {market.upper()}. Proxy não identificado como {expected_country.upper()}.",
+                details={"market": market, "expected": expected_country}
             )
-        elif market == "us":
-            registro.sucesso(f"✅ Market correto: US")
+        elif market == expected_country:
+            registro.sucesso(f"✅ Market correto: {expected_country.upper()}")
         
         # Coleta cookies do domínio de pesquisa
         registro.info("Coletando cookies do domínio de pesquisa...")

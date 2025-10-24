@@ -34,11 +34,90 @@ proxy:
   use_console: true
   auto_test: true
   test_timeout: 10.0
+  cache_filename: proxy_cache.json
+  cache_version: 1
+
+# Session Configuration
+session:
+  # User-Agent settings
+  softwares_padrao:
+    - edge
+  sistemas_padrao:
+    - windows
+    - linux
+    - macos
+  ua_limit: 100
+  
+  # URLs principais
+  rewards_url: https://rewards.bing.com/
+  bing_url: https://www.bing.com
+  bing_flyout_url: https://www.bing.com/rewards/panelflyout?channel=bingflyout&partnerId=BingRewards&isDarkMode=1&requestedLayout=onboarding&form=rwfobc
+  
+  # Configurações de tentativas
+  max_login_attempts: 5
+  
+  # Títulos de páginas esperados
+  rewards_title: microsoft rewards
+  verify_email_title: verify your email
+  protect_account_title: let's protect your account
+  
+  # Seletores CSS
+  selectors:
+    # Login
+    email_input: "input[type='email'], #i0116"
+    password_input: "input[type='password'], #i0118"
+    submit_button: "button[type='submit'], #idSIButton9"
+    # Verificação
+    email_verify_link: "#view > div > span:nth-child(6) > div > span"
+    skip_link: "a[id='iShowSkip']"
+    primary_button: "button[data-testid='primaryButton']"
+    # Status
+    id_s_span: 'span[id="id_s"]'
+    role_presentation: "span[role='presentation']"
+    # Rewards
+    join_now: 'a[class="joinNowText"]'
+    card_0: 'div[id="Card_0"]'
+
+# BingFlyout Service Configuration
+bingflyout:
+  timeout_short: 5  # seconds
+  timeout_long: 10  # seconds
+  max_wait_iterations: 10
 
 # API Configuration
 api:
   supabase_url: ""
   supabase_key: ""
+  
+  # Timeouts (em segundos)
+  default_timeout: 30
+  
+  # Nota: Para resiliência de microserviços (retry/circuit breaker),
+  # use os decorators nativos do Botasaurus:
+  # @browser(max_retry=5, retry_wait=10, raise_exception=True)
+  # @request(max_retry=3, retry_wait=5)
+  # @task(max_retry=2, close_on_crash=True)
+  
+  # Rewards API
+  rewards:
+    error_words:
+      - captcha
+      - temporarily unavailable
+      - error
+      - blocked
+  
+  # Bing Suggestion API
+  bing_suggestion:
+    error_words:
+      - captcha
+      - temporarily unavailable
+      - error
+      - blocked
+  
+  # Mail.tm API
+  mail_tm:
+    max_wait_time: 300  # 5 minutos
+    poll_interval: 2  # segundos
 
 # Logging Configuration
 logging:
@@ -51,3 +130,20 @@ logging:
   formato_detalhado: false
   diretorio_erros: null  # Set to a path if you want separate error logs
   max_workers: 2
+
+# Event Bus Configuration (Redis Pub/Sub)
+# Para comunicação assíncrona entre microserviços
+events:
+  enabled: true
+  host: localhost
+  port: 6379
+  db: 0
+  password: null  # Set password if Redis requires authentication
+  prefix: "raxy:events:"  # Prefixo para canais de eventos
+  
+  # Eventos habilitados por padrão
+  # Desabilite eventos específicos se necessário
+  account_events: true
+  rewards_events: true
+  proxy_events: true
+  session_events: true

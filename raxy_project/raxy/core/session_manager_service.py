@@ -47,6 +47,7 @@ class SessionManagerService(BaseService):
         proxy_service: Optional[IProxyService] = None,
         mail_service: Optional[IMailTmService] = None,
         logger: Optional[ILoggingService] = None,
+        event_bus: Optional[Any] = None,
     ) -> None:
         """
         Inicializa o serviço de sessão.
@@ -57,6 +58,7 @@ class SessionManagerService(BaseService):
             proxy_service: Serviço de proxy para rotação
             mail_service: Serviço de email temporário
             logger: Serviço de logging
+            event_bus: Event Bus para publicação de eventos
         """
         # Inicializa BaseService com logger contextualizado
         if not logger:
@@ -70,6 +72,10 @@ class SessionManagerService(BaseService):
         # Dados da conta e proxy
         self.conta = conta
         self.proxy = proxy or {}
+        
+        # Event Bus para comunicação assíncrona
+        self._event_bus = event_bus
+        self._session_start_time: Optional[float] = None
         
         # Estado da sessão
         self.driver: Driver | None = None
@@ -91,6 +97,21 @@ class SessionManagerService(BaseService):
             logger=self.logger,
             proxy=self.proxy
         )
+    
+    def _publish_event(self, event_name: str, data: dict[str, Any]) -> None:
+        """
+        Publica um evento no Event Bus se disponível.
+        
+        Args:
+            event_name: Nome do evento (ex: "session.started")
+            data: Dados do evento
+        """
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                # Silenciosamente ignora erros de publicação
+                pass
 
     def start(self) -> None:
         """
@@ -140,8 +161,16 @@ class SessionManagerService(BaseService):
                 
             except ProxyRotationRequiredException as e:
                 self._tratar_rotacao_proxy(e, tentativas)
-            except (LoginException, InvalidCredentialsException, ElementNotFoundException):
+            except (LoginException, InvalidCredentialsException, ElementNotFoundException) as e:
                 # Exceções de login não devem ser retentadas
+                # Publica evento de erro
+                self._publish_event("session.error", {
+                    "session_id": f"session_{self.conta.email}",
+                    "account_id": self.conta.email,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "is_recoverable": False,
+                })
                 raise
             except Exception as e:
                 self.logger.erro(
@@ -149,6 +178,14 @@ class SessionManagerService(BaseService):
                     erro=e,
                     tentativas_restantes=tentativas-1
                 )
+                # Publica evento de erro recuperável
+                self._publish_event("session.error", {
+                    "session_id": f"session_{self.conta.email}",
+                    "account_id": self.conta.email,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "is_recoverable": True,
+                })
                 if tentativas == 1:
                     raise wrap_exception(
                         e, SessionException,
@@ -166,6 +203,28 @@ class SessionManagerService(BaseService):
             )
 
         self.logger.sucesso("Sessão iniciada com sucesso.")
+        
+        # Registra tempo de início da sessão
+        import time
+        self._session_start_time = time.time()
+        
+        # Publica eventos de sucesso
+        session_id = f"session_{self.conta.email}_{int(self._session_start_time)}"
+        
+        self._publish_event("session.started", {
+            "session_id": session_id,
+            "account_id": self.conta.email,
+            "proxy_id": self.proxy.get("id"),
+            "user_agent": self.user_agent,
+        })
+        
+        self._publish_event("account.logged_in", {
+            "account_id": self.conta.email,
+            "email": self.conta.email,
+            "profile_id": self.conta.id_perfil or self.conta.email,
+            "proxy_id": self.proxy.get("id"),
+            "market": None,  # Pode ser extraído futuramente
+        })
     
     def _atualizar_estado_sessao(self, resultado: dict[str, Any]) -> None:
         """
@@ -257,6 +316,12 @@ class SessionManagerService(BaseService):
         """
         Fecha a sessão e limpa recursos.
         """
+        # Calcula duração da sessão
+        import time
+        duration_seconds = 0.0
+        if self._session_start_time:
+            duration_seconds = time.time() - self._session_start_time
+        
         if self.driver:
             try:
                 self.driver.quit()
@@ -267,6 +332,22 @@ class SessionManagerService(BaseService):
                 self.cookies = {}
                 self.user_agent = ""
                 self.token_antifalsificacao = None
+        
+        # Publica evento de sessão encerrada
+        if self._session_start_time:
+            session_id = f"session_{self.conta.email}_{int(self._session_start_time)}"
+            self._publish_event("session.ended", {
+                "session_id": session_id,
+                "account_id": self.conta.email,
+                "duration_seconds": duration_seconds,
+                "reason": "Normal closure",
+            })
+            
+            self._publish_event("account.logged_out", {
+                "account_id": self.conta.email,
+                "email": self.conta.email,
+                "reason": "Session closed",
+            })
         
         self.logger.debug("Sessão fechada")
     

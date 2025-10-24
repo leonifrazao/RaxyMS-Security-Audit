@@ -20,24 +20,15 @@ from raxy.core.exceptions import (
     InvalidInputException,
     wrap_exception,
 )
+from raxy.core.config import get_config
 from .base_api import BaseAPIClient
 
 
-class BingSuggestionConfig:
-    """Configuração para API de sugestões do Bing."""
-    
-    # URLs e endpoints
-    BASE_URL = "https://www.bing.com"
-    SUGGESTION_ENDPOINT = "/AS/Suggestions"
-    
-    # Templates
-    TEMPLATE_FILE = "suggestion_search.json"
-    
-    # Palavras de erro
-    DEFAULT_ERROR_WORDS = ["captcha", "temporarily unavailable", "error", "blocked"]
-    
-    # Parâmetros de query
-    QUERY_PARAM = "qry"
+# Constantes locais (não configuráveis)
+BASE_URL = "https://www.bing.com"
+SUGGESTION_ENDPOINT = "/AS/Suggestions"
+TEMPLATE_FILE = "suggestion_search.json"
+QUERY_PARAM = "qry"
 
 
 class SuggestionParser:
@@ -89,13 +80,13 @@ class SuggestionParser:
             # Atualiza ou adiciona parâmetro de query
             query_updated = False
             for i, (key, _) in enumerate(params):
-                if key == BingSuggestionConfig.QUERY_PARAM:
+                if key == QUERY_PARAM:
                     params[i] = (key, query)
                     query_updated = True
                     break
             
             if not query_updated:
-                params.append((BingSuggestionConfig.QUERY_PARAM, query))
+                params.append((QUERY_PARAM, query))
             
             new_query = urlencode(params, doseq=True)
             return urlunparse(parsed._replace(query=new_query))
@@ -126,12 +117,11 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
             palavras_erro: Palavras que indicam erro na resposta
         """
         super().__init__(
-            base_url=BingSuggestionConfig.BASE_URL,
+            base_url=BASE_URL,
             logger=logger,
-            error_words=palavras_erro or BingSuggestionConfig.DEFAULT_ERROR_WORDS
+            error_words=palavras_erro or get_config().api.bing_suggestion_error_words
         )
         
-        self.config = BingSuggestionConfig()
         self.parser = SuggestionParser()
 
     def get_all(self, sessao: SessionManagerService, keyword: str) -> List[Dict[str, Any]]:
@@ -256,7 +246,7 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
             Dict[str, Any]: Template preparado
         """
         # Carrega template base
-        template = self.load_template(self.config.TEMPLATE_FILE)
+        template = self.load_template(TEMPLATE_FILE)
         
         # Faz cópia profunda para não modificar original
         template_copy = deepcopy(template)

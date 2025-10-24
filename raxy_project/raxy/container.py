@@ -25,6 +25,7 @@ from raxy.interfaces.services import (
     IBingSuggestion,
     IBingFlyoutService,
     IMailTmService,
+    IEventBus,
 )
 
 # Implementações
@@ -38,6 +39,7 @@ from raxy.services.bingflyout_service import BingFlyoutService
 from raxy.proxy import Proxy
 from raxy.api.mail_tm_api import MailTm
 from raxy.domain import InfraServices
+from raxy.core.events import RedisEventBus
 
 
 class ApplicationContainer(containers.DeclarativeContainer):
@@ -59,18 +61,40 @@ class ApplicationContainer(containers.DeclarativeContainer):
     # Logging
     logger = providers.Singleton(get_logger)
     
+    # Event Bus (Redis Pub/Sub)
+    event_bus = providers.Singleton(
+        lambda config, logger: RedisEventBus(
+            host=config.events.host,
+            port=config.events.port,
+            db=config.events.db,
+            password=config.events.password,
+            prefix=config.events.prefix,
+            logger=logger,
+        ) if config.events.enabled else None,
+        config=config,
+        logger=logger
+    )
+    
     # Proxies
     proxy_service = providers.Singleton(
         Proxy,
         country=config.provided.proxy.country,
         sources=config.provided.proxy.sources,
         use_console=config.provided.proxy.use_console,
-        # Usa o cache padrão do manager
-        cache_path=Path(__file__).parent / "proxy" / "proxy_cache.json"
+        # Usa o cache configurado
+        cache_path=providers.Callable(
+            lambda cfg: Path(__file__).parent / "proxy" / cfg.proxy.cache_filename,
+            cfg=config
+        ),
+        # Event Bus para publicar eventos de proxy
+        event_bus=event_bus
     )
     
     # APIs
-    rewards_data_service = providers.Singleton(RewardsDataAPI)
+    rewards_data_service = providers.Singleton(
+        RewardsDataAPI,
+        event_bus=event_bus
+    )
     bing_suggestion_service = providers.Singleton(BingSuggestionAPI)
     bing_flyout_service = providers.Singleton(BingFlyoutService)
     mail_tm_service = providers.Singleton(MailTm)
@@ -114,7 +138,8 @@ class ApplicationContainer(containers.DeclarativeContainer):
         services=infra_services,
         config=executor_config,
         proxy_config=proxy_config,
-        logger=logger
+        logger=logger,
+        event_bus=event_bus
     )
 
 

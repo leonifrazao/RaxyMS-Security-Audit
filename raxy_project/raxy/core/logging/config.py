@@ -125,17 +125,24 @@ class LoggerConfig:
             ValueError: Se alguma configuração for inválida
         """
         # Valida nível
+        from raxy.core.exceptions import InvalidConfigException
+        
         niveis_validos = {"DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"}
         if self.nivel_minimo.upper() not in niveis_validos:
-            raise ValueError(f"Nível inválido: {self.nivel_minimo}")
+            raise InvalidConfigException(
+                f"Nível inválido: {self.nivel_minimo}",
+                details={"nivel": self.nivel_minimo, "niveis_validos": list(niveis_validos)}
+            )
         
         # Valida limites
+        from raxy.core.exceptions import InvalidConfigException
+        
         if self.max_workers < 1:
-            raise ValueError("max_workers deve ser >= 1")
+            raise InvalidConfigException("max_workers deve ser >= 1", details={"max_workers": self.max_workers})
         if self.buffer_size < 10:
-            raise ValueError("buffer_size deve ser >= 10")
+            raise InvalidConfigException("buffer_size deve ser >= 10", details={"buffer_size": self.buffer_size})
         if self.max_message_length < 100:
-            raise ValueError("max_message_length deve ser >= 100")
+            raise InvalidConfigException("max_message_length deve ser >= 100", details={"max_message_length": self.max_message_length})
         
         # Cria diretórios se necessário
         if self.arquivo_log:

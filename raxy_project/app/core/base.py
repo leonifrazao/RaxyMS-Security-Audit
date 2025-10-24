@@ -103,9 +103,11 @@ class BaseController:
         Raises:
             RuntimeError: Se o injector não estiver disponível
         """
+        from raxy.core.exceptions import ContainerException
+        
         injector = getattr(request.app.state, "injector", None)
         if injector is None:
-            raise RuntimeError("Container de dependências não foi inicializado")
+            raise ContainerException("Container de dependências não foi inicializado")
         return injector
     
     def get_session_store(self, request: Request) -> dict:

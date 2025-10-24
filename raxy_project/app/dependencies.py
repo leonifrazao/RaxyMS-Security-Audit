@@ -19,9 +19,11 @@ from raxy.core.session_manager_service import SessionManagerService as SessaoSol
 
 
 def _get_container(request: Request) -> ApplicationContainer:
+    from raxy.core.exceptions import ContainerException
+    
     container = getattr(request.app.state, "container", None)
     if container is None:
-        raise RuntimeError("Container de dependências não foi inicializado.")
+        raise ContainerException("Container de dependências não foi inicializado")
     return container
 
 

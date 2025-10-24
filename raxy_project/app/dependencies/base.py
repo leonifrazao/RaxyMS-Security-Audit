@@ -22,9 +22,11 @@ def get_container(request: Request) -> ApplicationContainer:
     Raises:
         RuntimeError: Se o container não foi inicializado
     """
+    from raxy.core.exceptions import ContainerException
+    
     container = getattr(request.app.state, "container", None)
     if container is None:
-        raise RuntimeError("Container de dependências não foi inicializado")
+        raise ContainerException("Container de dependências não foi inicializado")
     return container
 
 

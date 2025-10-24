@@ -439,8 +439,13 @@ class FormatterFactory:
         Raises:
             ValueError: Se tipo inválido
         """
+        from raxy.core.exceptions import InvalidFormatterException
+        
         formatter_class = cls.FORMATTERS.get(formatter_type)
         if not formatter_class:
-            raise ValueError(f"Tipo de formatador inválido: {formatter_type}")
+            raise InvalidFormatterException(
+                f"Tipo de formatador inválido: {formatter_type}",
+                details={"formatter_type": formatter_type}
+            )
         
         return formatter_class(**kwargs)

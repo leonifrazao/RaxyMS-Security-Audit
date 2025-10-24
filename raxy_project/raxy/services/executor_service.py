@@ -135,7 +135,8 @@ class AccountProcessor:
         mail_service,
         db_repository,
         logger: ILoggingService,
-        debug: bool = False
+        debug: bool = False,
+        event_bus=None
     ):
         """
         Inicializa o processador com dependências específicas.
@@ -159,6 +160,9 @@ class AccountProcessor:
         self.db_repository = db_repository
         self.logger = logger
         self.debug = debug
+        
+        # Event Bus (opcional)
+        self._event_bus = event_bus
     
     def process(
         self,
@@ -201,7 +205,7 @@ class AccountProcessor:
             
             # Etapa 1: Login/Criar sessão
             try:
-                sessao = self._criar_sessao(conta, proxy)
+                sessao = self._criar_sessao(conta, proxy, logger)
                 resultado.adicionar_etapa("login", True, dados={"email": conta.email})
                 logger.debug("Login realizado com sucesso")
             except (InvalidCredentialsException, LoginException) as e:
@@ -276,14 +280,17 @@ class AccountProcessor:
     def _criar_sessao(
         self,
         conta: Conta,
-        proxy: Optional[Dict[str, str]]
+        proxy: Optional[Dict[str, str]],
+        logger: ILoggingService
     ) -> SessionManagerService:
         """Cria e inicializa sessão."""
         sessao = SessionManagerService(
             conta=conta,
             proxy=proxy or {},
             proxy_service=self.proxy_service,
-            mail_service=self.mail_service
+            mail_service=self.mail_service,
+            logger=logger,
+            event_bus=getattr(self, '_event_bus', None)
         )
         sessao.start()
         return sessao
@@ -369,7 +376,8 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         services: InfraServices,
         config: Optional[ExecutorConfig] = None,
         proxy_config: Optional[ProxyConfig] = None,
-        logger: Optional[ILoggingService] = None
+        logger: Optional[ILoggingService] = None,
+        event_bus=None
     ) -> None:
         """
         Inicializa o executor.
@@ -379,6 +387,7 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
             config: Configuração do executor
             proxy_config: Configuração de proxy
             logger: Serviço de logging
+            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(logger)
         self._config = config or ExecutorConfig()
@@ -394,7 +403,8 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
             mail_service=services.mail_tm_service,
             db_repository=services.db_repository,
             logger=self.logger,
-            debug=self._config.debug
+            debug=self._config.debug,
+            event_bus=event_bus
         )
         self._stats = ExecutionStats()
 

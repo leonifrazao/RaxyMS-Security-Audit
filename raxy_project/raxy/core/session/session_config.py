@@ -1,63 +1,83 @@
 """
 Configurações para o SessionManagerService.
 
-Define constantes e configurações usadas no gerenciamento de sessões.
+DEPRECATED: Este módulo é mantido apenas para compatibilidade.
+Use raxy.core.config.get_config().session para configurações centralizadas.
 """
 
 from __future__ import annotations
 from random_user_agent.params import OperatingSystem, SoftwareName
 
+from raxy.core.config import get_config
 
-class SessionConfig:
-    """Configurações do serviço de sessão."""
+
+class _SessionConfigMeta(type):
+    """Metaclass para permitir acesso a propriedades como atributos de classe."""
     
-    # Softwares padrão para User-Agent
-    SOFTWARES_PADRAO = [SoftwareName.EDGE.value]
+    @property
+    def SOFTWARES_PADRAO(cls):
+        """Retorna lista de softwares mapeados para enum."""
+        config = get_config().session
+        mapping = {
+            "edge": SoftwareName.EDGE.value,
+            "chrome": SoftwareName.CHROME.value,
+            "firefox": SoftwareName.FIREFOX.value,
+        }
+        return [mapping.get(s.lower(), SoftwareName.EDGE.value) for s in config.softwares_padrao]
     
-    # Sistemas operacionais padrão
-    SISTEMAS_PADRAO = [
-        OperatingSystem.WINDOWS.value,
-        OperatingSystem.LINUX.value,
-        OperatingSystem.MACOS.value,
-    ]
+    @property
+    def SISTEMAS_PADRAO(cls):
+        """Retorna lista de sistemas operacionais mapeados para enum."""
+        config = get_config().session
+        mapping = {
+            "windows": OperatingSystem.WINDOWS.value,
+            "linux": OperatingSystem.LINUX.value,
+            "macos": OperatingSystem.MACOS.value,
+        }
+        return [mapping.get(s.lower(), OperatingSystem.WINDOWS.value) for s in config.sistemas_padrao]
     
-    # URLs principais
-    REWARDS_URL = "https://rewards.bing.com/"
-    BING_URL = "https://www.bing.com"
-    BING_FLYOUT_URL = (
-        "https://www.bing.com/rewards/panelflyout?"
-        "channel=bingflyout&partnerId=BingRewards&"
-        "isDarkMode=1&requestedLayout=onboarding&form=rwfobc"
-    )
+    @property
+    def REWARDS_URL(cls):
+        return get_config().session.rewards_url
     
-    # Configurações de tentativas
-    MAX_LOGIN_ATTEMPTS = 5
+    @property
+    def BING_URL(cls):
+        return get_config().session.bing_url
     
-    # Timeouts e esperas
-    UA_LIMIT = 100
+    @property
+    def BING_FLYOUT_URL(cls):
+        return get_config().session.bing_flyout_url
     
-    # Títulos de páginas esperados
-    REWARDS_TITLE = "microsoft rewards"
-    VERIFY_EMAIL_TITLE = "verify your email"
-    PROTECT_ACCOUNT_TITLE = "let's protect your account"
+    @property
+    def MAX_LOGIN_ATTEMPTS(cls):
+        return get_config().session.max_login_attempts
     
-    # Seletores CSS principais
-    SELECTORS = {
-        # Login
-        "email_input": "input[type='email'], #i0116",
-        "password_input": "input[type='password'], #i0118",
-        "submit_button": "button[type='submit'], #idSIButton9",
-        
-        # Verificação
-        "email_verify_link": "#view > div > span:nth-child(6) > div > span",
-        "skip_link": "a[id='iShowSkip']",
-        "primary_button": "button[data-testid='primaryButton']",
-        
-        # Status
-        "id_s_span": 'span[id="id_s"]',
-        "role_presentation": "span[role='presentation']",
-        
-        # Rewards
-        "join_now": 'a[class="joinNowText"]',
-        "card_0": 'div[id="Card_0"]'
-    }
+    @property
+    def UA_LIMIT(cls):
+        return get_config().session.ua_limit
+    
+    @property
+    def REWARDS_TITLE(cls):
+        return get_config().session.rewards_title
+    
+    @property
+    def VERIFY_EMAIL_TITLE(cls):
+        return get_config().session.verify_email_title
+    
+    @property
+    def PROTECT_ACCOUNT_TITLE(cls):
+        return get_config().session.protect_account_title
+    
+    @property
+    def SELECTORS(cls):
+        return get_config().session.selectors
+
+
+class SessionConfig(metaclass=_SessionConfigMeta):
+    """
+    DEPRECATED: Use raxy.core.config.get_config().session diretamente.
+    
+    Este wrapper mantém compatibilidade retroativa com código que usa
+    SessionConfig.ATRIBUTO, redirecionando para a configuração centralizada.
+    """
+    pass

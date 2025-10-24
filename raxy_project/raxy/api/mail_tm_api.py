@@ -25,28 +25,18 @@ from raxy.core.exceptions import (
     TimeoutException,
     wrap_exception,
 )
+from raxy.core.config import get_config
 from .base_api import BaseAPIClient
 
-class MailTmConfig:
-    """Configuração para API Mail.tm."""
-    
-    # URLs e endpoints
-    BASE_URL = "https://api.mail.tm"
-    
-    # Endpoints
-    ENDPOINT_DOMAINS = "/domains"
-    ENDPOINT_ACCOUNTS = "/accounts"
-    ENDPOINT_TOKEN = "/token"
-    ENDPOINT_MESSAGES = "/messages"
-    
-    # Timeouts
-    DEFAULT_TIMEOUT = 30
-    MAX_WAIT_TIME = 300  # 5 minutos
-    POLL_INTERVAL = 2  # segundos
-    
-    # Geração de conta
-    USERNAME_LENGTH = 10
-    PASSWORD_LENGTH = 10
+
+# Constantes locais (não configuráveis)
+BASE_URL = "https://api.mail.tm"
+ENDPOINT_DOMAINS = "/domains"
+ENDPOINT_ACCOUNTS = "/accounts"
+ENDPOINT_TOKEN = "/token"
+ENDPOINT_MESSAGES = "/messages"
+USERNAME_LENGTH = 10
+PASSWORD_LENGTH = 10
 
 
 class MailTmHelper:
@@ -127,12 +117,11 @@ class MailTm(BaseAPIClient, IMailTmService):
             logger: Serviço de logging
         """
         super().__init__(
-            base_url=MailTmConfig.BASE_URL,
+            base_url=BASE_URL,
             logger=logger,
-            timeout=MailTmConfig.DEFAULT_TIMEOUT
+            timeout=get_config().api.default_timeout
         )
         
-        self.config = MailTmConfig()
         self.helper = MailTmHelper()
 
     def _request(self, method: str, endpoint: str, token: Optional[str] = None, **kwargs):
