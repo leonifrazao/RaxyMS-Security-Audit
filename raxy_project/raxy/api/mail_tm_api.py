@@ -7,7 +7,6 @@ através do serviço Mail.tm com arquitetura modular.
 
 from __future__ import annotations
 
-import logging
 import random
 import string
 import time
@@ -109,12 +108,13 @@ class MailTm(BaseAPIClient, IMailTmService):
     e tratamento robusto de erros.
     """
     
-    def __init__(self, logger: Optional[ILoggingService] = None):
+    def __init__(self, logger: Optional[ILoggingService] = None, event_bus: Optional[Any] = None):
         """
         Inicializa o cliente Mail.tm.
         
         Args:
             logger: Serviço de logging
+            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(
             base_url=BASE_URL,
@@ -123,6 +123,15 @@ class MailTm(BaseAPIClient, IMailTmService):
         )
         
         self.helper = MailTmHelper()
+        self._event_bus = event_bus
+    
+    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
+        """Publica evento no Event Bus se disponível."""
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                pass
 
     def _request(self, method: str, endpoint: str, token: Optional[str] = None, **kwargs):
         """Método central para realizar requisições HTTP com tratamento robusto de erros."""
@@ -143,7 +152,7 @@ class MailTm(BaseAPIClient, IMailTmService):
             return response.json()
         except requests.exceptions.Timeout as e:
             error_msg = f"Timeout ao acessar {url}"
-            logging.error(error_msg)
+            self.logger.erro(error_msg)
             raise RequestTimeoutException(
                 error_msg,
                 details={"url": url, "method": method, "endpoint": endpoint}
@@ -151,21 +160,21 @@ class MailTm(BaseAPIClient, IMailTmService):
         except requests.exceptions.HTTPError as e:
             status_code = e.response.status_code if e.response else None
             error_msg = f"Erro na API: {status_code} - {e.response.text if e.response else 'Sem resposta'}"
-            logging.error(f"Erro HTTP ao acessar {url}: {error_msg}")
+            self.logger.erro(f"Erro HTTP ao acessar {url}: {error_msg}")
             raise MailTmAPIException(
                 error_msg,
                 details={"url": url, "method": method, "status_code": status_code}
             ) from e
         except requests.exceptions.ConnectionError as e:
             error_msg = f"Erro de conexão ao acessar {url}"
-            logging.error(error_msg)
+            self.logger.erro(error_msg)
             raise RequestException(
                 error_msg,
                 details={"url": url, "method": method}
             ) from e
         except requests.exceptions.RequestException as e:
             error_msg = f"Erro de requisição: {e}"
-            logging.error(f"Erro ao acessar {url}: {e}")
+            self.logger.erro(f"Erro ao acessar {url}: {e}")
             raise wrap_exception(
                 e, RequestException,
                 error_msg,
@@ -176,7 +185,7 @@ class MailTm(BaseAPIClient, IMailTmService):
     
     def get_domains(self) -> List[Domain]:
         """Recupera a lista de domínios disponíveis com tratamento de erros."""
-        logging.info("Buscando domínios disponíveis...")
+        self.logger.info("Buscando domínios disponíveis...")
         try:
             response = self._request("GET", "/domains")
         except MailTmAPIException:
@@ -208,7 +217,7 @@ class MailTm(BaseAPIClient, IMailTmService):
 
     def create_account(self, address: str, password: str) -> AuthenticatedSession:
         """Cria uma nova conta e retorna uma sessão autenticada com tratamento de erros."""
-        logging.info(f"Criando conta para o endereço: {address}")
+        self.logger.info(f"Criando conta para o endereço: {address}")
         payload = {"address": address, "password": password}
         
         try:
@@ -249,13 +258,19 @@ class MailTm(BaseAPIClient, IMailTmService):
                 address=address
             )
         
-        logging.info(f"Conta {account.address} criada com sucesso.")
+        self.logger.info(f"Conta {account.address} criada com sucesso.")
+        
+        self._publish_event("mail.account.created", {
+            "address": account.address,
+            "account_id": account.id,
+            "timestamp": __import__('time').time(),
+        })
         
         return AuthenticatedSession(account=account, token=token)
 
     def get_token(self, address: str, password: str) -> str:
         """Obtém um token JWT para uma conta existente com tratamento de erros."""
-        logging.info(f"Obtendo token para {address}...")
+        self.logger.info(f"Obtendo token para {address}...")
         payload = {"address": address, "password": password}
         
         try:
@@ -279,7 +294,7 @@ class MailTm(BaseAPIClient, IMailTmService):
 
     def get_me(self, token: str) -> Account:
         """Recupera os detalhes da conta associada a um token."""
-        logging.info("Buscando detalhes da conta autenticada (/me)...")
+        self.logger.info("Buscando detalhes da conta autenticada (/me)...")
         me_data = self._request("GET", "/me", token=token)
         return Account(id=me_data['id'], address=me_data['address'], is_disabled=me_data['isDisabled'], is_deleted=me_data['isDeleted'], created_at=me_data['createdAt'], updated_at=me_data['updatedAt'])
 
@@ -287,15 +302,15 @@ class MailTm(BaseAPIClient, IMailTmService):
     def delete_account(self, session: AuthenticatedSession) -> None:
         """Exclui a conta associada a uma sessão autenticada."""
         account_id = session.account.id
-        logging.info(f"Excluindo a conta {account_id}...")
+        self.logger.info(f"Excluindo a conta {account_id}...")
         self._request("DELETE", f"/accounts/{account_id}", token=session.token)
-        logging.info(f"Conta {session.account.address} ({account_id}) excluída com sucesso.")
+        self.logger.info(f"Conta {session.account.address} ({account_id}) excluída com sucesso.")
 
     # --- Gerenciamento de Mensagens ---
     
     def get_messages(self, token: str, page: int = 1) -> List[Message]:
         """Recupera uma coleção de mensagens para a conta associada a um token."""
-        logging.info(f"Buscando mensagens na página {page}...")
+        self.logger.info(f"Buscando mensagens na página {page}...")
         response = self._request("GET", f"/messages?page={page}", token=token)
         
         messages = []
@@ -309,7 +324,7 @@ class MailTm(BaseAPIClient, IMailTmService):
 
     def get_message(self, token: str, message_id: str) -> Message:
         """Recupera os detalhes de uma mensagem específica pelo seu ID."""
-        logging.info(f"Buscando detalhes da mensagem {message_id}...")
+        self.logger.info(f"Buscando detalhes da mensagem {message_id}...")
         m = self._request("GET", f"/messages/{message_id}", token=token)
         from_addr = MessageAddress(address=m['from'].get('address', ''), name=m['from'].get('name', ''))
         to_addrs = [MessageAddress(address=t.get('address', ''), name=t.get('name', '')) for t in m.get('to', [])]
@@ -318,7 +333,7 @@ class MailTm(BaseAPIClient, IMailTmService):
 
     def mark_message_as_seen(self, token: str, message_id: str, seen: bool = True):
         """Atualiza o status de 'visto' de uma mensagem."""
-        logging.info(f"Marcando mensagem {message_id} como {'vista' if seen else 'não vista'}...")
+        self.logger.info(f"Marcando mensagem {message_id} como {'vista' if seen else 'não vista'}...")
         payload = {"seen": seen}
         headers_patch = {"Content-Type": "application/merge-patch+json"}
         # O método _request lida com os headers padrão, mas podemos passar headers adicionais
@@ -354,11 +369,11 @@ class MailTm(BaseAPIClient, IMailTmService):
             local_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
             address = f"{local_part}@{domain}"
             try:
-                logging.info(f"Tentativa {attempt}: criando conta {address}...")
+                self.logger.info(f"Tentativa {attempt}: criando conta {address}...")
                 return self.create_account(address, final_password)
             except MailTmAPIException as e:
                 if "422" in str(e) or "already exists" in str(e).lower():
-                    logging.warning(f"E-mail {address} já existe. Tentando outro...")
+                    self.logger.aviso(f"E-mail {address} já existe. Tentando outro...")
                     time.sleep(delay)
                     continue
                 else:
@@ -377,18 +392,18 @@ class MailTm(BaseAPIClient, IMailTmService):
     
     def wait_for_message(self, token: str, timeout: int = 60, interval: int = 5, filter_func: Optional[Callable[[Message], bool]] = None) -> Optional[Message]:
         """Aguarda até que uma nova mensagem chegue, usando um token com tratamento de erros."""
-        logging.info(f"Aguardando mensagem por até {timeout} segundos...")
+        self.logger.info(f"Aguardando mensagem por até {timeout} segundos...")
         start_time = time.time()
 
         while time.time() - start_time < timeout:
             try:
                 messages = self.get_messages(token)
             except MailTmAPIException as e:
-                logging.warning(f"Erro ao buscar mensagens: {e}. Tentando novamente...")
+                self.logger.aviso(f"Erro ao buscar mensagens: {e}. Tentando novamente...")
                 time.sleep(interval)
                 continue
             except Exception as e:
-                logging.error(f"Erro inesperado ao buscar mensagens: {e}")
+                self.logger.erro(f"Erro inesperado ao buscar mensagens: {e}")
                 time.sleep(interval)
                 continue
             
@@ -396,14 +411,22 @@ class MailTm(BaseAPIClient, IMailTmService):
                 if filter_func:
                     messages = [m for m in messages if filter_func(m)]
             except Exception as e:
-                logging.warning(f"Erro ao aplicar filtro: {e}")
+                self.logger.aviso(f"Erro ao aplicar filtro: {e}")
             
             if messages:
-                logging.info("Mensagem recebida!")
+                self.logger.info("Mensagem recebida!")
+                
+                self._publish_event("mail.message.received", {
+                    "message_id": messages[0].id,
+                    "subject": messages[0].subject,
+                    "from_address": messages[0].from_address.address,
+                    "timestamp": __import__('time').time(),
+                })
+                
                 return messages[0]
             time.sleep(interval)
 
-        logging.warning("Nenhuma mensagem recebida dentro do tempo limite.")
+        self.logger.aviso("Nenhuma mensagem recebida dentro do tempo limite.")
         return None
     
     def filter_messages(

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, Optional
 
 from raxy.domain import Conta
+from raxy.interfaces.storage import IFileSystem
 from raxy.core.exceptions import (
     FileRepositoryException,
     DataValidationException,
@@ -15,36 +16,43 @@ from raxy.core.exceptions import (
 )
 
 
-def carregar_contas(caminho_arquivo: str | Path) -> list[Conta]:
-    """Carrega contas de um arquivo com tratamento robusto de erros."""
-    try:
-        caminho = Path(caminho_arquivo)
-    except Exception as e:
-        raise wrap_exception(
-            e, FileRepositoryException,
-            "Erro ao processar caminho do arquivo",
-            caminho=str(caminho_arquivo)
-        )
+def carregar_contas(
+    caminho_arquivo: str | Path,
+    filesystem: Optional[IFileSystem] = None
+) -> list[Conta]:
+    """
+    Carrega contas de um arquivo com tratamento robusto de erros.
     
-    if not caminho.exists():
+    Args:
+        caminho_arquivo: Caminho do arquivo
+        filesystem: Sistema de arquivos (se None, usa LocalFileSystem)
+    """
+    # Usa LocalFileSystem se não fornecido
+    if filesystem is None:
+        from raxy.storage import LocalFileSystem
+        filesystem = LocalFileSystem()
+    
+    caminho = str(caminho_arquivo)
+    
+    if not filesystem.exists(caminho):
         raise DataNotFoundException(
             f"Arquivo não encontrado: {caminho}",
-            details={"caminho": str(caminho)}
+            details={"caminho": caminho}
         )
 
     try:
-        conteudo = caminho.read_text(encoding="utf-8")
+        conteudo = filesystem.read_text(caminho, encoding="utf-8")
     except UnicodeDecodeError as e:
         raise wrap_exception(
             e, FileRepositoryException,
             "Erro de codificação ao ler arquivo",
-            caminho=str(caminho)
+            caminho=caminho
         )
     except Exception as e:
         raise wrap_exception(
             e, FileRepositoryException,
             "Erro ao ler arquivo de contas",
-            caminho=str(caminho)
+            caminho=caminho
         )
 
     contas: list[Conta] = []
@@ -87,11 +95,37 @@ __all__ = [
 
 
 class ArquivoContaRepository(IContaRepository):
-    """Realiza operações de persistência em um arquivo ``email:senha`` com tratamento de erros."""
+    """
+    Realiza operações de persistência em um arquivo ``email:senha``.
+    
+    Desacoplado do filesystem através da interface IFileSystem,
+    permitindo trocar entre local, cloud (S3), ou mock para testes.
+    
+    Design Pattern: Dependency Injection
+    Princípio: Dependency Inversion Principle (DIP)
+    """
 
-    def __init__(self, caminho_arquivo: str | Path) -> None:
+    def __init__(
+        self,
+        caminho_arquivo: str | Path,
+        filesystem: Optional[IFileSystem] = None
+    ) -> None:
+        """
+        Inicializa o repositório.
+        
+        Args:
+            caminho_arquivo: Caminho do arquivo de contas
+            filesystem: Sistema de arquivos (se None, usa LocalFileSystem)
+        """
         try:
-            self._caminho = Path(caminho_arquivo)
+            self._caminho = str(caminho_arquivo)
+            
+            # Dependency Injection: recebe filesystem ou cria padrão
+            if filesystem is None:
+                from raxy.storage import LocalFileSystem
+                filesystem = LocalFileSystem()
+            
+            self._filesystem = filesystem
         except Exception as e:
             raise wrap_exception(
                 e, FileRepositoryException,
@@ -102,14 +136,17 @@ class ArquivoContaRepository(IContaRepository):
     def listar(self) -> list[Conta]:
         """Lista todas as contas com tratamento de erros."""
         try:
-            return carregar_contas(self._caminho)
-        except (DataNotFoundException, DataValidationException, FileRepositoryException):
+            return carregar_contas(self._caminho, self._filesystem)
+        except DataNotFoundException:
+            # Se arquivo não existe, retorna lista vazia
+            return []
+        except (DataValidationException, FileRepositoryException):
             raise
         except Exception as e:
             raise wrap_exception(
                 e, FileRepositoryException,
                 "Erro ao listar contas",
-                caminho=str(self._caminho)
+                caminho=self._caminho
             )
 
     def salvar(self, conta: Conta) -> Conta:
@@ -163,6 +200,7 @@ class ArquivoContaRepository(IContaRepository):
         """Persiste contas no arquivo com tratamento de erros."""
         try:
             linhas = [f"{conta.email}:{conta.senha}\n" for conta in contas]
+            conteudo = "".join(linhas)
         except Exception as e:
             raise wrap_exception(
                 e, FileRepositoryException,
@@ -170,28 +208,24 @@ class ArquivoContaRepository(IContaRepository):
             )
         
         try:
-            self._caminho.parent.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao criar diretório",
-                diretorio=str(self._caminho.parent)
+            # write_text já cria diretórios automaticamente (create_dirs=True)
+            self._filesystem.write_text(
+                self._caminho,
+                conteudo,
+                encoding="utf-8",
+                create_dirs=True
             )
-        
-        try:
-            with self._caminho.open("w", encoding="utf-8") as handle:
-                handle.writelines(linhas)
         except OSError as e:
             raise wrap_exception(
                 e, FileRepositoryException,
                 "Erro ao escrever arquivo de contas",
-                caminho=str(self._caminho)
+                caminho=self._caminho
             )
         except Exception as e:
             raise wrap_exception(
                 e, FileRepositoryException,
                 "Erro inesperado ao persistir contas",
-                caminho=str(self._caminho)
+                caminho=self._caminho
             )
 
 

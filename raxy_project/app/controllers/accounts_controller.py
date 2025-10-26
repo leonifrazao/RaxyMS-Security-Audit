@@ -61,7 +61,7 @@ class AccountsController(BaseController):
         try:
             # Verifica se o repositório está disponível
             if database_repository is None:
-                self.logger.warning("Database repository não configurado (Supabase não está disponível)")
+                self.logger.aviso("Database repository não configurado (Supabase não está disponível)")
                 return AccountsResponse(accounts=[])
             
             registros = database_repository.listar_contas()

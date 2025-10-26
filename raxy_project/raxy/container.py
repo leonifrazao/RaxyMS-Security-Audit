@@ -42,6 +42,29 @@ from raxy.domain import InfraServices
 from raxy.core.events import RedisEventBus
 
 
+def _create_event_logger(event_bus, service_name: str):
+    """Cria logger com Event Bus para um serviço."""
+    from raxy.core.logging.event_bus_logging import (
+        create_event_driven_logger,
+        EventDrivenLoggingConfig
+    )
+    
+    event_config = EventDrivenLoggingConfig(
+        enabled=True,
+        service_name=service_name,
+        enable_aggregator=False,  # Agregador já existe
+        enable_fallback=True,
+        sampling_rate=1.0
+    )
+    
+    logger = create_event_driven_logger(
+        event_bus=event_bus,
+        event_config=event_config
+    )
+    
+    return logger
+
+
 class ApplicationContainer(containers.DeclarativeContainer):
     """
     Container de injeção de dependências da aplicação.
@@ -58,8 +81,8 @@ class ApplicationContainer(containers.DeclarativeContainer):
         config=config
     )
     
-    # Logging
-    logger = providers.Singleton(get_logger)
+    # Logging base (sem Event Bus para evitar recursão)
+    base_logger = providers.Singleton(get_logger)
     
     # Event Bus (Redis Pub/Sub)
     event_bus = providers.Singleton(
@@ -72,7 +95,36 @@ class ApplicationContainer(containers.DeclarativeContainer):
             logger=logger,
         ) if config.events.enabled else None,
         config=config,
-        logger=logger
+        logger=base_logger
+    )
+    
+    # Logger genérico (para compatibilidade com código existente)
+    logger = providers.Singleton(get_logger)
+    
+    # Loggers específicos por serviço (via Event Bus)
+    rewards_logger = providers.Singleton(
+        lambda eb: _create_event_logger(eb, "rewards-service") if eb else get_logger(),
+        eb=event_bus
+    )
+    
+    flyout_logger = providers.Singleton(
+        lambda eb: _create_event_logger(eb, "flyout-service") if eb else get_logger(),
+        eb=event_bus
+    )
+    
+    bing_logger = providers.Singleton(
+        lambda eb: _create_event_logger(eb, "bing-service") if eb else get_logger(),
+        eb=event_bus
+    )
+    
+    executor_logger = providers.Singleton(
+        lambda eb: _create_event_logger(eb, "executor-service") if eb else get_logger(),
+        eb=event_bus
+    )
+    
+    session_logger = providers.Singleton(
+        lambda eb: _create_event_logger(eb, "session-service") if eb else get_logger(),
+        eb=event_bus
     )
     
     # Proxies
@@ -93,10 +145,17 @@ class ApplicationContainer(containers.DeclarativeContainer):
     # APIs
     rewards_data_service = providers.Singleton(
         RewardsDataAPI,
+        logger=rewards_logger,
         event_bus=event_bus
     )
-    bing_suggestion_service = providers.Singleton(BingSuggestionAPI)
-    bing_flyout_service = providers.Singleton(BingFlyoutService)
+    bing_suggestion_service = providers.Singleton(
+        BingSuggestionAPI,
+        logger=bing_logger
+    )
+    bing_flyout_service = providers.Singleton(
+        BingFlyoutService,
+        logger=flyout_logger
+    )
     mail_tm_service = providers.Singleton(MailTm)
     
     # Repositórios
@@ -122,7 +181,7 @@ class ApplicationContainer(containers.DeclarativeContainer):
         bing_search=bing_suggestion_service,
         bing_flyout_service=bing_flyout_service,
         proxy_manager=proxy_service,
-        logger=logger,
+        logger=base_logger,  # Usa logger base para InfraServices
         mail_tm_service=mail_tm_service
     )
     
@@ -138,7 +197,7 @@ class ApplicationContainer(containers.DeclarativeContainer):
         services=infra_services,
         config=executor_config,
         proxy_config=proxy_config,
-        logger=logger,
+        logger=executor_logger,  # Usa logger específico via Event Bus
         event_bus=event_bus
     )
 

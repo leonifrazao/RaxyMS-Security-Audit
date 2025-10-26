@@ -11,7 +11,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set
 
-from raxy.core.logging import LoggerConfig
+try:
+    from random_user_agent.params import OperatingSystem, SoftwareName
+    _HAS_USER_AGENT = True
+except ImportError:
+    _HAS_USER_AGENT = False
+    OperatingSystem = None
+    SoftwareName = None
 
 
 # ============================================================================
@@ -98,6 +104,134 @@ def ensure_path_exists(path: Optional[Path]) -> Optional[Path]:
         resolved.mkdir(parents=True, exist_ok=True)
         return resolved
     return None
+
+
+def _parse_bool(value: Optional[str], default: bool) -> bool:
+    """Parse de string para boolean."""
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
+# Mapeamento de níveis de log
+LEVEL_VALUES = {
+    "DEBUG": 10,
+    "INFO": 20,
+    "SUCCESS": 25,  # Nível customizado para sucesso
+    "WARNING": 30,
+    "ERROR": 40,
+    "CRITICAL": 50,
+}
+
+LEVEL_NAMES = {v: k for k, v in LEVEL_VALUES.items()}
+
+
+@dataclass
+class LoggerConfig:
+    """
+    Configuração centralizada do sistema de logging.
+    
+    Attributes:
+        nome: Nome do logger
+        nivel_minimo: Nível mínimo de log (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        arquivo_log: Caminho para arquivo de log
+        sobrescrever_arquivo: Se deve sobrescrever arquivo existente
+        mostrar_tempo: Se deve mostrar timestamp
+        mostrar_localizacao: Se deve mostrar arquivo/linha/função
+        usar_cores: Se deve usar cores no console
+        rotacao_arquivo: Configuração de rotação (ex: "100 MB", "1 day")
+        retencao_arquivo: Tempo de retenção dos logs (ex: "7 days")
+        compressao_arquivo: Tipo de compressão (ex: "zip", "gz")
+        diretorio_erros: Diretório para logs de erro
+        formato_detalhado: Se deve usar formato detalhado
+        max_workers: Número máximo de workers para processamento async
+        buffer_size: Tamanho do buffer de logs
+    """
+    
+    # Identificação
+    nome: str = "raxy"
+    
+    # Níveis e filtros
+    nivel_minimo: str = "INFO"
+    
+    # Arquivos
+    arquivo_log: Optional[Path] = None
+    sobrescrever_arquivo: bool = False
+    rotacao_arquivo: Optional[str] = "100 MB"
+    retencao_arquivo: Optional[str] = "7 days"
+    compressao_arquivo: Optional[str] = "zip"
+    
+    # Formatação
+    mostrar_tempo: bool = True
+    mostrar_localizacao: bool = True
+    usar_cores: bool = True
+    formato_detalhado: bool = False
+    
+    # Diretórios especiais
+    diretorio_erros: Optional[Path] = None
+    
+    # Performance
+    max_workers: int = 2
+    buffer_size: int = 1000
+    
+    # Limites
+    max_message_length: int = 10000
+    max_context_depth: int = 10
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> LoggerConfig:
+        """Cria instância a partir de dicionário."""
+        # Converte paths string para Path objects
+        result = {}
+        for key, value in data.items():
+            if key in cls.__annotations__:
+                if key in ("arquivo_log", "diretorio_erros") and value is not None:
+                    result[key] = Path(value)
+                else:
+                    result[key] = value
+        return cls(**result)
+    
+    def validate(self) -> None:
+        """
+        Valida a configuração.
+        
+        Raises:
+            ValueError: Se alguma configuração for inválida
+        """
+        # Valida nível
+        from raxy.core.exceptions import InvalidConfigException
+        
+        niveis_validos = {"DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"}
+        if self.nivel_minimo.upper() not in niveis_validos:
+            raise InvalidConfigException(
+                f"Nível inválido: {self.nivel_minimo}",
+                details={"nivel": self.nivel_minimo, "niveis_validos": list(niveis_validos)}
+            )
+        
+        # Valida limites
+        from raxy.core.exceptions import InvalidConfigException
+        
+        if self.max_workers < 1:
+            raise InvalidConfigException("max_workers deve ser >= 1", details={"max_workers": self.max_workers})
+        if self.buffer_size < 10:
+            raise InvalidConfigException("buffer_size deve ser >= 10", details={"buffer_size": self.buffer_size})
+        if self.max_message_length < 100:
+            raise InvalidConfigException("max_message_length deve ser >= 100", details={"max_message_length": self.max_message_length})
+        
+        # Cria diretórios se necessário
+        if self.arquivo_log:
+            self.arquivo_log.parent.mkdir(parents=True, exist_ok=True)
+        if self.diretorio_erros:
+            self.diretorio_erros.mkdir(parents=True, exist_ok=True)
+    
+    def nivel_minimo_valor(self) -> int:
+        """
+        Retorna o valor numérico do nível mínimo.
+        
+        Returns:
+            int: Valor numérico do nível
+        """
+        return LEVEL_VALUES.get(self.nivel_minimo.upper(), 20)
 
 
 @dataclass
@@ -231,7 +365,7 @@ class MailTmAPIConfig:
 @dataclass
 class EventsConfig:
     """
-    Configuração para Event Bus (Redis Pub/Sub).
+    Configuração para Event Bus (Redis Pub/Sub) e State Management.
     
     Attributes:
         enabled: Se o event bus está habilitado
@@ -244,6 +378,8 @@ class EventsConfig:
         rewards_events: Habilita eventos de rewards
         proxy_events: Habilita eventos de proxy
         session_events: Habilita eventos de sessão
+        state_enabled: Habilita state management distribuído
+        state_default_ttl: TTL padrão para estados (segundos)
     """
     enabled: bool = True
     host: str = "localhost"
@@ -255,6 +391,10 @@ class EventsConfig:
     rewards_events: bool = True
     proxy_events: bool = True
     session_events: bool = True
+    
+    # State Management - Reutilização da infraestrutura Redis
+    state_enabled: bool = True
+    state_default_ttl: int = 3600  # 1 hora
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> EventsConfig:
@@ -396,6 +536,30 @@ class SessionConfig:
         # Define seletores padrão se não fornecidos
         if not self.selectors:
             self.selectors = DEFAULT_SELECTORS.copy()
+    
+    def get_softwares_enums(self) -> List[Any]:
+        """Retorna lista de softwares mapeados para enum."""
+        if not _HAS_USER_AGENT:
+            return []
+        
+        mapping = {
+            "edge": SoftwareName.EDGE.value,
+            "chrome": SoftwareName.CHROME.value,
+            "firefox": SoftwareName.FIREFOX.value,
+        }
+        return [mapping.get(s.lower(), SoftwareName.EDGE.value) for s in self.softwares_padrao]
+    
+    def get_sistemas_enums(self) -> List[Any]:
+        """Retorna lista de sistemas operacionais mapeados para enum."""
+        if not _HAS_USER_AGENT:
+            return []
+        
+        mapping = {
+            "windows": OperatingSystem.WINDOWS.value,
+            "linux": OperatingSystem.LINUX.value,
+            "macos": OperatingSystem.MACOS.value,
+        }
+        return [mapping.get(s.lower(), OperatingSystem.WINDOWS.value) for s in self.sistemas_padrao]
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> SessionConfig:
@@ -656,10 +820,35 @@ class ConfigLoader:
     def _apply_logging_env_vars(cls, data: Dict[str, Any]) -> None:
         """Aplica variáveis de ambiente do logging."""
         logging = data.setdefault("logging", {})
-        if log_level := os.getenv("RAXY_LOG_LEVEL"):
-            logging["nivel_minimo"] = log_level
-        if log_file := os.getenv("RAXY_LOG_FILE"):
+        
+        # Nível
+        if log_level := os.getenv("RAXY_LOG_LEVEL") or os.getenv("LOG_LEVEL"):
+            logging["nivel_minimo"] = log_level.upper()
+        
+        # Arquivo
+        if log_file := os.getenv("RAXY_LOG_FILE") or os.getenv("LOG_FILE"):
             logging["arquivo_log"] = log_file
+        
+        # Flags booleanas
+        if log_overwrite := os.getenv("RAXY_LOG_OVERWRITE") or os.getenv("LOG_OVERWRITE"):
+            logging["sobrescrever_arquivo"] = log_overwrite.lower() in ("true", "1", "yes", "on")
+        
+        if log_colors := os.getenv("RAXY_LOG_COLORS") or os.getenv("LOG_COLORS"):
+            logging["usar_cores"] = log_colors.lower() in ("true", "1", "yes", "on")
+        
+        # Rotação e retenção
+        if log_rotation := os.getenv("RAXY_LOG_ROTATION") or os.getenv("LOG_ROTATION"):
+            logging["rotacao_arquivo"] = log_rotation
+        
+        if log_retention := os.getenv("RAXY_LOG_RETENTION") or os.getenv("LOG_RETENTION"):
+            logging["retencao_arquivo"] = log_retention
+        
+        if log_compression := os.getenv("RAXY_LOG_COMPRESSION") or os.getenv("LOG_COMPRESSION"):
+            logging["compressao_arquivo"] = log_compression
+        
+        # Diretório de erros
+        if error_dir := os.getenv("RAXY_LOG_ERROR_DIR") or os.getenv("LOG_ERROR_DIR"):
+            logging["diretorio_erros"] = error_dir
 
     @classmethod
     def _build_config(cls, data: Dict[str, Any]) -> AppConfig:
@@ -680,17 +869,7 @@ class ConfigLoader:
         session_config = SessionConfig.from_dict(session_data)
         events_config = EventsConfig.from_dict(events_data)
         bingflyout_config = BingFlyoutConfig.from_dict(bingflyout_data)
-
-        # LoggerConfig usa seu próprio from_env()
-        logging_config = LoggerConfig.from_env()
-
-        # Atualiza LoggerConfig com dados do YAML
-        for key, value in logging_data.items():
-            if hasattr(logging_config, key):
-                # Converte paths se necessário
-                if key in ("arquivo_log", "diretorio_erros") and value is not None:
-                    value = Path(value)
-                setattr(logging_config, key, value)
+        logging_config = LoggerConfig.from_dict(logging_data)
 
         # Cria configuração principal
         return AppConfig(
@@ -865,6 +1044,8 @@ __all__ = [
     "VALID_ACTIONS",
     "VALID_ENVIRONMENTS",
     "DEFAULT_SELECTORS",
+    "LEVEL_VALUES",
+    "LEVEL_NAMES",
     # Funções de validação
     "validate_positive_int",
     "validate_positive_float",
@@ -873,6 +1054,7 @@ __all__ = [
     "validate_choice",
     "ensure_path_exists",
     # Classes de configuração
+    "LoggerConfig",
     "ExecutorConfig",
     "ProxyConfig",
     "RewardsAPIConfig",
@@ -883,6 +1065,7 @@ __all__ = [
     "BingFlyoutConfig",
     "AppConfig",
     "ConfigLoader",
+    "EventsConfig",
     # Gerenciamento de configuração global
     "get_config",
     "reload_config",

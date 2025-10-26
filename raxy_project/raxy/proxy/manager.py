@@ -12,6 +12,7 @@ import atexit
 import base64
 import random
 import json
+import logging
 import os
 import re
 import socket
@@ -33,8 +34,12 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from raxy.interfaces.services import IProxyService
+from raxy.core.logging import debug_log
 
 __all__ = ["Proxy"]
+
+# Configuração de logging
+logger = logging.getLogger(__name__)
 
 try:
     import requests  # opcional: apenas se precisar de rede
@@ -414,16 +419,303 @@ class Proxy(IProxyService):
         except (TypeError, ValueError):
             return None
 
+    @staticmethod
+    def _decode_github_api_content(api_response: Dict[str, Any]) -> str:
+        """
+        Decodifica o campo 'content' da resposta da API do GitHub.
+        
+        A API do GitHub retorna o conteúdo dos arquivos codificado em base64,
+        potencialmente com quebras de linha que precisam ser removidas.
+        
+        Args:
+            api_response: Dicionário JSON retornado pela API do GitHub
+            
+        Returns:
+            Conteúdo decodificado como string UTF-8
+            
+        Raises:
+            ValueError: Se a resposta não contiver os campos esperados
+            UnicodeDecodeError: Se o conteúdo não puder ser decodificado como UTF-8
+            
+        Example:
+            >>> response = {"content": "Y29udGV1ZG8=", "encoding": "base64"}
+            >>> _decode_github_api_content(response)
+            'conteudo'
+        """
+        if not isinstance(api_response, dict):
+            raise ValueError("Resposta da API deve ser um dicionário")
+        
+        content_b64 = api_response.get("content")
+        if not content_b64:
+            raise ValueError("Campo 'content' não encontrado na resposta da API")
+        
+        encoding = api_response.get("encoding", "base64")
+        if encoding != "base64":
+            logger.aviso(f"Encoding inesperado na resposta da API: {encoding}")
+        
+        try:
+            # Remove quebras de linha e espaços em branco do conteúdo base64
+            cleaned_content = content_b64.replace("\n", "").replace("\r", "").strip()
+            
+            # Decodifica o conteúdo base64
+            decoded_bytes = base64.b64decode(cleaned_content)
+            
+            # Tenta decodificar como UTF-8
+            decoded_text = decoded_bytes.decode("utf-8")
+            
+            logger.debug(f"Conteúdo decodificado com sucesso: {len(decoded_text)} caracteres")
+            return decoded_text
+            
+        except base64.binascii.Error as exc:
+            logger.erro(f"Erro ao decodificar base64: {exc}")
+            raise ValueError(f"Conteúdo base64 inválido: {exc}") from exc
+        except UnicodeDecodeError as exc:
+            logger.erro(f"Erro ao decodificar UTF-8: {exc}")
+            # Tenta com latin-1 como fallback
+            try:
+                decoded_text = decoded_bytes.decode("latin-1")
+                logger.aviso("Conteúdo decodificado usando latin-1 como fallback")
+                return decoded_text
+            except Exception:
+                raise exc
+
+    def _validate_proxies(self, proxy_text: str) -> Tuple[bool, int, str]:
+        """
+        Valida se há proxies válidas no texto fornecido.
+        
+        Verifica se o texto contém pelo menos uma linha que parece ser uma proxy válida
+        (começa com esquemas conhecidos: ss://, vmess://, vless://, trojan://).
+        
+        Args:
+            proxy_text: Texto contendo possíveis URIs de proxy
+            
+        Returns:
+            Tupla (tem_proxies_validas, quantidade, mensagem)
+            
+        Example:
+            >>> text = "ss://abc\\nvmess://def\\n# comentário"
+            >>> _validate_proxies(text)
+            (True, 2, "2 proxies válidas encontradas")
+        """
+        if not proxy_text or not proxy_text.strip():
+            logger.aviso("Texto de proxy vazio ou inválido")
+            return (False, 0, "Nenhum conteúdo de proxy encontrado")
+        
+        lines = proxy_text.strip().splitlines()
+        valid_schemes = ("ss://", "vmess://", "vless://", "trojan://")
+        valid_count = 0
+        
+        for line in lines:
+            line = line.strip()
+            # Ignora linhas vazias e comentários
+            if not line or line.startswith("#") or line.startswith("//"):
+                continue
+            
+            # Verifica se a linha começa com um esquema válido
+            if any(line.lower().startswith(scheme) for scheme in valid_schemes):
+                valid_count += 1
+        
+        if valid_count == 0:
+            logger.aviso("Nenhuma proxy válida encontrada no conteúdo")
+            return (False, 0, "Nenhuma proxy válida encontrada (esquemas suportados: ss, vmess, vless, trojan)")
+        
+        logger.info(f"{valid_count} proxies válidas encontradas no conteúdo")
+        return (True, valid_count, f"{valid_count} proxy(ies) válida(s) encontrada(s)")
+
+    def _is_github_api_url(self, url: str) -> bool:
+        """
+        Verifica se a URL é do GitHub API.
+        
+        Args:
+            url: URL a ser verificada
+            
+        Returns:
+            True se for uma URL da API do GitHub, False caso contrário
+        """
+        return bool(re.match(r"^https://api\.github\.com/repos/.+/contents/.+", url, re.I))
+
+    def _is_github_raw_url(self, url: str) -> bool:
+        """
+        Verifica se a URL é do GitHub raw content.
+        
+        Args:
+            url: URL a ser verificada
+            
+        Returns:
+            True se for uma URL raw do GitHub, False caso contrário
+        """
+        return bool(re.match(r"^https://raw\.githubusercontent\.com/.+", url, re.I))
+
+    def _convert_raw_to_api_url(self, raw_url: str) -> str:
+        """
+        Converte uma URL raw do GitHub para a URL da API.
+        
+        Args:
+            raw_url: URL raw (raw.githubusercontent.com)
+            
+        Returns:
+            URL da API do GitHub
+            
+        Example:
+            >>> url = "https://raw.githubusercontent.com/user/repo/main/file.txt"
+            >>> _convert_raw_to_api_url(url)
+            "https://api.github.com/repos/user/repo/contents/file.txt?ref=main"
+        """
+        # Padrão: https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{path}
+        match = re.match(
+            r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$",
+            raw_url,
+            re.I
+        )
+        
+        if not match:
+            logger.aviso(f"URL raw do GitHub não reconhecida: {raw_url}")
+            return raw_url
+        
+        owner, repo, ref, path = match.groups()
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
+        logger.info(f"URL convertida de raw para API: {api_url}")
+        return api_url
+
     def _read_source_text(self, source: str) -> str:
-        """Obtém conteúdo bruto de um arquivo local ou URL contendo proxys."""
-        if re.match(r"^https?://", source, re.I):
-            if self.requests is None:
-                raise RuntimeError("O pacote requests não está disponível para baixar URLs de proxy.")
+        """
+        Obtém conteúdo bruto de um arquivo local ou URL contendo proxys.
+        
+        Este método suporta:
+        - Arquivos locais
+        - URLs HTTP/HTTPS genéricas
+        - URLs da API do GitHub (api.github.com)
+        - URLs raw do GitHub (raw.githubusercontent.com) - convertidas automaticamente para API
+        
+        Args:
+            source: Caminho do arquivo local ou URL
+            
+        Returns:
+            Conteúdo do arquivo/URL como texto
+            
+        Raises:
+            RuntimeError: Se o pacote requests não estiver disponível para URLs
+            requests.HTTPError: Se houver erro na requisição HTTP
+            ValueError: Se a resposta da API do GitHub for inválida
+        """
+        # Caso 1: Arquivo local
+        if not re.match(r"^https?://", source, re.I):
+            logger.info(f"Lendo arquivo local: {source}")
+            path = Path(source)
+            return self._decode_bytes(path.read_bytes())
+        
+        # Caso 2: URL HTTP/HTTPS
+        if self.requests is None:
+            raise RuntimeError(
+                "O pacote requests não está disponível para baixar URLs de proxy. "
+                "Instale com: pip install requests"
+            )
+        
+        # Detecta e converte URLs raw do GitHub para API
+        if self._is_github_raw_url(source):
+            logger.info(f"URL raw do GitHub detectada, convertendo para API: {source}")
+            source = self._convert_raw_to_api_url(source)
+        
+        # Caso 3: URL da API do GitHub
+        if self._is_github_api_url(source):
+            return self._fetch_github_api_content(source)
+        
+        # Caso 4: URL genérica
+        logger.info(f"Baixando conteúdo de URL genérica: {source}")
+        try:
             resp = self.requests.get(source, timeout=30)
             resp.raise_for_status()
             return self._decode_bytes(resp.content, encoding_hint=resp.encoding or None)
-        path = Path(source)
-        return self._decode_bytes(path.read_bytes())
+        except self.requests.exceptions.Timeout:
+            logger.erro(f"Timeout ao acessar {source}")
+            raise RuntimeError(f"Timeout ao acessar {source} (timeout=30s)")
+        except self.requests.exceptions.ConnectionError as exc:
+            logger.erro(f"Erro de conexão ao acessar {source}: {exc}")
+            raise RuntimeError(f"Erro de conexão ao acessar {source}") from exc
+
+    def _fetch_github_api_content(self, api_url: str) -> str:
+        """
+        Busca e decodifica conteúdo da API do GitHub.
+        
+        Realiza requisição à API do GitHub, trata erros comuns (rate limit, timeout)
+        e decodifica o conteúdo base64 retornado.
+        
+        Args:
+            api_url: URL da API do GitHub (api.github.com/repos/...)
+            
+        Returns:
+            Conteúdo decodificado do arquivo
+            
+        Raises:
+            RuntimeError: Se houver erro na requisição ou rate limit excedido
+            ValueError: Se a resposta não puder ser decodificada
+        """
+        logger.info(f"Buscando conteúdo da API do GitHub: {api_url}")
+        
+        try:
+            # Requisição à API do GitHub
+            resp = self.requests.get(
+                api_url,
+                timeout=30,
+                headers={
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "Raxy-Proxy-Manager/1.0"
+                }
+            )
+            
+            # Verifica rate limit antes de processar
+            remaining = resp.headers.get("X-RateLimit-Remaining", "unknown")
+            limit = resp.headers.get("X-RateLimit-Limit", "unknown")
+            logger.debug(f"GitHub API rate limit: {remaining}/{limit}")
+            
+            if resp.status_code == 403:
+                reset_time = resp.headers.get("X-RateLimit-Reset")
+                if reset_time:
+                    from datetime import datetime
+                    reset_dt = datetime.fromtimestamp(int(reset_time))
+                    error_msg = (
+                        f"Rate limit da API do GitHub excedido. "
+                        f"Limite será resetado em: {reset_dt.strftime('%Y-%m-%d %H:%M:%S')}"
+                    )
+                else:
+                    error_msg = "Rate limit da API do GitHub excedido"
+                logger.erro(error_msg)
+                raise RuntimeError(error_msg)
+            
+            if resp.status_code == 404:
+                logger.erro(f"Recurso não encontrado na API do GitHub: {api_url}")
+                raise RuntimeError(f"Recurso não encontrado na API do GitHub: {api_url}")
+            
+            resp.raise_for_status()
+            
+            # Parse da resposta JSON
+            try:
+                api_response = resp.json()
+            except json.JSONDecodeError as exc:
+                logger.erro(f"Resposta da API do GitHub não é JSON válido: {exc}")
+                raise ValueError(f"Resposta da API do GitHub inválida: {exc}") from exc
+            
+            # Decodifica o conteúdo base64
+            decoded_content = self._decode_github_api_content(api_response)
+            
+            # Valida se há proxies válidas
+            has_valid, count, message = self._validate_proxies(decoded_content)
+            if not has_valid:
+                logger.aviso(f"Aviso: {message}")
+            else:
+                logger.info(f"Sucesso: {message}")
+            
+            return decoded_content
+            
+        except self.requests.exceptions.Timeout:
+            logger.erro(f"Timeout ao acessar API do GitHub: {api_url}")
+            raise RuntimeError(f"Timeout ao acessar API do GitHub (timeout=30s)")
+        except self.requests.exceptions.ConnectionError as exc:
+            logger.erro(f"Erro de conexão ao acessar API do GitHub: {exc}")
+            raise RuntimeError(f"Erro de conexão ao acessar API do GitHub") from exc
+        except self.requests.exceptions.RequestException as exc:
+            logger.erro(f"Erro na requisição à API do GitHub: {exc}")
+            raise RuntimeError(f"Erro ao acessar API do GitHub: {exc}") from exc
 
     @staticmethod
     def _shutil_which(cmd: str) -> Optional[str]:
@@ -1544,6 +1836,7 @@ class Proxy(IProxyService):
             )
         return table
 
+    @debug_log(log_args=False, log_result=False, log_duration=True)
     def start(
         self,
         *,

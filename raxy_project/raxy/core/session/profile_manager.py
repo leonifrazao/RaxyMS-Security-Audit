@@ -5,13 +5,15 @@ Responsável por criar, atualizar e gerenciar perfis de navegador.
 """
 
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, Any, Dict
+import time
 from random_user_agent.user_agent import UserAgent
 from botasaurus.profiles import Profiles
 
 from raxy.domain.accounts import Conta
-from raxy.core.session.session_config import SessionConfig
+from raxy.core.config import get_config
 from raxy.core.exceptions import ProfileException, wrap_exception
+from raxy.core.logging import debug_log
 from raxy.interfaces.services import IMailTmService, ILoggingService
 from raxy.services.base_service import BaseService
 
@@ -31,7 +33,8 @@ class ProfileManager(BaseService):
         self, 
         conta: Conta,
         mail_service: Optional[IMailTmService] = None,
-        logger: Optional[ILoggingService] = None
+        logger: Optional[ILoggingService] = None,
+        event_bus: Optional[Any] = None
     ):
         """
         Inicializa o gerenciador de perfis.
@@ -40,18 +43,30 @@ class ProfileManager(BaseService):
             conta: Conta associada ao perfil
             mail_service: Serviço de email temporário (opcional)
             logger: Serviço de logging (opcional)
+            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(logger)
         self.conta = conta
         self._mail_service = mail_service
+        self._event_bus = event_bus
         
         # Provedor de User-Agent
+        session_config = get_config().session
         self._ua_provider = UserAgent(
-            limit=SessionConfig.UA_LIMIT,
-            software_names=SessionConfig.SOFTWARES_PADRAO,
-            operating_systems=SessionConfig.SISTEMAS_PADRAO,
+            limit=session_config.ua_limit,
+            software_names=session_config.get_softwares_enums(),
+            operating_systems=session_config.get_sistemas_enums(),
         )
     
+    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
+        """Publica evento no Event Bus se disponível."""
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                pass
+    
+    @debug_log(log_args=True, log_result=False, log_duration=True)
     def garantir_perfil(self, perfil: str) -> list[str]:
         """
         Garante que o perfil exista e retorna os argumentos de linha de comando.
@@ -123,6 +138,14 @@ class ProfileManager(BaseService):
             })
             
             self.logger.sucesso(f"Novo perfil '{perfil}' criado com UA e credenciais salvas.")
+            
+            self._publish_event("profile.created", {
+                "profile_id": perfil,
+                "account_id": self.conta.email,
+                "user_agent": novo_ua,
+                "timestamp": time.time(),
+            })
+            
             return novo_ua
             
         except Exception as e:
@@ -151,6 +174,13 @@ class ProfileManager(BaseService):
             agente = self._ua_provider.get_random_user_agent()
             Profiles.set_profile(perfil, {**perfil_data, "UA": agente})
             self.logger.aviso(f"User-Agent regenerado e salvo para o perfil '{perfil}'.")
+            
+            self._publish_event("profile.ua_regenerated", {
+                "profile_id": perfil,
+                "account_id": self.conta.email,
+                "user_agent": agente,
+                "timestamp": time.time(),
+            })
         
         return agente
     

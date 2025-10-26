@@ -16,6 +16,7 @@ from supabase import create_client, Client
 
 from raxy.interfaces.repositories import IDatabaseRepository
 from raxy.interfaces.services import ILoggingService
+from raxy.interfaces.database import IDatabaseClient
 from raxy.core.exceptions import (
     DatabaseException,
     ValidationException,
@@ -70,15 +71,19 @@ class SupabaseRepository(IDatabaseRepository):
     """
     Repositório de banco de dados usando Supabase.
     
-    Implementa a interface IDatabaseRepository com Supabase,
-    fornecendo acesso estruturado ao banco de dados.
+    Desacoplado através da interface IDatabaseClient,
+    permitindo trocar entre Supabase real e mock para testes.
+    
+    Design Pattern: Dependency Injection
+    Princípio: Dependency Inversion Principle (DIP)
     """
     
     def __init__(
         self,
         url: Optional[str] = None,
         key: Optional[str] = None,
-        logger: Optional[ILoggingService] = None
+        logger: Optional[ILoggingService] = None,
+        db_client: Optional[IDatabaseClient] = None
     ):
         """
         Inicializa o repositório.
@@ -87,42 +92,28 @@ class SupabaseRepository(IDatabaseRepository):
             url: URL do Supabase (opcional, usa env se não fornecido)
             key: Chave do Supabase (opcional, usa env se não fornecido)
             logger: Serviço de logging
+            db_client: Cliente de banco (se None, cria SupabaseDatabaseClient)
         """
         self._logger = logger or self._get_default_logger()
         self.config = SupabaseConfig()
         
-        # Obtém credenciais
-        if not url or not key:
-            url, key = self.config.from_env()
+        # Dependency Injection: recebe db_client ou cria padrão
+        if db_client is None:
+            # Obtém credenciais
+            if not url or not key:
+                url, key = self.config.from_env()
+            
+            # Cria cliente Supabase padrão
+            from raxy.database import SupabaseDatabaseClient
+            db_client = SupabaseDatabaseClient(url, key)
+            self._logger.info("Cliente Supabase inicializado com sucesso")
         
-        # Inicializa cliente
-        self._initialize_client(url, key)
+        self._db_client = db_client
     
     def _get_default_logger(self) -> ILoggingService:
         """Obtém logger padrão."""
         from raxy.core.logging import get_logger
         return get_logger()
-    
-    def _initialize_client(self, url: str, key: str) -> None:
-        """
-        Inicializa o cliente Supabase.
-        
-        Args:
-            url: URL do Supabase
-            key: Chave de API
-            
-        Raises:
-            DatabaseException: Se erro ao conectar
-        """
-        try:
-            self.supabase: Client = create_client(url, key)
-            self._logger.info("Cliente Supabase inicializado com sucesso")
-        except Exception as e:
-            self._logger.erro("Falha ao criar cliente Supabase", exception=e)
-            raise wrap_exception(
-                e, DatabaseException,
-                "Erro ao conectar com Supabase"
-            )
 
     def adicionar_registro_farm(self, email: str, pontos: int) -> Optional[Dict[str, Any]]:
         """
@@ -153,24 +144,22 @@ class SupabaseRepository(IDatabaseRepository):
                 "ultima_farm": timestamp,
             }
             
-            # Operação upsert (insert ou update)
-            response = self.supabase.table(self.config.TABLE_CONTAS).upsert(
-                data,
+            # Operação upsert usando IDatabaseClient
+            result = self._db_client.upsert(
+                table=self.config.TABLE_CONTAS,
+                data=data,
                 on_conflict="email"
-            ).execute()
+            )
             
-            if response.data:
+            if result:
                 self._logger.sucesso(
                     "Registro farm atualizado",
                     email=email,
                     pontos=pontos
                 )
-                return response.data[0] if response.data else None
+                return result
             else:
-                self._logger.erro(
-                    "Falha ao atualizar registro",
-                    error=getattr(response, "error", None)
-                )
+                self._logger.erro("Falha ao atualizar registro")
                 return None
                 
         except Exception as e:
@@ -194,17 +183,16 @@ class SupabaseRepository(IDatabaseRepository):
         self._logger.debug(f"Consultando conta: {email}")
         
         try:
-            response = (
-                self.supabase.table(self.config.TABLE_CONTAS)
-                .select("*")
-                .eq("email", email)
-                .limit(1)
-                .execute()
+            # Usa IDatabaseClient
+            result = self._db_client.select_one(
+                table=self.config.TABLE_CONTAS,
+                filters={"email": email},
+                columns="*"
             )
             
-            if response.data:
+            if result:
                 self._logger.info(f"Conta encontrada: {email}")
-                return response.data[0]
+                return result
             else:
                 self._logger.info(f"Nenhuma conta encontrada: {email}")
                 return None
@@ -250,11 +238,15 @@ class SupabaseRepository(IDatabaseRepository):
         self._logger.debug("Listando todas as contas")
         
         try:
-            response = self.supabase.table(self.config.TABLE_CONTAS).select("*").execute()
+            # Usa IDatabaseClient
+            results = self._db_client.select(
+                table=self.config.TABLE_CONTAS,
+                columns="*"
+            )
             
-            if response.data:
-                self._logger.info(f"Total de {len(response.data)} conta(s) encontrada(s)")
-                return response.data
+            if results:
+                self._logger.info(f"Total de {len(results)} conta(s) encontrada(s)")
+                return results
             else:
                 self._logger.info("Nenhuma conta encontrada")
                 return []

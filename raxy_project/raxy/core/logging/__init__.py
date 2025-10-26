@@ -5,11 +5,12 @@ Este módulo fornece um sistema de logging completo e extensível,
 dividido em componentes especializados seguindo o princípio SOLID.
 """
 
-from .config import LoggerConfig
+from raxy.core.config import LoggerConfig
 from .logger import RaxyLogger
 from .context import LogContext
 from .formatters import LogFormatter
 from .handlers import LogHandler
+from .debug_decorator import debug_log, debug
 
 # Singleton do logger principal
 _logger_instance = None
@@ -34,4 +35,6 @@ __all__ = [
     "LogHandler",
     "get_logger",
     "log",
+    "debug_log",
+    "debug",
 ]

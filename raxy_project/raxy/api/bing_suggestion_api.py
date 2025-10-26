@@ -12,8 +12,7 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional, Sequence
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from raxy.interfaces.services import IBingSuggestion, ILoggingService
-from raxy.core.session_manager_service import SessionManagerService
+from raxy.interfaces.services import IBingSuggestion, ILoggingService, ISessionManager
 from raxy.core.exceptions import (
     BingAPIException,
     InvalidAPIResponseException,
@@ -21,6 +20,7 @@ from raxy.core.exceptions import (
     wrap_exception,
 )
 from raxy.core.config import get_config
+from raxy.core.logging import debug_log
 from .base_api import BaseAPIClient
 
 
@@ -107,7 +107,8 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
     def __init__(
         self,
         logger: Optional[ILoggingService] = None,
-        palavras_erro: Optional[Sequence[str]] = None
+        palavras_erro: Optional[Sequence[str]] = None,
+        event_bus: Optional[Any] = None
     ):
         """
         Inicializa o cliente de sugestões.
@@ -115,6 +116,7 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
         Args:
             logger: Serviço de logging
             palavras_erro: Palavras que indicam erro na resposta
+            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(
             base_url=BASE_URL,
@@ -123,29 +125,46 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
         )
         
         self.parser = SuggestionParser()
+        self._event_bus = event_bus
+    
+    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
+        """Publica evento no Event Bus se disponível."""
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                pass
 
-    def get_all(self, sessao: SessionManagerService, keyword: str) -> List[Dict[str, Any]]:
+    @debug_log(log_args=True, log_result=False, log_duration=True)
+    def get_all(
+        self,
+        sessao: ISessionManager,
+        query: str,
+        *,
+        country: Optional[str] = None,
+    ) -> Sequence[str]:
         """
         Obtém todas as sugestões para uma palavra-chave.
         
         Args:
             sessao: Sessão do usuário
-            keyword: Palavra-chave para buscar sugestões
+            query: Palavra-chave para buscar sugestões
             
         Returns:
-            List[Dict[str, Any]]: Lista de sugestões
+            Sequence[str]: Lista de sugestões
             
         Raises:
             InvalidInputException: Se entrada inválida
             BingAPIException: Se erro na API
         """
-        # Valida entrada
-        self._validate_keyword(keyword)
         
-        self.logger.debug(f"Obtendo sugestões para: {keyword}")
+        # Valida entrada
+        self._validate_keyword(query)
+        
+        self.logger.debug(f"Obtendo sugestões para: {query}")
         
         # Carrega e prepara template
-        template = self._prepare_template(keyword.strip())
+        template = self._prepare_template(query.strip())
         
         # Executa requisição via sessão
         try:
@@ -157,11 +176,11 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
             raise wrap_exception(
                 e, BingAPIException,
                 "Erro ao executar requisição de sugestões",
-                keyword=keyword
+                keyword=query
             )
         
         # Valida resposta
-        self._validate_response(response, keyword)
+        self._validate_response(response, query)
         
         # Parse da resposta
         try:
@@ -170,7 +189,7 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
             raise wrap_exception(
                 e, BingAPIException,
                 "Erro ao decodificar resposta JSON",
-                keyword=keyword
+                keyword=query
             )
         
         # Extrai sugestões
@@ -178,21 +197,35 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
         
         self.logger.info(
             f"Obtidas {len(suggestions)} sugestões",
-            keyword=keyword,
+            keyword=query,
             count=len(suggestions)
         )
         
+        self._publish_event("bing.suggestions.fetched", {
+            "keyword": query,
+            "suggestions_count": len(suggestions),
+            "timestamp": __import__('time').time(),
+        })
+        
         return suggestions
 
-    def get_random(self, sessao: SessionManagerService, keyword: str) -> Dict[str, Any]:
+    @debug_log(log_args=True, log_result=True, log_duration=True)
+    def get_random(
+        self,
+        sessao: ISessionManager,
+        query: str,
+        *,
+        country: Optional[str] = None,
+    ) -> Optional[str]:
         """
         Obtém uma sugestão aleatória.
         
         Args:
             sessao: Sessão do usuário
-            keyword: Palavra-chave para buscar sugestões
+            query: Palavra-chave para buscar sugestões
             
         Returns:
+            Optional[str]: Sugestão aleatória
             Dict[str, Any]: Sugestão aleatória
             
         Raises:

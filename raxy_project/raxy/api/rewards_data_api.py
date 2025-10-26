@@ -12,8 +12,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Mapping, Iterable
 
-from raxy.interfaces.services import IRewardsDataService, ILoggingService
-from raxy.core.session_manager_service import SessionManagerService
+from raxy.interfaces.services import IRewardsDataService, ILoggingService, ISessionManager
 from raxy.core.exceptions import (
     RewardsAPIException,
     InvalidAPIResponseException,
@@ -22,6 +21,7 @@ from raxy.core.exceptions import (
     wrap_exception,
 )
 from raxy.core.config import get_config
+from raxy.core.logging import debug_log
 from .base_api import BaseAPIClient
 
 
@@ -187,7 +187,8 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
                 # Silenciosamente ignora erros de publicação
                 pass
 
-    def obter_pontos(self, sessao: SessionManagerService, *, bypass_request_token: bool = True) -> int:
+    @debug_log(log_result=True, log_duration=True)
+    def obter_pontos(self, sessao: ISessionManager, *, bypass_request_token: bool = True) -> int:
         """
         Obtém os pontos disponíveis.
         
@@ -249,9 +250,10 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         
         return points
 
+    @debug_log(log_result=False, log_duration=True)
     def obter_recompensas(
         self,
-        sessao: SessionManagerService,
+        sessao: ISessionManager,
         *,
         bypass_request_token: bool = True,
     ) -> Mapping[str, Any]:
@@ -335,9 +337,10 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
             "raw_dashboard": dashboard,
         }
 
+    @debug_log(log_result=False, log_duration=True)
     def pegar_recompensas(
         self,
-        sessao: SessionManagerService,
+        sessao: ISessionManager,
         *,
         bypass_request_token: bool = True,
     ) -> Mapping[str, Any]:

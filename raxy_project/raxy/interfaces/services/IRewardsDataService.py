@@ -1,4 +1,4 @@
-"""Contrato para operações de API HTTP do Microsoft Rewards sobre SessionManagerService."""
+"""Contrato para operações de API HTTP do Microsoft Rewards."""
 
 from __future__ import annotations
 
@@ -6,20 +6,20 @@ from abc import ABC, abstractmethod
 from typing import Mapping, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from raxy.core.session_manager_service import SessionManagerService
+    from raxy.interfaces.services import ISessionManager
 
 
 class IRewardsDataService(ABC):
-    """Opera sobre a API HTTP do Rewards usando o SessionManagerService."""
+    """Opera sobre a API HTTP do Rewards usando sessões gerenciadas."""
 
     @abstractmethod
-    def obter_pontos(self, sessao: "SessionManagerService", *, bypass_request_token: bool = False) -> int:
+    def obter_pontos(self, sessao: "ISessionManager", *, bypass_request_token: bool = False) -> int:
         """Retorna o total de pontos disponíveis."""
 
     @abstractmethod
     def obter_recompensas(
         self,
-        sessao: "SessionManagerService",
+        sessao: "ISessionManager",
         *,
         bypass_request_token: bool = False,
     ) -> Mapping[str, object]:
@@ -28,7 +28,7 @@ class IRewardsDataService(ABC):
     @abstractmethod
     def pegar_recompensas(
         self,
-        sessao: "SessionManagerService",
+        sessao: "ISessionManager",
         *,
         bypass_request_token: bool = False,
     ) -> Mapping[str, object]:

@@ -1,11 +1,10 @@
 """
 Módulo de gerenciamento de sessão.
 
-Fornece componentes desacoplados para gerenciamento de sessões
+Fornece componentes de sessão para gerenciamento de login e perfis
 do Microsoft Rewards.
 """
 
-from raxy.core.session.session_config import SessionConfig
 from raxy.core.session.session_utils import (
     extract_request_verification_token,
     replace_placeholders,
@@ -17,7 +16,6 @@ from raxy.core.session.browser_login_handler import BrowserLoginHandler
 from raxy.core.session.request_executor import RequestExecutor
 
 __all__ = [
-    "SessionConfig",
     "ProfileManager", 
     "BrowserLoginHandler",
     "RequestExecutor",

@@ -10,8 +10,9 @@ from botasaurus.browser import Driver, Wait, browser
 from botasaurus.lang import Lang
 from botasaurus.soupify import soupify
 
+from raxy.interfaces.drivers import IBrowserDriver
+from raxy.drivers import BotasaurusDriver
 from raxy.core.network_service import NetWork
-from raxy.core.session.session_config import SessionConfig
 from raxy.core.session.session_utils import (
     extract_request_verification_token,
     normalize_credentials,
@@ -24,7 +25,7 @@ from raxy.core.exceptions import (
     LoginException,
     wrap_exception
 )
-from raxy.core.logging import get_logger
+from raxy.core.logging import get_logger, debug_log
 from raxy.core.config import get_config
 
 log = get_logger()
@@ -83,12 +84,13 @@ class BrowserLoginHandler:
         registro.debug("Iniciando login no Rewards", proxy_id=proxy_id)
         
         # Ativa modo humano e navega para Rewards
+        session_cfg = get_config().session
         driver.enable_human_mode()
-        driver.google_get(SessionConfig.REWARDS_URL)
+        driver.google_get(session_cfg.rewards_url)
         driver.short_random_sleep()
         
         # Verifica se já está logado
-        if driver.run_js("return document.title").lower() == SessionConfig.REWARDS_TITLE:
+        if driver.run_js("return document.title").lower() == session_cfg.rewards_title:
             return BrowserLoginHandler._processar_login_existente(driver, registro)
         
         # Executa fluxo de login
@@ -138,21 +140,24 @@ class BrowserLoginHandler:
             registro.sucesso(f"✅ Market correto: {expected_country.upper()}")
         
         # Coleta cookies do domínio de pesquisa
+        session_cfg = get_config().session
         registro.info("Coletando cookies do domínio de pesquisa...")
-        driver.google_get(SessionConfig.BING_URL)
+        driver.google_get(session_cfg.bing_url)
         driver.short_random_sleep()
         
-        if driver.is_element_present(SessionConfig.SELECTORS["id_s_span"], wait=Wait.VERY_LONG):
+        if driver.is_element_present(session_cfg.selectors["id_s_span"], wait=Wait.VERY_LONG):
             registro.info("Conta logada com sucesso no bing")
         else:
             registro.aviso("Conta não logada no bing")
         
         token = extract_request_verification_token(html)
+        # Wrap driver nativo em BotasaurusDriver (Adapter Pattern)
+        wrapped_driver = BotasaurusDriver(driver)
         return {
             "cookies": driver.get_cookies_dict(),
             "ua": driver.profile.get("UA"),
             "token": token,
-            "driver": driver,
+            "driver": wrapped_driver,
         }
     
     @staticmethod
@@ -169,7 +174,8 @@ class BrowserLoginHandler:
             Dicionário com dados da sessão
         """
         # Verifica campo de email
-        if not driver.is_element_present(SessionConfig.SELECTORS["email_input"], wait=Wait.VERY_LONG):
+        session_cfg = get_config().session
+        if not driver.is_element_present(session_cfg.selectors["email_input"], wait=Wait.VERY_LONG):
             registro.erro("Campo de email não encontrado na página")
             raise ProxyRotationRequiredException(400, proxy_id, url=driver.current_url)
         
@@ -223,9 +229,10 @@ class BrowserLoginHandler:
     def _digitar_email(driver: Driver, email: str, registro):
         """Digita email e clica em submit."""
         registro.info("Digitando email")
+        session_cfg = get_config().session
         try:
-            driver.type(SessionConfig.SELECTORS["email_input"], email, wait=Wait.VERY_LONG)
-            driver.click(SessionConfig.SELECTORS["submit_button"])
+            driver.type(session_cfg.selectors["email_input"], email, wait=Wait.VERY_LONG)
+            driver.click(session_cfg.selectors["submit_button"])
             driver.short_random_sleep()
         except Exception as e:
             raise wrap_exception(
@@ -237,14 +244,16 @@ class BrowserLoginHandler:
     @staticmethod
     def _tratar_verificacao_email(driver: Driver):
         """Trata tela de verificação de email se aparecer."""
-        if (driver.run_js("return document.title").lower() == SessionConfig.VERIFY_EMAIL_TITLE 
-            and driver.is_element_present(SessionConfig.SELECTORS["email_verify_link"], wait=Wait.VERY_LONG)):
-            driver.click(SessionConfig.SELECTORS["email_verify_link"])
+        session_cfg = get_config().session
+        if (driver.run_js("return document.title").lower() == session_cfg.verify_email_title 
+            and driver.is_element_present(session_cfg.selectors["email_verify_link"], wait=Wait.VERY_LONG)):
+            driver.click(session_cfg.selectors["email_verify_link"])
     
     @staticmethod
     def _digitar_senha(driver: Driver, email: str, senha: str, registro):
         """Digita senha e clica em submit."""
-        if not driver.is_element_present(SessionConfig.SELECTORS["password_input"], wait=Wait.VERY_LONG):
+        session_cfg = get_config().session
+        if not driver.is_element_present(session_cfg.selectors["password_input"], wait=Wait.VERY_LONG):
             registro.erro("Campo de senha não encontrado após informar email")
             raise ElementNotFoundException(
                 "Campo de senha não encontrado após informar email",
@@ -252,9 +261,10 @@ class BrowserLoginHandler:
             )
         
         registro.info("Digitando senha")
+        session_cfg = get_config().session
         try:
-            driver.type(SessionConfig.SELECTORS["password_input"], senha, wait=Wait.VERY_LONG)
-            driver.click(SessionConfig.SELECTORS["submit_button"])
+            driver.type(session_cfg.selectors["password_input"], senha, wait=Wait.VERY_LONG)
+            driver.click(session_cfg.selectors["submit_button"])
             driver.short_random_sleep()
         except Exception as e:
             raise wrap_exception(
@@ -266,16 +276,18 @@ class BrowserLoginHandler:
     @staticmethod
     def _tratar_protecao_conta(driver: Driver, registro):
         """Trata tela de proteção de conta."""
-        while driver.run_js("return document.title").lower() == SessionConfig.PROTECT_ACCOUNT_TITLE:
+        session_cfg = get_config().session
+        while driver.run_js("return document.title").lower() == session_cfg.protect_account_title:
             driver.short_random_sleep()
-            driver.click(SessionConfig.SELECTORS["skip_link"], wait=Wait.LONG)
+            driver.click(session_cfg.selectors["skip_link"], wait=Wait.LONG)
             driver.short_random_sleep()
     
     @staticmethod
     def _confirmar_sessao(driver: Driver, registro):
         """Confirma a sessão (Stay signed in)."""
+        session_cfg = get_config().session
         try:
-            driver.click(SessionConfig.SELECTORS["primary_button"], wait=Wait.SHORT)
+            driver.click(session_cfg.selectors["primary_button"], wait=Wait.SHORT)
             registro.debug("Confirmação de sessão (Stay signed in) aceita")
         except Exception:
             pass
@@ -295,8 +307,9 @@ class BrowserLoginHandler:
         """
         network = NetWork(driver)
         network.limpar_respostas()
+        session_cfg = get_config().session
         
-        if "rewards.bing.com" in driver.current_url or driver.is_element_present(SessionConfig.SELECTORS["role_presentation"], wait=Wait.VERY_LONG):
+        if "rewards.bing.com" in driver.current_url or driver.is_element_present(session_cfg.selectors["role_presentation"], wait=Wait.VERY_LONG):
             registro.sucesso("Login finalizado")
             
             # Verifica status HTTP
@@ -351,38 +364,42 @@ class BrowserLoginHandler:
             registro.sucesso(f"✅ Market correto: {expected_country.upper()}")
         
         # Coleta cookies do domínio de pesquisa
+        session_cfg = get_config().session
         registro.info("Coletando cookies do domínio de pesquisa...")
-        driver.google_get(SessionConfig.BING_URL)
+        driver.google_get(session_cfg.bing_url)
         driver.short_random_sleep()
         
-        if driver.is_element_present(SessionConfig.SELECTORS["id_s_span"], wait=Wait.VERY_LONG):
+        if driver.is_element_present(session_cfg.selectors["id_s_span"], wait=Wait.VERY_LONG):
             registro.info("Conta logada com sucesso no bing")
         else:
             registro.aviso("Conta não logada no bing")
         
         # Acessa flyout e trata join now
-        driver.google_get(SessionConfig.BING_FLYOUT_URL)
+        driver.google_get(session_cfg.bing_flyout_url)
         driver.short_random_sleep()
         
-        if driver.is_element_present(SessionConfig.SELECTORS["join_now"], wait=Wait.VERY_LONG):
-            driver.click(SessionConfig.SELECTORS["join_now"])
+        if driver.is_element_present(session_cfg.selectors["join_now"], wait=Wait.VERY_LONG):
+            driver.click(session_cfg.selectors["join_now"])
             driver.short_random_sleep()
             
         # Aguarda login completo
-        while not driver.is_element_present(SessionConfig.SELECTORS["id_s_span"], wait=Wait.VERY_LONG):
+        session_cfg = get_config().session
+        while not driver.is_element_present(session_cfg.selectors["id_s_span"], wait=Wait.VERY_LONG):
             driver.short_random_sleep()
         
         # Acessa flyout novamente
-        driver.google_get(SessionConfig.BING_FLYOUT_URL)
+        driver.google_get(session_cfg.bing_flyout_url)
         driver.short_random_sleep()
         
-        if driver.is_element_present(SessionConfig.SELECTORS["card_0"], wait=Wait.LONG):
+        if driver.is_element_present(session_cfg.selectors["card_0"], wait=Wait.LONG):
             registro.info("Cartões de metas detectados no flyout.")
         
         token = extract_request_verification_token(html)
+        # Wrap driver nativo em BotasaurusDriver (Adapter Pattern)
+        wrapped_driver = BotasaurusDriver(driver)
         return {
             "cookies": driver.get_cookies_dict(),
             "ua": driver.profile.get("UA"),
             "token": token,
-            "driver": driver,
+            "driver": wrapped_driver,
         }

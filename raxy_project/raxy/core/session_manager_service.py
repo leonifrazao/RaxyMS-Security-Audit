@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Mapping, Optional
-from botasaurus.browser import Driver
 
 from raxy.domain.accounts import Conta
+from raxy.interfaces.drivers import IBrowserDriver
 from raxy.core.exceptions import (
     SessionException,
     ProxyRotationRequiredException,
@@ -14,12 +14,11 @@ from raxy.core.exceptions import (
     ElementNotFoundException,
     wrap_exception,
 )
-from raxy.interfaces.services import IProxyService, IMailTmService, ILoggingService
+from raxy.interfaces.services import IProxyService, IMailTmService, ILoggingService, ISessionManager
 from raxy.services.base_service import BaseService
 
 # Importações dos módulos desacoplados
 from raxy.core.session import (
-    SessionConfig,
     ProfileManager,
     BrowserLoginHandler,
     RequestExecutor
@@ -28,7 +27,7 @@ from raxy.core.session import (
 
 
 
-class SessionManagerService(BaseService):
+class SessionManagerService(BaseService, ISessionManager):
     """
     Serviço orquestrador de sessão.
     
@@ -73,15 +72,13 @@ class SessionManagerService(BaseService):
         self.conta = conta
         self.proxy = proxy or {}
         
-        # Event Bus para comunicação assíncrona
+        # Event Bus para comunicação assíncrona E state management
         self._event_bus = event_bus
         self._session_start_time: Optional[float] = None
+        self._state_ttl: int = 3600  # TTL padrão de 1 hora
         
-        # Estado da sessão
-        self.driver: Driver | None = None
-        self.cookies: dict[str, str] = {}
-        self.user_agent: str = ""
-        self.token_antifalsificacao: str | None = None
+        # Estado da sessão (apenas driver local, resto no Redis)
+        self.driver: IBrowserDriver | None = None
         
         # Serviços externos
         self._proxy_service = proxy_service
@@ -91,12 +88,26 @@ class SessionManagerService(BaseService):
         self._profile_manager = ProfileManager(
             conta=conta,
             mail_service=mail_service,
-            logger=self.logger
+            logger=self.logger,
+            event_bus=event_bus
         )
         self._request_executor = RequestExecutor(
             logger=self.logger,
-            proxy=self.proxy
+            proxy=self.proxy,
+            event_bus=event_bus
         )
+    
+    def _state_key(self, field: str) -> str:
+        """
+        Gera chave única para estado da sessão no Redis.
+        
+        Args:
+            field: Nome do campo (cookies, user_agent, token)
+            
+        Returns:
+            str: Chave formatada (ex: "session:user@email.com:cookies")
+        """
+        return f"session:{self.conta.email}:{field}"
     
     def _publish_event(self, event_name: str, data: dict[str, Any]) -> None:
         """
@@ -112,6 +123,116 @@ class SessionManagerService(BaseService):
             except Exception:
                 # Silenciosamente ignora erros de publicação
                 pass
+    
+    # ========================================================================
+    # ESTADO DISTRIBUÍDO - Properties com Redis Puro
+    # ========================================================================
+    
+    @property
+    def cookies(self) -> dict[str, str]:
+        """
+        Cookies da sessão (armazenados no Redis).
+        
+        Estado distribuído puro - sem fallback local.
+        """
+        if self._event_bus and hasattr(self._event_bus, 'get_state'):
+            state = self._event_bus.get_state(self._state_key("cookies"), {})
+            if state:
+                self.logger.debug(
+                    f"Cookies recuperados do Redis ({len(state)} cookies)",
+                    source="redis",
+                    key=self._state_key("cookies")
+                )
+            return state
+        return {}
+    
+    @cookies.setter
+    def cookies(self, value: dict[str, str]) -> None:
+        """Define cookies (salva no Redis)."""
+        if self._event_bus and hasattr(self._event_bus, 'set_state'):
+            success = self._event_bus.set_state(
+                self._state_key("cookies"), 
+                value, 
+                ttl=self._state_ttl
+            )
+            if success:
+                self.logger.info(
+                    f"Cookies salvos no Redis ({len(value)} cookies, TTL: {self._state_ttl}s)",
+                    source="redis",
+                    key=self._state_key("cookies")
+                )
+    
+    @property
+    def user_agent(self) -> str:
+        """
+        User-Agent da sessão (armazenado no Redis).
+        
+        Estado distribuído puro - sem fallback local.
+        """
+        if self._event_bus and hasattr(self._event_bus, 'get_state'):
+            state = self._event_bus.get_state(self._state_key("user_agent"), "")
+            if state:
+                self.logger.debug(
+                    f"User-Agent recuperado do Redis",
+                    source="redis",
+                    key=self._state_key("user_agent"),
+                    ua_preview=state[:50] + "..." if len(state) > 50 else state
+                )
+            return state
+        return ""
+    
+    @user_agent.setter
+    def user_agent(self, value: str) -> None:
+        """Define User-Agent (salva no Redis)."""
+        if self._event_bus and hasattr(self._event_bus, 'set_state'):
+            success = self._event_bus.set_state(
+                self._state_key("user_agent"), 
+                value, 
+                ttl=self._state_ttl
+            )
+            if success:
+                self.logger.info(
+                    f"User-Agent salvo no Redis (TTL: {self._state_ttl}s)",
+                    source="redis",
+                    key=self._state_key("user_agent"),
+                    ua_preview=value[:50] + "..." if len(value) > 50 else value
+                )
+    
+    @property
+    def token_antifalsificacao(self) -> str | None:
+        """
+        Token anti-falsificação (armazenado no Redis).
+        
+        Estado distribuído puro - sem fallback local.
+        """
+        if self._event_bus and hasattr(self._event_bus, 'get_state'):
+            state = self._event_bus.get_state(self._state_key("token"), None)
+            if state:
+                self.logger.debug(
+                    f"Token anti-falsificação recuperado do Redis",
+                    source="redis",
+                    key=self._state_key("token"),
+                    token_preview=state[:20] + "..." if state and len(state) > 20 else state
+                )
+            return state
+        return None
+    
+    @token_antifalsificacao.setter
+    def token_antifalsificacao(self, value: str | None) -> None:
+        """Define token (salva no Redis)."""
+        if self._event_bus and hasattr(self._event_bus, 'set_state'):
+            success = self._event_bus.set_state(
+                self._state_key("token"), 
+                value, 
+                ttl=self._state_ttl
+            )
+            if success and value:
+                self.logger.info(
+                    f"Token anti-falsificação salvo no Redis (TTL: {self._state_ttl}s)",
+                    source="redis",
+                    key=self._state_key("token"),
+                    token_preview=value[:20] + "..." if len(value) > 20 else value
+                )
 
     def start(self) -> None:
         """
@@ -142,7 +263,10 @@ class SessionManagerService(BaseService):
         
         self.logger.info("Iniciando sessão/driver", perfil=perfil_nome, proxy_id=dados["proxy_id"])
 
-        tentativas = SessionConfig.MAX_LOGIN_ATTEMPTS
+        # Obtém configuração
+        from raxy.core.config import get_config
+        config = get_config()
+        tentativas = config.session.max_login_attempts
         
         while tentativas > 0:
             try:
@@ -198,7 +322,7 @@ class SessionManagerService(BaseService):
         
         if not self.driver:
             raise SessionException(
-                f"Falha ao iniciar a sessão após {SessionConfig.MAX_LOGIN_ATTEMPTS} tentativas.",
+                f"Falha ao iniciar a sessão após {config.session.max_login_attempts} tentativas.",
                 details={"conta": self.conta.email, "proxy_id": self.proxy.get("id")}
             )
 
@@ -329,9 +453,23 @@ class SessionManagerService(BaseService):
                 self.logger.erro(f"Erro ao fechar driver: {e}")
             finally:
                 self.driver = None
-                self.cookies = {}
-                self.user_agent = ""
-                self.token_antifalsificacao = None
+                
+                # Limpa estado distribuído (Redis)
+                if self._event_bus and hasattr(self._event_bus, 'delete_state'):
+                    deleted_count = 0
+                    if self._event_bus.delete_state(self._state_key("cookies")):
+                        deleted_count += 1
+                    if self._event_bus.delete_state(self._state_key("user_agent")):
+                        deleted_count += 1
+                    if self._event_bus.delete_state(self._state_key("token")):
+                        deleted_count += 1
+                    
+                    if deleted_count > 0:
+                        self.logger.info(
+                            f"Estado da sessão removido do Redis ({deleted_count} chaves)",
+                            source="redis",
+                            conta=self.conta.email
+                        )
         
         # Publica evento de sessão encerrada
         if self._session_start_time:

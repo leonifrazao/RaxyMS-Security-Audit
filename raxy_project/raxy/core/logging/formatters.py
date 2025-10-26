@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from .config import LEVEL_NAMES
+from raxy.core.config import LEVEL_NAMES
 
 
 class LogFormatter(ABC):

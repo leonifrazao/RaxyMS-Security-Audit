@@ -11,13 +11,13 @@ import random
 import re
 from pathlib import Path
 from typing import Dict, Mapping, Optional, Any
+import time
 
 from bs4 import BeautifulSoup
 from botasaurus.browser import Driver, Wait, browser
 from botasaurus.lang import Lang
 
-from raxy.interfaces.services import IBingFlyoutService, ILoggingService
-from raxy.core.session_manager_service import SessionManagerService
+from raxy.interfaces.services import IBingFlyoutService, ILoggingService, ISessionManager
 from raxy.core.exceptions import (
     BrowserException,
     ElementNotFoundException,
@@ -26,6 +26,7 @@ from raxy.core.exceptions import (
     wrap_exception,
 )
 from raxy.core.config import get_config
+from raxy.core.logging import debug_log
 from .base_service import BaseService
 
 
@@ -123,15 +124,25 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
     com o decorador @browser do botasaurus.
     """
     
-    def __init__(self, logger: Optional[ILoggingService] = None):
+    def __init__(self, logger: Optional[ILoggingService] = None, event_bus: Optional[Any] = None):
         """
         Inicializa o serviço.
         
         Args:
             logger: Serviço de logging (opcional)
+            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(logger)
         self.extractor = FlyoutDataExtractor()
+        self._event_bus = event_bus
+    
+    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
+        """Publica evento no Event Bus se disponível."""
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                pass
 
     @staticmethod
     @browser(**BROWSER_OPTIONS)
@@ -168,6 +179,29 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
                 driver.short_random_sleep()
         except Exception:
             pass  # Ignora se não encontrar
+        
+        # VALIDAÇÃO CRÍTICA: Detectar conta bugada APÓS Join Now
+        # A presença do elemento DailySet após Join Now indica conta bugada
+        try:
+            elemento_presente = driver.is_element_present(
+                'div[aria-labelledby="DailySet"]',
+                wait=get_config().bingflyout.timeout_short
+            )
+            
+            if elemento_presente:
+                # CONTA BUGADA DETECTADA - INTERROMPE O FLUXO IMEDIATAMENTE
+                return {
+                    "conta_bugada": True,
+                    "bug_detalhes": "Elemento DailySet presente após Join Now",
+                    "user_id": "",
+                    "offer_id": "",
+                    "auth_key": "",
+                    "sku": ""
+                }
+        
+        except Exception as e:
+            # Erro na detecção não deve quebrar o fluxo
+            pass
 
         # Interage com cartões de metas se presentes
         try:
@@ -202,12 +236,22 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
             )
         
         if not html:
-            return {}
+            return {
+                "conta_bugada": False,
+                "bug_detalhes": "Conta normal"
+            }
         
         # Extrai dados usando o extrator
-        return FlyoutDataExtractor.extract(html)
+        dados_extraidos = FlyoutDataExtractor.extract(html)
+        
+        # Adiciona flag de bug aos dados extraídos (se chegou aqui, não tem bug)
+        dados_extraidos["conta_bugada"] = False
+        dados_extraidos["bug_detalhes"] = "Conta normal - validação passou"
+        
+        return dados_extraidos
 
-    def executar(self, sessao: SessionManagerService) -> Dict[str, str]:
+    @debug_log(log_args=False, log_result=False, log_duration=True)
+    def executar(self, sessao: ISessionManager) -> Dict[str, str]:
         """
         Executa o fluxo do flyout.
         
@@ -243,14 +287,56 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
                 
                 if not dados:
                     self.logger.aviso("Nenhum dado extraído do flyout")
-                else:
-                    self.logger.sucesso("Dados extraídos do flyout", **dados)
+                    return dados
+                
+                # Verificação crítica: conta bugada
+                if dados.get("conta_bugada"):
+                    self.logger.erro(
+                        "Conta com bug detectada - interrompendo flyout",
+                        detalhes=dados.get("bug_detalhes", "Elemento DailySet presente"),
+                        conta=profile
+                    )
+                    
+                    self._publish_event("flyout.bug_detected", {
+                        "account_id": profile,
+                        "bug_type": "DailySet_present",
+                        "details": dados.get("bug_detalhes"),
+                        "timestamp": time.time(),
+                    })
+                    
+                    return dados
+                
+                # Conta normal - continua logging
+                self.logger.info(
+                    "Validação de bug: conta normal",
+                    detalhes=dados.get("bug_detalhes", "Sem bugs detectados")
+                )
+                self.logger.sucesso("Dados extraídos do flyout com sucesso")
+                
+                self._publish_event("flyout.completed", {
+                    "account_id": profile,
+                    "user_id": dados.get("user_id"),
+                    "offer_id": dados.get("offer_id"),
+                    "timestamp": time.time(),
+                })
                 
                 return dados
                 
-        except BrowserException:
+        except BrowserException as e:
+            self._publish_event("flyout.error", {
+                "account_id": profile,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "timestamp": time.time(),
+            })
             raise
         except Exception as e:
+            self._publish_event("flyout.error", {
+                "account_id": profile,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "timestamp": time.time(),
+            })
             self.handle_error(e, {
                 "context": "execução do flyout",
                 "profile": profile

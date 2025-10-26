@@ -29,7 +29,7 @@ executor:
 proxy:
   enabled: true
   sources:
-    - https://raw.githubusercontent.com/F0rc3Run/F0rc3Run/refs/heads/main/splitted-by-country/United_States.txt
+    - https://api.github.com/repos/F0rc3Run/F0rc3Run/contents/splitted-by-country/United_States.txt?ref=main
   country: US
   use_console: true
   auto_test: true
@@ -131,8 +131,8 @@ logging:
   diretorio_erros: null  # Set to a path if you want separate error logs
   max_workers: 2
 
-# Event Bus Configuration (Redis Pub/Sub)
-# Para comunicação assíncrona entre microserviços
+# Event Bus Configuration (Redis Pub/Sub) + State Management
+# Para comunicação assíncrona entre microserviços E estado distribuído
 events:
   enabled: true
   host: localhost
@@ -147,3 +147,8 @@ events:
   rewards_events: true
   proxy_events: true
   session_events: true
+  
+  # State Management - Reutilização da infraestrutura Redis existente
+  # Permite estado compartilhado entre workers sem nova infraestrutura
+  state_enabled: true
+  state_default_ttl: 3600  # TTL padrão em segundos (1 hora)

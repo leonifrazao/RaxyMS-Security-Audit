@@ -12,3 +12,4 @@ pyyaml
 httpx
 python-dotenv
 urllib3
+redis

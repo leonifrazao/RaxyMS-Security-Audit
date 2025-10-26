@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from raxy.interfaces.services import ILoggingService
 
-from .config import LoggerConfig, LEVEL_VALUES
+from raxy.core.config import LoggerConfig, LEVEL_VALUES
 from .context import get_context, context_scope
 from .formatters import ConsoleFormatter, FileFormatter, JSONFormatter, ErrorFormatter
 from .handlers import (
@@ -39,7 +39,7 @@ class RaxyLogger(ILoggingService):
         Args:
             config: Configuração do logger
         """
-        self.config = config or LoggerConfig.from_env()
+        self.config = config or LoggerConfig()
         self.config.validate()
         
         self.handlers: List[LogHandler] = []

@@ -46,7 +46,7 @@ class BaseController:
         Raises:
             HTTPException: Com detalhes apropriados do erro
         """
-        self.logger.error(f"Erro em {context}: {str(error)}", exc_info=True)
+        self.logger.erro(f"Erro em {context}: {str(error)}", exc_info=True)
         
         # Mapeia exceções conhecidas
         error_mapping = {

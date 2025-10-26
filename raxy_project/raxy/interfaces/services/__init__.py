@@ -8,6 +8,7 @@ from .IBingSuggestion import IBingSuggestion
 from .IBingFlyoutService import IBingFlyoutService
 from .IMailTmService import IMailTmService
 from .IEventBus import IEventBus
+from .ISessionManager import ISessionManager
 
 __all__ = [
     "IExecutorEmLoteService",
@@ -19,4 +20,5 @@ __all__ = [
     "IBingFlyoutService",
     "IMailTmService",
     "IEventBus",
+    "ISessionManager",
 ]

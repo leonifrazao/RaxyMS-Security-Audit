@@ -28,7 +28,7 @@ from raxy.core.exceptions import (
     ExecutionException,
     wrap_exception,
 )
-
+from raxy.core.logging import debug_log
 from raxy.interfaces.services import IExecutorEmLoteService, ILoggingService
 from .base_service import BaseService
 
@@ -164,6 +164,7 @@ class AccountProcessor:
         # Event Bus (opcional)
         self._event_bus = event_bus
     
+    @debug_log(log_args=False, log_result=False, log_duration=True)
     def process(
         self,
         conta: Conta,
@@ -194,34 +195,34 @@ class AccountProcessor:
             proxy=resultado.proxy_usado
         )
         
-        logger.info("Iniciando processamento da conta")
         sessao = None
         
         try:
             # Valida ações
             if "login" not in acoes:
-                logger.aviso("Ação 'login' ausente, adicionando")
                 acoes = ["login"] + list(acoes)
             
             # Etapa 1: Login/Criar sessão
             try:
                 sessao = self._criar_sessao(conta, proxy, logger)
                 resultado.adicionar_etapa("login", True, dados={"email": conta.email})
-                logger.debug("Login realizado com sucesso")
             except (InvalidCredentialsException, LoginException) as e:
-                resultado.adicionar_etapa("login", False, erro=f"Credenciais inválidas: {str(e)}")
+                erro_msg = f"Credenciais inválidas: {str(e)}"
+                resultado.adicionar_etapa("login", False, erro=erro_msg)
                 resultado.erro_fatal = f"Falha no login: {str(e)}"
-                logger.erro(f"Erro de autenticação: {e}")
+                logger.erro(f"Falha de autenticação", error=erro_msg)
                 return resultado
             except SessionException as e:
-                resultado.adicionar_etapa("login", False, erro=f"Erro de sessão: {str(e)}")
+                erro_msg = f"Erro de sessão: {str(e)}"
+                resultado.adicionar_etapa("login", False, erro=erro_msg)
                 resultado.erro_fatal = f"Falha na sessão: {str(e)}"
-                logger.erro(f"Erro de sessão: {e}")
+                logger.erro(f"Falha na sessão", error=erro_msg)
                 return resultado
             except Exception as e:
-                resultado.adicionar_etapa("login", False, erro=f"Erro inesperado: {str(e)}")
-                resultado.erro_fatal = f"Erro inesperado no login: {str(e)}"
-                logger.erro(f"Erro inesperado no login: {e}", exc_info=True)
+                erro_msg = f"Erro inesperado: {str(e)}"
+                resultado.adicionar_etapa("login", False, erro=erro_msg)
+                resultado.erro_fatal = erro_msg
+                logger.erro(f"Erro inesperado no login", error=erro_msg, exception=e)
                 return resultado
             
             # Etapa 2: Obter pontos iniciais
@@ -262,19 +263,11 @@ class AccountProcessor:
             
             # Marca como sucesso geral
             resultado.sucesso_geral = True
-            
-            logger.sucesso(
-                "Conta processada com sucesso",
-                pontos_iniciais=resultado.pontos_iniciais,
-                pontos_finais=resultado.pontos_finais,
-                pontos_ganhos=resultado.pontos_ganhos
-            )
-            
             return resultado
             
         except Exception as e:
             resultado.erro_fatal = f"Erro crítico: {str(e)}"
-            logger.erro(f"Erro crítico no processamento: {e}", exc_info=True)
+            logger.erro(f"Erro crítico no processamento", error=str(e), exception=e)
             return resultado
     
     def _criar_sessao(
@@ -299,10 +292,8 @@ class AccountProcessor:
         """Obtém pontos da conta."""
         try:
             pontos = self.rewards_service.obter_pontos(sessao)
-            logger.debug(f"Pontos extraídos: {pontos}")
             return pontos
         except Exception as e:
-            logger.aviso(f"Erro ao obter pontos: {e}")
             return 0
     
     def _executar_acao_com_resultado(
@@ -316,37 +307,25 @@ class AccountProcessor:
         Returns:
             tuple[bool, Optional[str]]: (sucesso, mensagem_erro)
         """
-        with logger.etapa(f"Executando: {acao}"):
-            try:
-                if acao == "flyout":
-                    dados = self.flyout_service.executar(sessao)
-                    if self.debug:
-                        logger.info("Flyout processado", dados=dados)
-                    else:
-                        logger.info("Flyout processado com sucesso")
-                    return True, None
-                    
-                elif acao == "rewards":
-                    resultado = self.rewards_service.pegar_recompensas(sessao)
-                    if self.debug:
-                        logger.info("Recompensas coletadas", resultado=resultado)
-                    else:
-                        logger.info("Recompensas coletadas com sucesso")
-                    return True, None
-                    
-                elif acao == "bing":
-                    sugestoes = self.bing_search_service.get_all(sessao, "Brasil")
-                    logger.info(f"Sugestões encontradas: {len(sugestoes)}")
-                    return True, None
-                    
-                else:
-                    logger.aviso(f"Ação desconhecida: {acao}")
-                    return False, f"Ação desconhecida: {acao}"
-                    
-            except Exception as e:
-                erro_msg = f"{type(e).__name__}: {str(e)}"
-                logger.aviso(f"Erro na ação {acao}: {erro_msg}")
-                return False, erro_msg
+        try:
+            if acao == "flyout":
+                self.flyout_service.executar(sessao)
+                return True, None
+                
+            elif acao == "rewards":
+                self.rewards_service.pegar_recompensas(sessao)
+                return True, None
+                
+            elif acao == "bing":
+                self.bing_search_service.get_all(sessao, "Brasil")
+                return True, None
+                
+            else:
+                return False, f"Ação desconhecida: {acao}"
+                
+        except Exception as e:
+            erro_msg = f"{type(e).__name__}: {str(e)}"
+            return False, erro_msg
     
     def _salvar_no_banco(
         self,
@@ -358,9 +337,8 @@ class AccountProcessor:
         try:
             if self.db_repository:
                 self.db_repository.adicionar_registro_farm(email, pontos)
-                logger.debug("Registro salvo no banco")
         except Exception as e:
-            logger.aviso(f"Erro ao salvar no banco: {e}")
+            pass
 
 
 class ExecutorEmLote(BaseService, IExecutorEmLoteService):
@@ -394,6 +372,9 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         self._proxy_config = proxy_config or ProxyConfig()
         self._services = services
         
+        # Event Bus
+        self._event_bus = event_bus
+        
         # Injeção de dependências específicas (melhor desacoplamento)
         self._processor = AccountProcessor(
             rewards_service=services.rewards_data,
@@ -407,7 +388,16 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
             event_bus=event_bus
         )
         self._stats = ExecutionStats()
+    
+    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
+        """Publica evento no Event Bus se disponível."""
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                pass
 
+    @debug_log(log_args=False, log_result=False, log_duration=True)
     def executar(
         self,
         acoes: Optional[Iterable[str]] = None,
@@ -426,30 +416,63 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         Raises:
             ExecutionException: Se erro crítico na execução
         """
-        with self.logger.etapa("Execução em Lote"):
-            # Prepara ações
-            acoes_norm = self._preparar_acoes(acoes)
-            
-            # Carrega contas
-            contas_proc = self._carregar_contas(contas)
-            if not contas_proc:
-                self.logger.aviso("Nenhuma conta para processar")
-                return self._stats.get_summary()
-            
-            # Inicializa estatísticas
-            self._stats.total_contas = len(contas_proc)
-            
-            # Prepara proxies se necessário
-            proxies = self._preparar_proxies() if self._proxy_config.enabled else []
-            
-            # Executa processamento paralelo
-            self._processar_paralelo(contas_proc, acoes_norm, proxies)
-            
-            # Retorna estatísticas
-            resumo = self._stats.get_summary()
-            self._log_resumo(resumo)
-            
-            return resumo
+        # Inicia Event Bus se disponível
+        event_bus_iniciado = False
+        if self._event_bus:
+            try:
+                if not getattr(self._event_bus, '_running', False):
+                    self.logger.info("Iniciando Event Bus (Redis) para estado distribuído...")
+                    self._event_bus.start()
+                    event_bus_iniciado = True
+                    self.logger.sucesso("Event Bus iniciado com sucesso")
+            except Exception as e:
+                self.logger.aviso(f"Não foi possível iniciar Event Bus: {e}. Continuando sem estado distribuído.")
+        
+        try:
+            with self.logger.etapa("Execução em Lote"):
+                # Prepara ações
+                acoes_norm = self._preparar_acoes(acoes)
+                
+                # Carrega contas
+                contas_proc = self._carregar_contas(contas)
+                if not contas_proc:
+                    self.logger.aviso("Nenhuma conta para processar")
+                    return self._stats.get_summary()
+                
+                # Inicializa estatísticas
+                self._stats.total_contas = len(contas_proc)
+                
+                # Prepara proxies se necessário
+                proxies = self._preparar_proxies() if self._proxy_config.enabled else []
+                
+                # Executa processamento paralelo
+                self._processar_paralelo(contas_proc, acoes_norm, proxies)
+                
+                # Retorna estatísticas
+                resumo = self._stats.get_summary()
+                self._log_resumo(resumo)
+                
+                # Publica evento de execução completa
+                self._publish_event("executor.batch_completed", {
+                    "total_accounts": resumo["total"],
+                    "success_count": resumo["sucesso"],
+                    "failed_count": resumo["falha"],
+                    "total_points": resumo["pontos_totais"],
+                    "success_rate": resumo["taxa_sucesso"],
+                    "timestamp": __import__('time').time(),
+                })
+                
+                return resumo
+        
+        finally:
+            # Para Event Bus (Redis) se foi iniciado por este executor
+            if event_bus_iniciado and self._event_bus and hasattr(self._event_bus, 'stop'):
+                try:
+                    self.logger.info("Parando Event Bus (Redis)...")
+                    self._event_bus.stop()
+                    self.logger.sucesso("Event Bus parado com sucesso")
+                except Exception as e:
+                    self.logger.aviso(f"Erro ao parar Event Bus: {e}")
     
     def _preparar_acoes(self, acoes: Optional[Iterable[str]]) -> List[str]:
         """
@@ -492,22 +515,14 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         Returns:
             List[Dict[str, str]]: Lista de proxies
         """
-        self.logger.info("Iniciando gerenciador de proxies")
-        
         try:
-            # find_first: Para após encontrar N proxies OK (otimiza tempo de teste)
-            # Valor maior garante proxies suficientes para distribuir entre contas
             proxies = self._services.proxy_manager.start(
                 auto_test=self._proxy_config.auto_test,
                 threads=self._config.max_workers,
-                find_first=20  # Aumentado de 4 para 20 para melhor distribuição
+                find_first=20
             )
-            
-            self.logger.info(f"Proxies carregados: {len(proxies)}")
             return proxies
-            
         except Exception as e:
-            self.logger.aviso(f"Erro ao preparar proxies: {e}")
             return []
     
     def _processar_paralelo(
@@ -524,11 +539,7 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
             acoes: Ações a executar
             proxies: Proxies disponíveis
         """
-        self.logger.info(
-            f"Iniciando processamento paralelo",
-            contas=len(contas),
-            workers=self._config.max_workers
-        )
+        pass
         
         # Distribui proxies ciclicamente se houver menos que contas
         if proxies:
@@ -558,25 +569,17 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
                     resultado = futuro.result()
                     self._stats.add_result(resultado)
                     
-                    # Log do resultado individual
+                    # Publica evento de conta processada
                     if resultado.sucesso_geral:
-                        self.logger.sucesso(
-                            f"{conta.email} concluída",
-                            pontos_ganhos=resultado.pontos_ganhos,
-                            etapas_ok=sum(1 for e in resultado.etapas if e.sucesso)
-                        )
-                    else:
-                        self.logger.erro(
-                            f"{conta.email} falhou",
-                            erro=resultado.erro_fatal,
-                            etapas_ok=sum(1 for e in resultado.etapas if e.sucesso),
-                            etapas_falha=sum(1 for e in resultado.etapas if not e.sucesso)
-                        )
+                        self._publish_event("executor.account_completed", {
+                            "account_id": conta.email,
+                            "points_earned": resultado.pontos_ganhos,
+                            "points_total": resultado.pontos_finais,
+                            "tasks_completed": sum(1 for e in resultado.etapas if e.sucesso),
+                            "timestamp": __import__('time').time(),
+                        })
                         
                 except Exception as e:
-                    self.logger.erro(
-                        f"Erro no futuro para {conta.email}: {e}"
-                    )
                     # Cria resultado de erro
                     resultado_erro = ContaResult(
                         email=conta.email,
@@ -605,10 +608,6 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         try:
             return self._processor.process(conta, acoes, proxy)
         except Exception as e:
-            self.logger.erro(
-                f"Erro ao processar conta {conta.email}",
-                exception=e
-            )
             return ContaResult(
                 email=conta.email,
                 sucesso_geral=False,

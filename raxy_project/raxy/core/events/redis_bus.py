@@ -367,6 +367,283 @@ class RedisEventBus(IEventBus):
         """Verifica se o bus está rodando."""
         return self._running
     
+    # ========================================================================
+    # STATE MANAGEMENT - Reutilização da infraestrutura Redis existente
+    # ========================================================================
+    
+    def set_state(
+        self, 
+        key: str, 
+        value: Any, 
+        ttl: Optional[int] = None
+    ) -> bool:
+        """
+        Armazena estado no Redis (reutiliza conexão existente).
+        
+        Permite compartilhamento de estado entre múltiplos processos/workers
+        sem adicionar nova infraestrutura. Usa a MESMA conexão Redis já paga.
+        
+        Args:
+            key: Chave para identificar o estado
+            value: Valor a ser armazenado (será serializado em JSON)
+            ttl: Tempo de vida em segundos (opcional)
+            
+        Returns:
+            bool: True se salvou com sucesso, False caso contrário
+            
+        Example:
+            >>> bus.set_state("session:user@email.com:cookies", {"token": "abc"}, ttl=3600)
+            True
+        """
+        if not self._client:
+            self._logger.aviso("Redis client não disponível para state management")
+            return False
+        
+        try:
+            full_key = f"{self.prefix}state:{key}"
+            serialized = json.dumps(value)
+            
+            if ttl:
+                result = self._client.setex(full_key, ttl, serialized)
+            else:
+                result = self._client.set(full_key, serialized)
+            
+            self._logger.debug(f"Estado salvo: {key} (TTL: {ttl}s)")
+            return bool(result)
+            
+        except (json.JSONEncodeError, redis.RedisError) as e:
+            self._logger.erro(f"Erro ao salvar estado {key}: {e}")
+            return False
+    
+    def get_state(self, key: str, default: Any = None) -> Any:
+        """
+        Recupera estado do Redis.
+        
+        Args:
+            key: Chave do estado
+            default: Valor padrão se não encontrado
+            
+        Returns:
+            Any: Valor deserializado ou default
+            
+        Example:
+            >>> cookies = bus.get_state("session:user@email.com:cookies", {})
+            >>> print(cookies)
+            {"token": "abc"}
+        """
+        if not self._client:
+            self._logger.debug(f"Redis client não disponível, retornando default para {key}")
+            return default
+        
+        try:
+            full_key = f"{self.prefix}state:{key}"
+            value = self._client.get(full_key)
+            
+            if value is None:
+                self._logger.debug(f"Estado não encontrado: {key}")
+                return default
+            
+            deserialized = json.loads(value)
+            self._logger.debug(f"Estado recuperado: {key}")
+            return deserialized
+            
+        except (json.JSONDecodeError, redis.RedisError) as e:
+            self._logger.erro(f"Erro ao ler estado {key}: {e}")
+            return default
+    
+    def delete_state(self, key: str) -> bool:
+        """
+        Remove estado do Redis.
+        
+        Args:
+            key: Chave do estado
+            
+        Returns:
+            bool: True se removeu, False caso contrário
+            
+        Example:
+            >>> bus.delete_state("session:user@email.com:cookies")
+            True
+        """
+        if not self._client:
+            return False
+        
+        try:
+            full_key = f"{self.prefix}state:{key}"
+            deleted = self._client.delete(full_key)
+            
+            if deleted > 0:
+                self._logger.debug(f"Estado removido: {key}")
+                return True
+            else:
+                self._logger.debug(f"Estado não existia: {key}")
+                return False
+                
+        except redis.RedisError as e:
+            self._logger.erro(f"Erro ao deletar estado {key}: {e}")
+            return False
+    
+    def exists_state(self, key: str) -> bool:
+        """
+        Verifica se um estado existe no Redis.
+        
+        Args:
+            key: Chave do estado
+            
+        Returns:
+            bool: True se existe, False caso contrário
+        """
+        if not self._client:
+            return False
+        
+        try:
+            full_key = f"{self.prefix}state:{key}"
+            return bool(self._client.exists(full_key))
+        except redis.RedisError as e:
+            self._logger.erro(f"Erro ao verificar existência do estado {key}: {e}")
+            return False
+    
+    def get_state_ttl(self, key: str) -> Optional[int]:
+        """
+        Retorna o TTL restante de um estado em segundos.
+        
+        Args:
+            key: Chave do estado
+            
+        Returns:
+            Optional[int]: Segundos restantes ou None se não existe/sem TTL
+        """
+        if not self._client:
+            return None
+        
+        try:
+            full_key = f"{self.prefix}state:{key}"
+            ttl = self._client.ttl(full_key)
+            
+            # -2 significa que a chave não existe
+            # -1 significa que não tem TTL definido
+            if ttl == -2:
+                return None
+            elif ttl == -1:
+                return None
+            else:
+                return ttl
+                
+        except redis.RedisError as e:
+            self._logger.erro(f"Erro ao obter TTL do estado {key}: {e}")
+            return None
+    
+    def set_state_hash(
+        self, 
+        hash_key: str, 
+        field: str, 
+        value: Any,
+        ttl: Optional[int] = None
+    ) -> bool:
+        """
+        Armazena um campo em um hash Redis (para estados estruturados).
+        
+        Útil para armazenar múltiplos campos relacionados de forma eficiente.
+        
+        Args:
+            hash_key: Nome do hash
+            field: Campo dentro do hash
+            value: Valor a ser armazenado
+            ttl: TTL para o hash inteiro (opcional)
+            
+        Returns:
+            bool: True se salvou com sucesso
+            
+        Example:
+            >>> bus.set_state_hash("session:user@email.com", "cookies", {...})
+            >>> bus.set_state_hash("session:user@email.com", "user_agent", "...")
+        """
+        if not self._client:
+            return False
+        
+        try:
+            full_key = f"{self.prefix}state:{hash_key}"
+            serialized = json.dumps(value)
+            
+            result = self._client.hset(full_key, field, serialized)
+            
+            if ttl:
+                self._client.expire(full_key, ttl)
+            
+            self._logger.debug(f"Estado hash salvo: {hash_key}.{field}")
+            return True
+            
+        except (json.JSONEncodeError, redis.RedisError) as e:
+            self._logger.erro(f"Erro ao salvar estado hash {hash_key}.{field}: {e}")
+            return False
+    
+    def get_state_hash(
+        self, 
+        hash_key: str, 
+        field: str, 
+        default: Any = None
+    ) -> Any:
+        """
+        Recupera um campo de um hash Redis.
+        
+        Args:
+            hash_key: Nome do hash
+            field: Campo a recuperar
+            default: Valor padrão se não encontrado
+            
+        Returns:
+            Any: Valor deserializado ou default
+        """
+        if not self._client:
+            return default
+        
+        try:
+            full_key = f"{self.prefix}state:{hash_key}"
+            value = self._client.hget(full_key, field)
+            
+            if value is None:
+                return default
+            
+            return json.loads(value)
+            
+        except (json.JSONDecodeError, redis.RedisError) as e:
+            self._logger.erro(f"Erro ao ler estado hash {hash_key}.{field}: {e}")
+            return default
+    
+    def get_state_hash_all(self, hash_key: str) -> Dict[str, Any]:
+        """
+        Recupera todos os campos de um hash Redis.
+        
+        Args:
+            hash_key: Nome do hash
+            
+        Returns:
+            Dict[str, Any]: Dicionário com todos os campos deserializados
+        """
+        if not self._client:
+            return {}
+        
+        try:
+            full_key = f"{self.prefix}state:{hash_key}"
+            hash_data = self._client.hgetall(full_key)
+            
+            result = {}
+            for field, value in hash_data.items():
+                try:
+                    result[field] = json.loads(value)
+                except json.JSONDecodeError:
+                    result[field] = value
+            
+            return result
+            
+        except redis.RedisError as e:
+            self._logger.erro(f"Erro ao ler estado hash completo {hash_key}: {e}")
+            return {}
+    
+    # ========================================================================
+    # Context Manager
+    # ========================================================================
+    
     def __enter__(self):
         """Context manager enter."""
         self.start()

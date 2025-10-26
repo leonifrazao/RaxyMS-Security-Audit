@@ -7,7 +7,8 @@ Responsável por executar templates de requisição com tratamento robusto.
 from __future__ import annotations
 import json
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, Dict
+import time
 from botasaurus.request import Request, request
 
 from raxy.core.session.session_utils import replace_placeholders
@@ -16,6 +17,7 @@ from raxy.core.exceptions import (
     ProxyRotationRequiredException,
     wrap_exception
 )
+from raxy.core.logging import debug_log
 from raxy.interfaces.services import ILoggingService
 from raxy.services.base_service import BaseService
 
@@ -38,7 +40,8 @@ class RequestExecutor(BaseService):
         user_agent: str | None = None,
         token_antifalsificacao: str | None = None,
         proxy: dict | None = None,
-        logger: Optional[ILoggingService] = None
+        logger: Optional[ILoggingService] = None,
+        event_bus: Optional[Any] = None
     ):
         """
         Inicializa o executor de requisições.
@@ -49,12 +52,22 @@ class RequestExecutor(BaseService):
             token_antifalsificacao: Token de verificação
             proxy: Configuração de proxy
             logger: Serviço de logging (opcional)
+            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(logger)
         self.cookies = cookies or {}
         self.user_agent = user_agent or ""
         self.token_antifalsificacao = token_antifalsificacao
         self.proxy = proxy or {}
+        self._event_bus = event_bus
+    
+    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
+        """Publica evento no Event Bus se disponível."""
+        if self._event_bus and hasattr(self._event_bus, 'publish'):
+            try:
+                self._event_bus.publish(event_name, data)
+            except Exception:
+                pass
     
     def atualizar_sessao(
         self,
@@ -77,6 +90,7 @@ class RequestExecutor(BaseService):
         if token_antifalsificacao is not None:
             self.token_antifalsificacao = token_antifalsificacao
     
+    @debug_log(log_args=False, log_result=False, log_duration=True)
     def executar_template(
         self,
         template_path_or_dict: str | Path | Mapping[str, Any],
@@ -241,6 +255,16 @@ class RequestExecutor(BaseService):
         
         # Verifica status HTTP
         status = getattr(resposta, "status_code", None)
+        
+        if status:
+            self._publish_event("request.completed", {
+                "url": args.get("url"),
+                "method": args.get("metodo"),
+                "status_code": status,
+                "success": status < 400,
+                "timestamp": time.time(),
+            })
+        
         if status and status >= 400:
             raise ProxyRotationRequiredException(
                 status, 

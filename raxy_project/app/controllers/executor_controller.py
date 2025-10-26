@@ -80,7 +80,7 @@ class ExecutorController(BaseController):
             
             if source is AccountSource.DATABASE:
                 if database_repository is None:
-                    logger.warning("Database repository não configurado")
+                    logger.aviso("Database repository não configurado")
                     contas_para_executar = []
                 else:
                     contas_para_executar = self._build_database_accounts(database_repository, logger)
