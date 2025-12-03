@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "raxy-logic"
+version = "1.0.0"
+description = "Biblioteca com a lógica de negócio principal do Raxy."
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "raxy"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+botasaurus = "*"
+rich = "*"
+supabase = "*"
+random-user-agent = "*"
+flask = "*"
+fastapi = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+typer = {extras = ["all"], version = "*"}
+loguru = "*"
+dependency-injector = "*"
+pyyaml = "*"
+httpx = "*"
+python-dotenv = "*"
+urllib3 = "*"
+redis = "*"
+requests = "*"
+selenium = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"

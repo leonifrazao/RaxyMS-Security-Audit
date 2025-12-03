@@ -28,7 +28,8 @@ class MockDriver(IBrowserDriver):
         cookies: Optional[Dict[str, str]] = None,
         user_agent: str = "MockUserAgent/1.0",
         profile_data: Optional[Dict[str, Any]] = None,
-        url: str = "https://example.com"
+        url: str = "https://example.com",
+        **kwargs
     ):
         """
         Inicializa o mock driver.

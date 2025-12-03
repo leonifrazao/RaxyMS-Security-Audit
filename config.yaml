@@ -18,7 +18,6 @@ executor:
   max_workers: 4
   actions:
     - login
-    - flyout
     - rewards
     - bing
   retry_attempts: 2

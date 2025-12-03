@@ -275,7 +275,7 @@ class RequestExecutor(BaseService):
         return resposta
     
     @staticmethod
-    @request(cache=False, raise_exception=True, create_error_logs=False, output=None)
+    @request(cache=False, raise_exception=True, create_error_logs=False, output=None, use_stealth=True, max_retry=5, retry_wait=2)
     def _enviar(req: Request, args: dict, proxy: str | None = None):
         """
         Método estático decorado para enviar requisições.
