@@ -10,18 +10,17 @@ from rich.console import Console
 from rich.table import Table
 from typing_extensions import Annotated
 
-from raxy.core.config import AppConfig, ExecutorConfig, get_config
-from raxy.domain.accounts import Conta
-from raxy.domain.proxy import Proxy
-from raxy.services.executor_service import ExecutorEmLote
-from raxy.services.bingflyout_service import BingFlyoutService
-from raxy.repositories.file_account_repository import ArquivoContaRepository
-from raxy.api.supabase_api import SupabaseRepository
-from raxy.api.rewards_data_api import RewardsDataAPI
-from raxy.api.bing_suggestion_api import BingSuggestionAPI
-from raxy.api.mail_tm_api import MailTm
-from raxy.proxy.manager import ProxyManager
-from raxy.core.logging import get_logger
+# Updated imports for src/raxy structure
+from raxy.infrastructure.config.config import AppConfig, ExecutorConfig, get_config
+from raxy.core.domain.accounts import Conta
+from raxy.core.domain.proxy import Proxy
+from raxy.core.services.executor_service import ExecutorEmLote
+
+from raxy.adapters.repositories.file_account_repository import ArquivoContaRepository
+from raxy.adapters.api.supabase_api import SupabaseRepository
+
+from raxy.infrastructure.manager import ProxyManager
+from raxy.infrastructure.logging import get_logger
 
 # --- Configuração da Aplicação CLI ---
 app = typer.Typer(
@@ -120,23 +119,9 @@ def run(
     else:
         repo = ArquivoContaRepository(app_config.executor.users_file)
 
-    # Serviços
-    rewards_service = RewardsDataAPI(logger=logger)
-    bing_search_service = BingSuggestionAPI(logger=logger)
-    bing_flyout_service = BingFlyoutService(logger=logger)
-    mail_tm_service = MailTm(logger=logger)
-
     # Executor
     executor = ExecutorEmLote(
-        rewards_service=rewards_service,
-        bing_search_service=bing_search_service,
-        bing_flyout_service=bing_flyout_service,
-        proxy_manager=proxy_manager,
-        mail_tm_service=mail_tm_service,
-        conta_repository=repo,
-        db_repository=None, # DB repository is passed explicitly if source is database, but Executor expects it.
-        config=app_config.executor,
-        proxy_config=app_config.proxy,
+        max_workers=executor_config.max_workers,
         logger=logger
     )
 
@@ -189,7 +174,11 @@ def run(
     acoes_finais = actions or executor_config.actions
     console.print(f"   - [b]Ações:[/b] {acoes_finais}")
     
-    executor.executar(acoes=acoes_finais, contas=contas_para_executar)
+    executor.executar(
+        contas=contas_para_executar,
+        acoes=acoes_finais,
+        usar_proxy=use_proxy
+    )
     console.print("[bold green]✅ Execução concluída.[/bold green]")
 
 
@@ -355,6 +344,43 @@ def clear_cache(
     except Exception as e:
         console.print(f"[bold red]❌ Erro ao limpar cache: {e}[/bold red]")
         raise typer.Exit(code=1)
+
+
+@app.command(help="[bold blue]Inicia a API REST do Raxy.[/bold blue]")
+def api(
+    host: Annotated[
+        str,
+        typer.Option("--host", "-h", help="Host para o servidor."),
+    ] = "0.0.0.0",
+    port: Annotated[
+        int,
+        typer.Option("--port", "-p", help="Porta para o servidor."),
+    ] = 8000,
+    reload: Annotated[
+        bool,
+        typer.Option("--reload/--no-reload", help="Ativa hot-reload para desenvolvimento."),
+    ] = False,
+    workers: Annotated[
+        int,
+        typer.Option("--workers", "-w", help="Número de workers (produção)."),
+    ] = 1,
+) -> None:
+    """Inicia o servidor FastAPI do Raxy."""
+    import uvicorn
+    
+    console.print(f"[bold cyan]🚀 Iniciando Raxy API em http://{host}:{port}[/bold cyan]")
+    console.print(f"   - [b]Reload:[/b] {'Ativado' if reload else 'Desativado'}")
+    console.print(f"   - [b]Workers:[/b] {workers}")
+    console.print("")
+    console.print("[dim]Pressione Ctrl+C para encerrar.[/dim]")
+    
+    uvicorn.run(
+        "raxy.adapters.http.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+        workers=workers if not reload else 1,  # reload não suporta múltiplos workers
+    )
 
 
 if __name__ == "__main__":

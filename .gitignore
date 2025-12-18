@@ -10,7 +10,7 @@ __pycache__/
 .venv
 env/
 venv/
-.lock
+*.lock
 .rdb
 
 # Logs e arquivos gerados em execucoes
@@ -23,6 +23,7 @@ profiles.json
 users.txt
 dados.db
 acli
+config.yaml
 
 # Arquivos do sistema
 .DS_Store
