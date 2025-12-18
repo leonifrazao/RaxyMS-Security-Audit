@@ -20,10 +20,6 @@ pkgs.mkShell {
   packages = (with python.pkgs; [
     venvShellHook
     pip
-    # pyqt5
-    # opencv4
-    # python-uinput
-    # evdev
   ]) ++ (with pkgs; [
     # Toolchain
     gcc gnumake 
@@ -68,8 +64,12 @@ pkgs.mkShell {
 
     jdk
 
+    # Redis (Event Bus para microserviços)
+    redis
+
     xray
-    windsurf
+    ruff
+    poetry
   ]) ++ [
     burpsuite
   ];
@@ -82,27 +82,9 @@ pkgs.mkShell {
     mkdir -p "$PNPM_HOME"
     export PATH="$PNPM_HOME:$PATH"
 
-    primeiro_setup=false
-    if [ ! -d "$venvDir" ]; then
-      echo "[Raxy] Criando ambiente virtual em $venvDir"
-      python -m venv "$venvDir"
-      primeiro_setup=true
-    fi
-
-    source "$venvDir/bin/activate"
-
-    if [ "$primeiro_setup" = true ] || [ ! -f "$venvDir/.deps-instaladas" ]; then
-      echo "[Raxy] Instalando dependências do requirements.txt"
-      if [ -f requirements.txt ]; then
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e ./raxy_project/raxy
-      else
-          echo "[Raxy] Aviso: requirements.txt não encontrado, nenhuma dependência instalada"
-      fi
-      touch "$venvDir/.deps-instaladas"
-      echo "[Raxy] Ambiente pronto!"
-    fi
+    # Redis disponível no PATH
+    echo "[Raxy] Redis disponível: $(which redis-server)"
+    echo "[Raxy] Ambiente pronto! Use 'poetry install' para configurar as dependências Python."
   '';
 
 
