@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Iterable, Sequence, Optional
+from typing import Iterable, Sequence, Optional, Any
 
 from raxy.domain import Conta
-from raxy.interfaces.storage import IFileSystem
 from raxy.core.exceptions import (
     FileRepositoryException,
     DataValidationException,
@@ -18,7 +17,7 @@ from raxy.core.exceptions import (
 
 def carregar_contas(
     caminho_arquivo: str | Path,
-    filesystem: Optional[IFileSystem] = None
+    filesystem: Optional[Any] = None
 ) -> list[Conta]:
     """
     Carrega contas de um arquivo com tratamento robusto de erros.
@@ -85,151 +84,20 @@ def carregar_contas(
 
     return contas
 
-from raxy.interfaces.repositories import IContaRepository, IHistoricoPontuacaoRepository
 
-__all__ = [
-    "ArquivoContaRepository",
-    "HistoricoPontuacaoMemoriaRepository",
-    "carregar_contas",
-]
-
-
-class ArquivoContaRepository(IContaRepository):
-    """
-    Realiza operações de persistência em um arquivo ``email:senha``.
+class ArquivoContaRepository:
+    """Repositório de contas baseado em arquivo."""
     
-    Desacoplado do filesystem através da interface IFileSystem,
-    permitindo trocar entre local, cloud (S3), ou mock para testes.
-    
-    Design Pattern: Dependency Injection
-    Princípio: Dependency Inversion Principle (DIP)
-    """
-
-    def __init__(
-        self,
-        caminho_arquivo: str | Path,
-        filesystem: Optional[IFileSystem] = None
-    ) -> None:
-        """
-        Inicializa o repositório.
+    def __init__(self, caminho_arquivo: str | Path, filesystem: Optional[Any] = None):
+        self.caminho_arquivo = caminho_arquivo
+        self.filesystem = filesystem
         
-        Args:
-            caminho_arquivo: Caminho do arquivo de contas
-            filesystem: Sistema de arquivos (se None, usa LocalFileSystem)
-        """
-        try:
-            self._caminho = str(caminho_arquivo)
-            
-            # Dependency Injection: recebe filesystem ou cria padrão
-            if filesystem is None:
-                from raxy.storage import LocalFileSystem
-                filesystem = LocalFileSystem()
-            
-            self._filesystem = filesystem
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao inicializar repositório",
-                caminho=str(caminho_arquivo)
-            )
-
     def listar(self) -> list[Conta]:
-        """Lista todas as contas com tratamento de erros."""
-        try:
-            return carregar_contas(self._caminho, self._filesystem)
-        except DataNotFoundException:
-            # Se arquivo não existe, retorna lista vazia
-            return []
-        except (DataValidationException, FileRepositoryException):
-            raise
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao listar contas",
-                caminho=self._caminho
-            )
-
-    def salvar(self, conta: Conta) -> Conta:
-        """Salva uma conta com tratamento de erros."""
-        try:
-            contas = {item.email: item for item in self.listar()}
-            contas[conta.email] = conta
-            self._persistir(contas.values())
-            return conta
-        except (FileRepositoryException, DataValidationException):
-            raise
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao salvar conta",
-                email=conta.email
-            )
-
-    def salvar_varias(self, contas: Iterable[Conta]) -> Sequence[Conta]:
-        """Salva várias contas com tratamento de erros."""
-        try:
-            existentes = {item.email: item for item in self.listar()}
-            for conta in contas:
-                existentes[conta.email] = conta
-            self._persistir(existentes.values())
-            return list(existentes.values())
-        except (FileRepositoryException, DataValidationException):
-            raise
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao salvar várias contas",
-                total_contas=len(list(contas))
-            )
-
-    def remover(self, conta: Conta) -> None:
-        """Remove uma conta com tratamento de erros."""
-        try:
-            contas = [item for item in self.listar() if item.email != conta.email]
-            self._persistir(contas)
-        except (FileRepositoryException, DataValidationException):
-            raise
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao remover conta",
-                email=conta.email
-            )
-
-    def _persistir(self, contas: Iterable[Conta]) -> None:
-        """Persiste contas no arquivo com tratamento de erros."""
-        try:
-            linhas = [f"{conta.email}:{conta.senha}\n" for conta in contas]
-            conteudo = "".join(linhas)
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao formatar contas para persistência"
-            )
-        
-        try:
-            # write_text já cria diretórios automaticamente (create_dirs=True)
-            self._filesystem.write_text(
-                self._caminho,
-                conteudo,
-                encoding="utf-8",
-                create_dirs=True
-            )
-        except OSError as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao escrever arquivo de contas",
-                caminho=self._caminho
-            )
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro inesperado ao persistir contas",
-                caminho=self._caminho
-            )
+        """Lista todas as contas do arquivo."""
+        return carregar_contas(self.caminho_arquivo, self.filesystem)
 
 
-class HistoricoPontuacaoMemoriaRepository(IHistoricoPontuacaoRepository):
+class HistoricoPontuacaoMemoriaRepository:
     """Implementa o registro de pontos em memória (útil para testes) com tratamento de erros."""
 
     def __init__(self) -> None:

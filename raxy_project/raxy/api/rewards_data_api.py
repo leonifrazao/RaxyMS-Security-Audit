@@ -12,7 +12,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Mapping, Iterable
 
-from raxy.interfaces.services import IRewardsDataService, ILoggingService, ISessionManager
 from raxy.core.exceptions import (
     RewardsAPIException,
     InvalidAPIResponseException,
@@ -141,7 +140,7 @@ class RewardsDataParser:
         return None
 
 
-class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
+class RewardsDataAPI(BaseAPIClient):
     """
     Cliente de API para Microsoft Rewards.
     
@@ -151,9 +150,8 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
     
     def __init__(
         self,
-        logger: Optional[ILoggingService] = None,
+        logger: Optional[Any] = None,
         palavras_erro: Optional[Iterable[str]] = None,
-        event_bus: Optional[Any] = None,
     ) -> None:
         """
         Inicializa o cliente de Rewards.
@@ -161,7 +159,6 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         Args:
             logger: Serviço de logging
             palavras_erro: Palavras que indicam erro na resposta
-            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(
             base_url=BASE_URL,
@@ -170,25 +167,9 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
         )
         
         self.parser = RewardsDataParser()
-        self._event_bus = event_bus
-    
-    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
-        """
-        Publica um evento no Event Bus se disponível.
-        
-        Args:
-            event_name: Nome do evento (ex: "rewards.collected")
-            data: Dados do evento
-        """
-        if self._event_bus and hasattr(self._event_bus, 'publish'):
-            try:
-                self._event_bus.publish(event_name, data)
-            except Exception:
-                # Silenciosamente ignora erros de publicação
-                pass
 
     @debug_log(log_result=True, log_duration=True)
-    def obter_pontos(self, sessao: ISessionManager, *, bypass_request_token: bool = True) -> int:
+    def obter_pontos(self, sessao: Any, *, bypass_request_token: bool = True) -> int:
         """
         Obtém os pontos disponíveis.
         
@@ -220,40 +201,24 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
             )
         
         # Valida resposta
-        if response is None or not getattr(response, "ok", False):
-            status = getattr(response, "status_code", "N/A")
-            raise InvalidAPIResponseException(
-                f"Request falhou com status {status}",
-                details={"status_code": status}
-            )
+        self.validate_response(response, context_info={"template": str(template_path)})
         
         # Parse JSON
-        try:
-            response_data = response.json()
-        except json.JSONDecodeError as e:
-            raise wrap_exception(
-                e, JSONParsingException,
-                "Erro ao decodificar resposta JSON",
-                status_code=getattr(response, "status_code", None)
-            )
+        response_data = self.safe_json_parse(response)
         
         # Extrai pontos
         points = self.parser.extract_points(response_data)
         
         self.logger.info(f"Pontos obtidos: {points}")
         
-        # Publica evento de pontos obtidos
-        self._publish_event("rewards.points.fetched", {
-            "account_id": sessao.conta.email,
-            "points": points,
-        })
+
         
         return points
 
     @debug_log(log_result=False, log_duration=True)
     def obter_recompensas(
         self,
-        sessao: ISessionManager,
+        sessao: Any,
         *,
         bypass_request_token: bool = True,
     ) -> Mapping[str, Any]:
@@ -285,13 +250,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
             )
         
         # Parse JSON
-        try:
-            response_data = response.json()
-        except json.JSONDecodeError as e:
-            raise wrap_exception(
-                e, JSONParsingException,
-                "Erro ao decodificar resposta JSON"
-            )
+        response_data = self.safe_json_parse(response)
         
         # Valida estrutura básica
         if not isinstance(response_data, dict):
@@ -340,7 +299,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
     @debug_log(log_result=False, log_duration=True)
     def pegar_recompensas(
         self,
-        sessao: ISessionManager,
+        sessao: Any,
         *,
         bypass_request_token: bool = True,
     ) -> Mapping[str, Any]:
@@ -411,15 +370,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
             f"{len(more_results)} promoções"
         )
         
-        # Publica evento de coleta de recompensas
-        self._publish_event("rewards.collected", {
-            "account_id": sessao.conta.email,
-            "tasks_completed": tasks_completed,
-            "tasks_failed": tasks_failed,
-            "total_tasks": total_tasks,
-            "daily_sets_count": len(daily_results),
-            "more_promotions_count": len(more_results),
-        })
+
         
         return {
             "daily_sets": daily_results,
@@ -456,7 +407,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
     
     def _process_promotions(
         self,
-        sessao: SessionManagerService,
+        sessao: Any,
         template_base: Dict[str, Any],
         promotions: List[Dict[str, Any]],
         date_ref: Optional[str] = None
@@ -512,22 +463,8 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
                 
                 self.logger.debug(f"Promoção processada: {promo_id}")
                 
-                # Publica evento de tarefa
-                if is_ok:
-                    self._publish_event("task.completed", {
-                        "account_id": sessao.conta.email,
-                        "task_id": promo_id,
-                        "task_type": promotion.get("type", "unknown"),
-                        "points_earned": promotion.get("points", 0),
-                    })
-                else:
-                    self._publish_event("task.failed", {
-                        "account_id": sessao.conta.email,
-                        "task_id": promo_id,
-                        "task_type": promotion.get("type", "unknown"),
-                        "error_message": f"HTTP {status_code}",
-                        "retry_count": 0,
-                    })
+
+
                 
             except RewardsAPIException as e:
                 results.append({
@@ -540,14 +477,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
                 })
                 self.logger.debug(f"Erro em promoção {promo_id}: {e}")
                 
-                # Publica evento de falha
-                self._publish_event("task.failed", {
-                    "account_id": sessao.conta.email,
-                    "task_id": promo_id,
-                    "task_type": promotion.get("type", "unknown"),
-                    "error_message": str(e),
-                    "retry_count": 0,
-                })
+
                 
             except Exception as e:
                 results.append({
@@ -560,14 +490,7 @@ class RewardsDataAPI(BaseAPIClient, IRewardsDataService):
                 })
                 self.logger.debug(f"Erro inesperado em promoção {promo_id}: {e}")
                 
-                # Publica evento de falha
-                self._publish_event("task.failed", {
-                    "account_id": sessao.conta.email,
-                    "task_id": promo_id,
-                    "task_type": promotion.get("type", "unknown"),
-                    "error_message": repr(e),
-                    "retry_count": 0,
-                })
+
         
         # Formata resultado
         if date_ref:

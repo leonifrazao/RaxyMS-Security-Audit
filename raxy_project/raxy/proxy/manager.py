@@ -33,13 +33,15 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-from raxy.interfaces.services import IProxyService
 from raxy.core.logging import debug_log
 
-__all__ = ["Proxy"]
+__all__ = ["ProxyManager"]
 
 # Configuração de logging
-logger = logging.getLogger(__name__)
+from raxy.core.logging import get_logger
+
+# Configuração de logging
+logger = get_logger()
 
 try:
     import requests  # opcional: apenas se precisar de rede
@@ -56,7 +58,7 @@ except Exception:  # pragma: no cover - uso opcional de rich
     Text = None
 
 
-class Proxy(IProxyService):
+class ProxyManager:
     """Gerencia uma coleção de proxys, com suporte a testes e criação de pontes HTTP."""
 
     DEFAULT_CACHE_FILENAME: str = "proxy_cache.json"
@@ -105,7 +107,6 @@ class Proxy(IProxyService):
         cache_path: Optional[Union[str, os.PathLike]] = None,
         command_output: bool = True,
         requests_session: Optional[Any] = None,
-        event_bus: Optional[Any] = None,
     ) -> None:
         """Inicializa o gerenciador carregando proxys, fontes e cache se necessário."""
         self.country_filter = country
@@ -117,12 +118,9 @@ class Proxy(IProxyService):
         self._port_allocation_lock = threading.Lock()
         self._allocated_ports = set()
         
-        # Event Bus para comunicação assíncrona
-        self._event_bus = event_bus
-
-        self._outbounds: List[Tuple[str, Proxy.Outbound]] = []
+        self._outbounds: List[Tuple[str, ProxyManager.Outbound]] = []
         self._entries: List[Dict[str, Any]] = []
-        self._bridges: List[Proxy.BridgeRuntime] = []
+        self._bridges: List[ProxyManager.BridgeRuntime] = []
         self._running = False
         self._atexit_registered = False
         self._parse_errors: List[str] = []
@@ -148,23 +146,8 @@ class Proxy(IProxyService):
             self._prime_entries_from_cache()
 
     # ----------- utilidades básicas -----------
-    
-    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
-        """
-        Publica um evento no Event Bus se disponível.
-        
-        Args:
-            event_name: Nome do evento (ex: "proxy.tested")
-            data: Dados do evento
-        """
-        if self._event_bus and hasattr(self._event_bus, 'publish'):
-            try:
-                self._event_bus.publish(event_name, data)
-            except Exception:
-                # Silenciosamente ignora erros de publicação para não quebrar o fluxo
-                pass
 
-    def _make_base_entry(self, index: int, raw_uri: str, outbound: Proxy.Outbound) -> Dict[str, Any]:
+    def _make_base_entry(self, index: int, raw_uri: str, outbound: ProxyManager.Outbound) -> Dict[str, Any]:
         """Monta o dicionário padrão com as informações mínimas de um outbound."""
         return {
             "index": index,
@@ -234,7 +217,7 @@ class Proxy(IProxyService):
         merged["cached"] = True
         return merged
 
-    def _register_new_outbound(self, raw_uri: str, outbound: Proxy.Outbound) -> None:
+    def _register_new_outbound(self, raw_uri: str, outbound: ProxyManager.Outbound) -> None:
         """Atualiza as estruturas internas quando um novo outbound é aceito."""
         index = len(self._outbounds)
         entry = self._make_base_entry(index, raw_uri, outbound)
@@ -612,9 +595,9 @@ class Proxy(IProxyService):
             )
         
         # Detecta e converte URLs raw do GitHub para API
-        if self._is_github_raw_url(source):
-            logger.info(f"URL raw do GitHub detectada, convertendo para API: {source}")
-            source = self._convert_raw_to_api_url(source)
+        # if self._is_github_raw_url(source):
+        #     logger.info(f"URL raw do GitHub detectada, convertendo para API: {source}")
+        #     source = self._convert_raw_to_api_url(source)
         
         # Caso 3: URL da API do GitHub
         if self._is_github_api_url(source):
@@ -859,7 +842,7 @@ class Proxy(IProxyService):
 
     # ----------- parsing -----------
 
-    def _parse_uri_to_outbound(self, uri: str) -> Proxy.Outbound:
+    def _parse_uri_to_outbound(self, uri: str) -> ProxyManager.Outbound:
         """Direciona o link para o parser adequado de acordo com o esquema."""
         uri = uri.strip()
         if not uri or uri.startswith("#") or uri.startswith("//"):
@@ -878,7 +861,7 @@ class Proxy(IProxyService):
             raise ValueError(f"Esquema não suportado: {scheme}")
         return parser(uri)
 
-    def _parse_ss(self, uri: str) -> Proxy.Outbound:
+    def _parse_ss(self, uri: str) -> ProxyManager.Outbound:
         """Normaliza um link ``ss://`` incluindo casos em JSON inline."""
         frag = urlsplit(uri).fragment
         tag = self._sanitize_tag(unquote(frag) if frag else None, "ss")
@@ -963,7 +946,7 @@ class Proxy(IProxyService):
         }
         return self.Outbound(tag, config)
 
-    def _parse_vmess(self, uri: str) -> Proxy.Outbound:
+    def _parse_vmess(self, uri: str) -> ProxyManager.Outbound:
         """Converte links ``vmess://`` com conteúdo base64 para outbounds."""
         payload = uri.strip()[8:]
         try:
@@ -976,7 +959,7 @@ class Proxy(IProxyService):
             raise ValueError(f"JSON inválido em vmess://: {exc}") from exc
         return self._vmess_outbound_from_dict(data)
 
-    def _vmess_outbound_from_dict(self, data: Dict[str, Any], *, tag_fallback: str = "vmess") -> Proxy.Outbound:
+    def _vmess_outbound_from_dict(self, data: Dict[str, Any], *, tag_fallback: str = "vmess") -> ProxyManager.Outbound:
         """Adapta o dicionário decodificado de vmess para a estrutura do Xray."""
         tag = self._sanitize_tag(data.get("ps"), tag_fallback)
 
@@ -1050,7 +1033,7 @@ class Proxy(IProxyService):
 
         return self.Outbound(tag, outbound_config)
 
-    def _parse_vless(self, uri: str) -> Proxy.Outbound:
+    def _parse_vless(self, uri: str) -> ProxyManager.Outbound:
         """Converte links ``vless://`` adicionando suporte a transportes modernos."""
         p = urlparse(uri)
         tag = self._sanitize_tag(unquote(p.fragment) if p.fragment else None, "vless")
@@ -1110,7 +1093,7 @@ class Proxy(IProxyService):
         }
         return self.Outbound(tag, outbound)
 
-    def _parse_trojan(self, uri: str) -> Proxy.Outbound:
+    def _parse_trojan(self, uri: str) -> ProxyManager.Outbound:
         """Converte links ``trojan://`` assegurando parâmetros TLS e transporte."""
         p = urlparse(uri)
         tag = self._sanitize_tag(unquote(p.fragment) if p.fragment else None, "trojan")
@@ -1170,7 +1153,7 @@ class Proxy(IProxyService):
 
     # ----------- verificação e filtros -----------
 
-    def _outbound_host_port(self, outbound: Proxy.Outbound) -> Tuple[str, int]:
+    def _outbound_host_port(self, outbound: ProxyManager.Outbound) -> Tuple[str, int]:
         """Extrai host e porta reais do outbound conforme o protocolo."""
         proto = outbound.config.get("protocol")
         settings = outbound.config.get("settings", {})
@@ -1214,7 +1197,15 @@ class Proxy(IProxyService):
         if not ip or self.requests is None or not self._is_public_ip(ip):
             return None
         try:
-            token = "747e7c8d93c344d2973066cf6eeb7d93"
+            from raxy.core.config import get_config
+            config = get_config()
+            token = config.api.findip_token if config and config.api else ""
+            
+            if not token:
+                # Fallback para token hardcoded apenas se não configurado (opcional, ou remover)
+                # Mas conforme solicitado, vamos remover o hardcoded antigo e usar apenas config
+                logger.aviso("Token FindIP não configurado. Geolocalização pode falhar.")
+                return None
             
             resp = self.requests.get(
                 f"https://api.findip.net/{ip}/?token={token}", 
@@ -1250,7 +1241,7 @@ class Proxy(IProxyService):
         except Exception:
             return None
 
-    def _test_outbound(self, raw_uri: str, outbound: Proxy.Outbound, timeout: float = 10.0) -> Dict[str, Any]:
+    def _test_outbound(self, raw_uri: str, outbound: ProxyManager.Outbound, timeout: float = 10.0) -> Dict[str, Any]:
         """Executa medições para um outbound específico retornando métricas usando rota real."""
         result: Dict[str, Any] = {
             "tag": outbound.tag,
@@ -1316,7 +1307,7 @@ class Proxy(IProxyService):
 
     def _perform_health_checks(
         self,
-        outbounds: List[Tuple[str, Proxy.Outbound]],
+        outbounds: List[Tuple[str, ProxyManager.Outbound]],
         *,
         country_filter: Optional[str] = None,
         emit_progress: Optional[Any] = None,
@@ -1330,7 +1321,7 @@ class Proxy(IProxyService):
         reuse_cache = self.use_cache and not force_refresh
         success_count = 0
 
-        to_test: List[Tuple[int, str, Proxy.Outbound]] = []
+        to_test: List[Tuple[int, str, ProxyManager.Outbound]] = []
         
         for idx, (raw, outbound) in enumerate(outbounds):
             base_entry = self._make_base_entry(idx, raw, outbound)
@@ -1370,7 +1361,7 @@ class Proxy(IProxyService):
             return all_results
         
         if to_test:
-            def worker(idx: int, raw: str, outbound: Proxy.Outbound) -> Dict[str, Any]:
+            def worker(idx: int, raw: str, outbound: ProxyManager.Outbound) -> Dict[str, Any]:
                 entry = self._make_base_entry(idx, raw, outbound)
                 try:
                     preview_host, preview_port = self._outbound_host_port(outbound)
@@ -1471,7 +1462,7 @@ class Proxy(IProxyService):
     @contextmanager
     def _temporary_bridge(
         self,
-        outbound: Proxy.Outbound,
+        outbound: ProxyManager.Outbound,
         *,
         tag_prefix: str = "temp",
     ):
@@ -1512,7 +1503,7 @@ class Proxy(IProxyService):
     def _test_proxy_functionality(
         self, 
         raw_uri: str, 
-        outbound: Proxy.Outbound,
+        outbound: ProxyManager.Outbound,
         timeout: float = 10.0,
         test_url: str = "http://httpbin.org/ip"
     ) -> Dict[str, Any]:
@@ -1727,24 +1718,7 @@ class Proxy(IProxyService):
         self.country_filter = country_filter
         self._save_cache(results)
 
-        # Publica eventos de teste
-        for entry in results:
-            if entry.get("status") == "OK":
-                self._publish_event("proxy.tested.success", {
-                    "proxy_id": entry.get("tag"),
-                    "proxy_url": entry.get("uri"),
-                    "country": entry.get("country_code"),
-                    "ping_ms": entry.get("ping"),
-                    "ip": entry.get("proxy_ip"),
-                    "tested_at": entry.get("tested_at"),
-                })
-            elif entry.get("status") == "ERRO":
-                self._publish_event("proxy.tested.failed", {
-                    "proxy_id": entry.get("tag"),
-                    "proxy_url": entry.get("uri"),
-                    "error": entry.get("error"),
-                    "tested_at": entry.get("tested_at"),
-                })
+
 
         if self.console is not None and (verbose is None or verbose):
             self._render_test_summary(results, country_filter)
@@ -1817,9 +1791,9 @@ class Proxy(IProxyService):
         table.add_column("Ping", justify="right", no_wrap=True)
         for entry in entries:
             status = entry.get("status", "-")
-            style = Proxy.STATUS_STYLES.get(status, "white")
+            style = ProxyManager.STATUS_STYLES.get(status, "white")
             status_cell = Text(status, style=style) if Text else status
-            destino = Proxy._format_destination(entry.get("host"), entry.get("port"))
+            destino = ProxyManager._format_destination(entry.get("host"), entry.get("port"))
             ping = entry.get("ping")
             ping_str = f"{ping:.1f} ms" if isinstance(ping, (int, float)) else "-"
             
@@ -1900,8 +1874,8 @@ class Proxy(IProxyService):
         xray_bin = self._which_xray()
 
         self._stop_event.clear()
-        bridges_runtime: List[Proxy.BridgeRuntime] = []
-        bridges_display: List[Tuple[Proxy.BridgeRuntime, float]] = []
+        bridges_runtime: List[ProxyManager.BridgeRuntime] = []
+        bridges_display: List[Tuple[ProxyManager.BridgeRuntime, float]] = []
 
         if self.console and approved_entries:
             self.console.print()
@@ -1918,7 +1892,7 @@ class Proxy(IProxyService):
                 scheme = raw_uri.split("://", 1)[0].lower()
 
                 proc, cfg_path = self._launch_bridge_with_diagnostics(xray_bin, cfg, outbound.tag)
-                bridge = Proxy.BridgeRuntime(
+                bridge = ProxyManager.BridgeRuntime(
                     tag=outbound.tag,
                     port=port,
                     scheme=scheme,
@@ -2034,7 +2008,7 @@ class Proxy(IProxyService):
 
     # ----------- geração e execução de config -----------
 
-    def _make_xray_config_http_inbound(self, port: int, outbound: Proxy.Outbound) -> Dict[str, Any]:
+    def _make_xray_config_http_inbound(self, port: int, outbound: ProxyManager.Outbound) -> Dict[str, Any]:
         """Monta o arquivo de configuração do Xray para uma ponte HTTP local."""
         cfg = {
             "log": {"loglevel": "warning"},
@@ -2127,7 +2101,7 @@ class Proxy(IProxyService):
             bridge.process = None # Marca a ponte como inativa
             return False
 
-        self._bridges[bridge_id] = Proxy.BridgeRuntime(
+        self._bridges[bridge_id] = ProxyManager.BridgeRuntime(
             tag=new_outbound.tag,
             port=bridge.port,
             scheme=new_scheme,
@@ -2141,15 +2115,6 @@ class Proxy(IProxyService):
                 f"[green]Sucesso:[/green] Ponte [bold]ID {bridge_id}[/] (porta {bridge.port}) rotacionada para a proxy '[bold]{new_outbound.tag}[/]'"
             )
         
-        # Publica evento de rotação
-        self._publish_event("proxy.rotated", {
-            "bridge_id": bridge_id,
-            "old_proxy_id": bridge.tag,
-            "new_proxy_id": new_outbound.tag,
-            "old_proxy_url": uri_to_replace,
-            "new_proxy_url": new_raw_uri,
-            "port": bridge.port,
-            "reason": "Manual rotation",
-        })
+
 
         return True

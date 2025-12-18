@@ -11,8 +11,6 @@ import inspect
 import time
 from typing import Any, Callable, Optional, TypeVar
 
-from raxy.interfaces.services import ILoggingService
-
 F = TypeVar('F', bound=Callable[..., Any])
 
 
@@ -117,7 +115,7 @@ def debug_log(
     return decorator
 
 
-def _get_logger(args: tuple) -> ILoggingService:
+def _get_logger(args: tuple) -> Any:
     """Obtém logger do self/cls ou usa global."""
     # Tenta obter do self (métodos de instância)
     if args and hasattr(args[0], 'logger'):

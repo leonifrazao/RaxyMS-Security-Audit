@@ -1,7 +1,6 @@
 """API pública do pacote Raxy."""
 
 from raxy.api.rewards_data_api import RewardsDataAPI
-from raxy.container import ApplicationContainer, get_container, reset_container, override_config
 from raxy.domain import Conta
 from raxy.repositories.file_account_repository import (
     ArquivoContaRepository,
@@ -40,12 +39,6 @@ __all__ = [
     "update_config",
     "reload_config",
     "reset_config",
-    
-    # Dependency Injection
-    "ApplicationContainer",
-    "get_container",
-    "reset_container",
-    "override_config",
     
     # Logging
     "LoggerConfig",

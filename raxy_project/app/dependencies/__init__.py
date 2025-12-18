@@ -1,6 +1,6 @@
 """Módulo de dependências da API."""
 
-from .base import get_injector, get_session_store
+from .core import get_session_store, get_task_queue
 from .services import (
     get_proxy_service,
     get_logging_service,
@@ -21,8 +21,8 @@ from .session import (
 
 __all__ = [
     # Base
-    "get_injector",
     "get_session_store",
+    "get_task_queue",
     # Services
     "get_proxy_service",
     "get_logging_service",

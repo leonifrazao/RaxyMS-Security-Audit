@@ -23,6 +23,19 @@ class AccountPayload(BaseModel):
     proxy: Optional[str] = Field(None, description="URI de proxy opcional")
 
 
+class AccountUpdatePayload(BaseModel):
+    """Payload para atualização de conta."""
+    password: Optional[str] = Field(None, description="Nova senha")
+    profile_id: Optional[str] = Field(None, description="Novo perfil")
+    proxy: Optional[str] = Field(None, description="Novo proxy")
+
+
+class CreateAccountResponse(BaseModel):
+    """Resposta de criação de conta."""
+    message: str
+    account: AccountResponse
+
+
 class AccountResponse(BaseModel):
     """Resposta com dados de uma conta."""
     

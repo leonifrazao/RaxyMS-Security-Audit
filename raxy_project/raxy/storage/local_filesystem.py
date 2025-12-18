@@ -10,10 +10,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from raxy.interfaces.storage import IFileSystem
-
-
-class LocalFileSystem(IFileSystem):
+class LocalFileSystem:
     """
     Implementação do IFileSystem usando filesystem local.
     

@@ -11,6 +11,7 @@ from typing import Any, Mapping, Optional, Dict
 import time
 from botasaurus.request import Request, request
 
+from raxy.domain.proxy import Proxy
 from raxy.core.session.session_utils import replace_placeholders
 from raxy.core.exceptions import (
     SessionException,
@@ -18,7 +19,6 @@ from raxy.core.exceptions import (
     wrap_exception
 )
 from raxy.core.logging import debug_log
-from raxy.interfaces.services import ILoggingService
 from raxy.services.base_service import BaseService
 
 
@@ -39,8 +39,8 @@ class RequestExecutor(BaseService):
         cookies: dict[str, str] | None = None,
         user_agent: str | None = None,
         token_antifalsificacao: str | None = None,
-        proxy: dict | None = None,
-        logger: Optional[ILoggingService] = None,
+        proxy: Proxy | dict | None = None,
+        logger: Optional[Any] = None,
         event_bus: Optional[Any] = None
     ):
         """
@@ -50,7 +50,7 @@ class RequestExecutor(BaseService):
             cookies: Cookies da sessão
             user_agent: User-Agent da sessão
             token_antifalsificacao: Token de verificação
-            proxy: Configuração de proxy
+            proxy: Configuração de proxy (Objeto Proxy ou dict)
             logger: Serviço de logging (opcional)
             event_bus: Event Bus para publicação de eventos
         """
@@ -58,7 +58,20 @@ class RequestExecutor(BaseService):
         self.cookies = cookies or {}
         self.user_agent = user_agent or ""
         self.token_antifalsificacao = token_antifalsificacao
-        self.proxy = proxy or {}
+        
+        # Normaliza proxy
+        if isinstance(proxy, dict):
+            self.proxy = Proxy(
+                id=proxy.get("id", ""),
+                url=proxy.get("url", ""),
+                type=proxy.get("type", "http"),
+                country=proxy.get("country"),
+                city=proxy.get("city")
+            )
+        elif isinstance(proxy, Proxy):
+            self.proxy = proxy
+        else:
+            self.proxy = Proxy(id="", url="")
         self._event_bus = event_bus
     
     def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
@@ -244,7 +257,7 @@ class RequestExecutor(BaseService):
             ProxyRotationRequiredException: Se status HTTP >= 400
         """
         try:
-            resposta = self._enviar(args, proxy=self.proxy.get("url"))
+            resposta = self._enviar(args, proxy=self.proxy.url if self.proxy.is_valid else None)
         except Exception as e:
             raise wrap_exception(
                 e, SessionException,
@@ -268,14 +281,14 @@ class RequestExecutor(BaseService):
         if status and status >= 400:
             raise ProxyRotationRequiredException(
                 status, 
-                self.proxy.get("id"), 
+                self.proxy.id, 
                 url=args.get("url")
             )
         
         return resposta
     
     @staticmethod
-    @request(cache=False, raise_exception=True, create_error_logs=False, output=None, use_stealth=True, max_retry=5, retry_wait=2)
+    @request(cache=False, raise_exception=True, create_error_logs=False, output=None, max_retry=5, retry_wait=2)
     def _enviar(req: Request, args: dict, proxy: str | None = None):
         """
         Método estático decorado para enviar requisições.

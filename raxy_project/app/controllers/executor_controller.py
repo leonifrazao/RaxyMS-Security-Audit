@@ -2,24 +2,26 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
-from dependencies import (
+from app.dependencies import (
     get_account_repository,
     get_database_repository,
     get_executor_service,
     get_logging_service,
 )
-from schemas import (
+from app.schemas import (
     AccountPayload,
     AccountSource,
     ExecutorBatchRequest,
     ExecutorBatchResponse,
 )
-from core import BaseController
+from app.core import BaseController
 from raxy.domain import Conta
 from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import IExecutorEmLoteService, ILoggingService
+from app.dependencies import get_executor_service, get_task_queue
+from rq import Queue
 
 
 class ExecutorController(BaseController):
@@ -177,3 +179,63 @@ controller = ExecutorController()
 router = controller.router
 
 __all__ = ["router", "ExecutorController"]
+
+
+@router.post("/job/start")
+def start_job(
+    request: Request,
+    payload: ExecutorBatchRequest,
+    queue: Queue = Depends(get_task_queue),
+):
+    """
+    Inicia uma execução em lote em background (Worker).
+    """
+    from app.tasks import run_farm_task
+    from fastapi import Request
+    
+    # Por enquanto, suporta apenas uma conta por job para simplificar o rastreamento
+    contas = payload.manual_accounts()
+    if not contas or len(contas) != 1:
+        raise HTTPException(status_code=400, detail="Para jobs em background, envie exatamente uma conta em manual_accounts.")
+        
+    email = contas[0].email
+    
+    job = queue.enqueue(
+        run_farm_task,
+        args=(email, payload.actions),
+        job_timeout='20m',
+        result_ttl=3600
+    )
+    
+    return {
+        "job_id": job.get_id(),
+        "status": "queued",
+        "message": f"Job iniciado para {email}"
+    }
+
+
+@router.get("/job/status/{job_id}")
+def get_job_status(
+    job_id: str,
+    queue: Queue = Depends(get_task_queue),
+):
+    """
+    Verifica o status de um job.
+    """
+    from rq.job import Job
+    from rq.exceptions import NoSuchJobError
+    
+    try:
+        job = Job.fetch(job_id, connection=queue.connection)
+    except NoSuchJobError:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+        
+    return {
+        "job_id": job.get_id(),
+        "status": job.get_status(),
+        "result": job.result,
+        "enqueued_at": job.enqueued_at,
+        "started_at": job.started_at,
+        "ended_at": job.ended_at,
+        "meta": job.meta
+    }

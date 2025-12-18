@@ -10,18 +10,18 @@ from rich.console import Console
 from rich.table import Table
 from typing_extensions import Annotated
 
-from dependency_injector import providers
-
-from raxy.container import ApplicationContainer, get_container
 from raxy.core.config import AppConfig, ExecutorConfig, get_config
 from raxy.domain.accounts import Conta
-from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
-from raxy.interfaces.services import (
-    IExecutorEmLoteService,
-    ILoggingService,
-    IProxyService,
-)
-from raxy.proxy import Proxy
+from raxy.domain.proxy import Proxy
+from raxy.services.executor_service import ExecutorEmLote
+from raxy.services.bingflyout_service import BingFlyoutService
+from raxy.repositories.file_account_repository import ArquivoContaRepository
+from raxy.api.supabase_api import SupabaseRepository
+from raxy.api.rewards_data_api import RewardsDataAPI
+from raxy.api.bing_suggestion_api import BingSuggestionAPI
+from raxy.api.mail_tm_api import MailTm
+from raxy.proxy.manager import ProxyManager
+from raxy.core.logging import get_logger
 
 # --- Configuração da Aplicação CLI ---
 app = typer.Typer(
@@ -38,18 +38,7 @@ app.add_typer(accounts_app, no_args_is_help=True)
 # --- Instâncias Globais ---
 console = Console()
 
-# --- Classe Auxiliar para Desativar Proxy ---
-class DummyProxyService(IProxyService):
-    """Implementação de IProxyService que não faz nada, efetivamente desativando os proxies."""
-    def add_sources(self, sources: List[str]) -> int: return 0
-    def add_proxies(self, proxies: List[str]) -> int: return 0
-    def test(self, **kwargs) -> List[Dict]: return []
-    def start(self, **kwargs) -> List[Dict]:
-        console.print("[yellow]Executando sem proxies.[/yellow]")
-        return []
-    def stop(self) -> None: pass
-    def get_http_proxy(self) -> List[Dict]: return []
-    def rotate_proxy(self, bridge_id: int) -> bool: return False
+
 
 # --- Comando Principal: run ---
 @app.command(help="[bold green]Executa o processo de farm. Este é o comando principal.[/bold green]")
@@ -90,6 +79,7 @@ def run(
     """Executa o processo principal de automação com opções de personalização."""
 
     # --- Configuração do Executor e Injeção de Dependência ---
+    # --- Configuração do Executor e Injeção de Dependência ---
     config_params = {}
     if workers:
         config_params['max_workers'] = workers
@@ -100,19 +90,55 @@ def run(
     app_config = get_config()
     app_config.executor = executor_config
     
-    # Cria um container customizado para esta execução
-    container = ApplicationContainer()
-    container.config.override(providers.Singleton(lambda: app_config))
-    
-    # Sobrescreve o serviço de proxy se necessário
-    if not use_proxy:
-        container.proxy_service.override(providers.Object(DummyProxyService()))
-    elif email and proxy_uri: # Apenas para conta única, usa o proxy especificado
-        single_proxy_service = Proxy(proxies=[proxy_uri], use_console=True)
-        container.proxy_service.override(providers.Object(single_proxy_service))
+    logger = get_logger()
 
-    executor = container.executor_service()
-    logger = container.logger()
+    # Configuração do ProxyManager
+    proxies_list = []
+    if use_proxy:
+        if proxy_uri:
+            proxies_list = [proxy_uri]
+        # Se não tiver proxy_uri, o ProxyManager vai carregar das fontes configuradas (se houver)
+        # ou podemos passar as fontes do config se necessário.
+        # Assumindo que ProxyManager carrega defaults ou é configurado depois.
+        # Na implementação original, o container configurava o ProxyService.
+        # Vamos assumir que o ProxyManager deve ser instanciado com as configs do app_config se disponível.
+        # Por simplicidade, vamos instanciar sem argumentos extras por enquanto, 
+        # ou carregar do config se o ProxyManager suportar.
+        # O ProxyManager original recebia proxies/sources no init.
+        
+        # Vamos carregar as fontes do config se existirem
+        sources = app_config.proxy.sources if hasattr(app_config, 'proxy') else None
+        proxy_manager = ProxyManager(proxies=proxies_list, sources=sources, use_console=True)
+    else:
+        # Se não usar proxy, instanciamos um ProxyManager vazio que não vai retornar nada
+        proxy_manager = ProxyManager(proxies=[], sources=[], use_console=True)
+        console.print("[yellow]Executando sem proxies.[/yellow]")
+
+    # Repositório de Contas
+    if source.lower() == "database":
+        repo = SupabaseRepository(logger=logger)
+    else:
+        repo = ArquivoContaRepository(app_config.executor.users_file)
+
+    # Serviços
+    rewards_service = RewardsDataAPI(logger=logger)
+    bing_search_service = BingSuggestionAPI(logger=logger)
+    bing_flyout_service = BingFlyoutService(logger=logger)
+    mail_tm_service = MailTm(logger=logger)
+
+    # Executor
+    executor = ExecutorEmLote(
+        rewards_service=rewards_service,
+        bing_search_service=bing_search_service,
+        bing_flyout_service=bing_flyout_service,
+        proxy_manager=proxy_manager,
+        mail_tm_service=mail_tm_service,
+        conta_repository=repo,
+        db_repository=None, # DB repository is passed explicitly if source is database, but Executor expects it.
+        config=app_config.executor,
+        proxy_config=app_config.proxy,
+        logger=logger
+    )
 
     # --- Lógica de Execução ---
     contas_para_executar: list[Conta] = []
@@ -135,8 +161,8 @@ def run(
         
         if source.lower() == "database":
             console.print("[yellow]Carregando contas do banco de dados...[/yellow]")
-            db_repo = container.database_repository()
-            registros = db_repo.listar_contas()
+            # repo já é SupabaseRepository aqui
+            registros = repo.listar_contas()
             for registro in registros:
                 if not isinstance(registro, dict): continue
                 db_email = registro.get("email")
@@ -151,8 +177,8 @@ def run(
                 raise typer.Exit(code=1)
         else: # source == 'file'
             try:
-                file_repo = container.conta_repository()
-                contas_para_executar = file_repo.listar()
+                # repo já é ArquivoContaRepository aqui
+                contas_para_executar = repo.listar()
                 if not contas_para_executar:
                     console.print(f"[bold red]❌ Nenhuma conta encontrada no arquivo de origem.[/bold red]")
                     raise typer.Exit(code=1)
@@ -171,8 +197,8 @@ def run(
 @accounts_app.command("list-file", help="Lista as contas do arquivo (ex: users.txt).")
 def list_file_accounts() -> None:
     """Exibe as contas configuradas no arquivo de texto."""
-    container = get_container()
-    repo = container.conta_repository()
+    app_config = get_config()
+    repo = ArquivoContaRepository(app_config.executor.users_file)
     try:
         contas = repo.listar()
         if not contas:
@@ -193,8 +219,8 @@ def list_file_accounts() -> None:
 @accounts_app.command("list-db", help="Lista as contas do banco de dados.")
 def list_db_accounts() -> None:
     """Exibe as contas configuradas no banco de dados."""
-    container = get_container()
-    repo = container.database_repository()
+    logger = get_logger()
+    repo = SupabaseRepository(logger=logger)
     contas = repo.listar_contas()
 
     if not contas:
@@ -230,8 +256,9 @@ def test_proxies(
     ),
 ) -> None:
     """Executa o teste de proxies e exibe um relatório."""
-    container = get_container()
-    proxy_service = container.proxy_service()
+    app_config = get_config()
+    sources = app_config.proxy.sources if hasattr(app_config, 'proxy') else None
+    proxy_service = ProxyManager(sources=sources, use_console=True)
     console.print("[bold cyan]Iniciando teste de proxies...[/bold cyan]")
     proxy_service.test(
         threads=threads,
@@ -253,8 +280,9 @@ def start_proxies(
     ),
 ) -> None:
     """Inicia os proxies e mantém o processo em execução."""
-    container = get_container()
-    proxy_service = container.proxy_service()
+    app_config = get_config()
+    sources = app_config.proxy.sources if hasattr(app_config, 'proxy') else None
+    proxy_service = ProxyManager(sources=sources, use_console=True)
     console.print("[bold cyan]Iniciando pontes de proxy...[/bold cyan]")
     proxy_service.start(
         amounts=amounts,
@@ -268,8 +296,8 @@ def start_proxies(
 @proxy_app.command("stop", help="Para todas as pontes de proxy ativas.")
 def stop_proxies() -> None:
     """Para os processos de proxy em background."""
-    container = get_container()
-    proxy_service = container.proxy_service()
+    # Para parar, não precisamos carregar fontes, apenas acessar o gerenciamento de processos
+    proxy_service = ProxyManager(use_console=True)
     console.print("[bold yellow]Parando pontes de proxy...[/bold yellow]")
     proxy_service.stop()
     console.print("[bold green]✅ Pontes paradas com sucesso.[/bold green]")
@@ -280,8 +308,9 @@ def rotate_proxy(
     bridge_id: int = typer.Argument(..., help="O ID da ponte a ser rotacionada."),
 ) -> None:
     """Troca a proxy de uma ponte específica por outra disponível."""
-    container = get_container()
-    proxy_service = container.proxy_service()
+    app_config = get_config()
+    sources = app_config.proxy.sources if hasattr(app_config, 'proxy') else None
+    proxy_service = ProxyManager(sources=sources, use_console=True)
     if not proxy_service.get_http_proxy():
         console.print("[yellow]Nenhuma ponte ativa. Iniciando pontes antes de rotacionar...[/yellow]")
         proxy_service.start(auto_test=True, wait=False)

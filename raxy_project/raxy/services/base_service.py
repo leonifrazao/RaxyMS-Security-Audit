@@ -13,7 +13,10 @@ from raxy.core.exceptions import (
     RaxyBaseException,
     wrap_exception,
 )
-from raxy.interfaces.services import ILoggingService
+from raxy.core.exceptions import (
+    RaxyBaseException,
+    wrap_exception,
+)
 
 
 class BaseService(ABC):
@@ -24,7 +27,7 @@ class BaseService(ABC):
     de erros e validação.
     """
     
-    def __init__(self, logger: Optional[ILoggingService] = None):
+    def __init__(self, logger: Optional[Any] = None):
         """
         Inicializa o serviço.
         
@@ -34,12 +37,12 @@ class BaseService(ABC):
         self._logger = logger or self._get_default_logger()
         self._initialized = False
     
-    def _get_default_logger(self) -> ILoggingService:
+    def _get_default_logger(self) -> Any:
         """
         Obtém logger padrão se nenhum foi fornecido.
         
         Returns:
-            ILoggingService: Logger padrão
+            Logger padrão
         """
         from raxy.core.logging import get_logger
         return get_logger()
@@ -117,7 +120,7 @@ class BaseService(ABC):
         )
     
     @property
-    def logger(self) -> ILoggingService:
+    def logger(self) -> Any:
         """Acesso ao logger do serviço."""
         return self._logger
     

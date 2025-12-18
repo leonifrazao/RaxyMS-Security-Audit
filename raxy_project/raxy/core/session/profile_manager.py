@@ -14,7 +14,6 @@ from raxy.domain.accounts import Conta
 from raxy.core.config import get_config
 from raxy.core.exceptions import ProfileException, wrap_exception
 from raxy.core.logging import debug_log
-from raxy.interfaces.services import IMailTmService, ILoggingService
 from raxy.services.base_service import BaseService
 
 
@@ -32,8 +31,8 @@ class ProfileManager(BaseService):
     def __init__(
         self, 
         conta: Conta,
-        mail_service: Optional[IMailTmService] = None,
-        logger: Optional[ILoggingService] = None,
+        mail_service: Optional[Any] = None,
+        logger: Optional[Any] = None,
         event_bus: Optional[Any] = None
     ):
         """

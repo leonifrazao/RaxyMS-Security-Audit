@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from dependencies import get_logging_service, get_session
-from schemas import LoggingMessageRequest, LoggingOperationResponse
-from core import BaseController
+from app.dependencies import get_logging_service, get_session
+from app.schemas import (
+    LoggingMessageRequest,
+    LoggingOperationResponse,
+)
+from app.core import BaseController
 from raxy.interfaces.services import ILoggingService
 
 

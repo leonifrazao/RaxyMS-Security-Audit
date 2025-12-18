@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from raxy.container import get_container
 
-from controllers import (
+from app.controllers import (
     accounts_router,
     auth_router,
     executor_router,
@@ -39,9 +39,32 @@ async def lifespan(app: FastAPI):
     container = get_container()
     app.state.container = container
     app.state.sessions = {}
+    
+    # Initialize Redis connection for RQ
+    config = container.config()
+    if config.events.enabled:
+        from redis import Redis
+        from rq import Queue
+        
+        app.state.redis_conn = Redis(
+            host=config.events.host,
+            port=config.events.port,
+            db=config.events.db,
+            password=config.events.password,
+        )
+        app.state.task_queue = Queue(connection=app.state.redis_conn)
+        print(f"✅ Connected to Redis at {config.events.host}:{config.events.port}")
+    else:
+        app.state.redis_conn = None
+        app.state.task_queue = None
+        print("⚠️ Redis is disabled in config. Background jobs will not work.")
+        
     try:
         yield
     finally:
+        if getattr(app.state, "redis_conn", None):
+            app.state.redis_conn.close()
+            
         try:
             proxy_service = container.proxy_service()
             proxy_service.stop()
@@ -94,7 +117,7 @@ __all__ = ["app"]
 # Adicione este bloco no final do arquivo para torná-lo executável
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",
+        "app.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True

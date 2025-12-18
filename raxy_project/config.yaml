@@ -85,8 +85,9 @@ bingflyout:
 
 # API Configuration
 api:
-  supabase_url: ""
-  supabase_key: ""
+  supabase_url: "https://ltokrcoejlbtpcqusmcy.supabase.co"
+  supabase_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0b2tyY29lamxidHBjcXVzbWN5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTUxNTAyOSwiZXhwIjoyMDc1MDkxMDI5fQ.48lIVdRvZGO_3FIQZojhFD9ZLrnsizoGZy3MIY04ed0"
+  findip_token: "6e07bd3a84164b3c982d7748f9d8af2c"
   
   # Timeouts (em segundos)
   default_timeout: 30

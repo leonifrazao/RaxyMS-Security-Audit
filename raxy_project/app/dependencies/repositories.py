@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import Request
 
-from .base import get_injector
+from .core import _get_container as get_injector
 from raxy.interfaces.repositories import (
     IContaRepository,
     IDatabaseRepository,

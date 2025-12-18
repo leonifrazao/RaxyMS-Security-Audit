@@ -13,8 +13,6 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from raxy.interfaces.services import ILoggingService
-
 from raxy.core.config import LoggerConfig, LEVEL_VALUES
 from .context import get_context, context_scope
 from .formatters import ConsoleFormatter, FileFormatter, JSONFormatter, ErrorFormatter
@@ -24,7 +22,7 @@ from .handlers import (
 )
 
 
-class RaxyLogger(ILoggingService):
+class RaxyLogger:
     """
     Implementação principal do sistema de logging.
     
@@ -272,7 +270,7 @@ class RaxyLogger(ILoggingService):
             handler.level = level_value
 
 
-class ScopedLogger(ILoggingService):
+class ScopedLogger:
     """
     Logger com contexto adicional.
     

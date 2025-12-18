@@ -288,7 +288,7 @@ class ProxyConfig:
     """
 
     enabled: bool = True
-    sources: List[str] = field(default_factory=lambda: ["webshare", "proxylist"])
+    sources: List[str] = field(default_factory=lambda: ["https://raw.githubusercontent.com/F0rc3Run/F0rc3Run/refs/heads/main/splitted-by-country/United_States.txt"])
     country: str = "US"
     use_console: bool = True
     auto_test: bool = True
@@ -410,6 +410,7 @@ class APIConfig:
     Attributes:
         supabase_url: URL do Supabase
         supabase_key: Chave de API do Supabase
+        findip_token: Token do FindIP
         default_timeout: Timeout padrão para APIs (segundos)
         rewards: Configuração da API de Rewards
         bing_suggestion: Configuração da API de Bing Suggestion
@@ -431,6 +432,7 @@ class APIConfig:
 
     supabase_url: str = ""
     supabase_key: str = ""
+    findip_token: str = ""
     default_timeout: int = 30
     rewards: Optional[RewardsAPIConfig] = None
     bing_suggestion: Optional[BingSuggestionAPIConfig] = None
@@ -815,6 +817,8 @@ class ConfigLoader:
             api["supabase_url"] = supabase_url
         if supabase_key := os.getenv("SUPABASE_KEY") or os.getenv("RAXY_SUPABASE_KEY"):
             api["supabase_key"] = supabase_key
+        if findip_token := os.getenv("FINDIP_TOKEN") or os.getenv("RAXY_FINDIP_TOKEN"):
+            api["findip_token"] = findip_token
     
     @classmethod
     def _apply_logging_env_vars(cls, data: Dict[str, Any]) -> None:

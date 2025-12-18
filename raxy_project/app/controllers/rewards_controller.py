@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from dependencies import get_rewards_data_service, get_session
-from schemas import RewardsPointsRequest, RewardsRedeemRequest, RewardsResponse
-from core import BaseController
+from app.dependencies import get_rewards_data_service, get_session
+from app.schemas import (
+    RewardsPointsRequest,
+    RewardsRedeemRequest,
+    RewardsResponse,
+)
+from app.core import BaseController
 from raxy.interfaces.services import IRewardsDataService
 
 

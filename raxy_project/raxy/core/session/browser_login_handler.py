@@ -10,7 +10,6 @@ from botasaurus.browser import Driver, Wait, browser
 from botasaurus.lang import Lang
 from botasaurus.soupify import soupify
 
-from raxy.interfaces.drivers import IBrowserDriver
 from raxy.drivers import BotasaurusDriver
 from raxy.core.network_service import NetWork
 from raxy.core.session.session_utils import (
@@ -78,8 +77,11 @@ class BrowserLoginHandler:
         proxy_usado = getattr(driver.config, 'proxy', None)
         if proxy_usado:
             registro.info(f"✅ Chrome configurado COM proxy: {proxy_usado}")
+        elif proxy_id:
+            registro.erro("⚠️ Chrome SEM proxy configurado! Abortando.")
+            raise LoginException(f"Chrome iniciou sem proxy configurado, mas proxy_id='{proxy_id}' foi fornecido.")
         else:
-            registro.aviso("⚠️ Chrome SEM proxy configurado!")
+            registro.aviso("⚠️ Chrome SEM proxy configurado! (Nenhum proxy_id fornecido)")
         
         registro.debug("Iniciando login no Rewards", proxy_id=proxy_id)
         

@@ -5,6 +5,8 @@ from .account_schemas import (
     AccountPayload,
     AccountResponse,
     AccountsResponse,
+    AccountUpdatePayload,
+    CreateAccountResponse,
 )
 from .auth_schemas import (
     AuthRequest,
@@ -54,6 +56,8 @@ __all__ = [
     "AccountPayload",
     "AccountResponse",
     "AccountsResponse",
+    "AccountUpdatePayload",
+    "CreateAccountResponse",
     # Auth
     "AuthRequest",
     "AuthResponse",

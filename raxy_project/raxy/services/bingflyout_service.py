@@ -17,7 +17,6 @@ from bs4 import BeautifulSoup
 from botasaurus.browser import Driver, Wait, browser
 from botasaurus.lang import Lang
 
-from raxy.interfaces.services import IBingFlyoutService, ILoggingService, ISessionManager
 from raxy.core.exceptions import (
     BrowserException,
     ElementNotFoundException,
@@ -116,7 +115,7 @@ class FlyoutDataExtractor:
         }
 
 
-class BingFlyoutService(BaseService, IBingFlyoutService):
+class BingFlyoutService(BaseService):
     """
     Serviço para gerenciar o flyout do Bing Rewards.
     
@@ -124,25 +123,17 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
     com o decorador @browser do botasaurus.
     """
     
-    def __init__(self, logger: Optional[ILoggingService] = None, event_bus: Optional[Any] = None):
+    def __init__(self, logger: Optional[Any] = None):
         """
         Inicializa o serviço.
         
         Args:
             logger: Serviço de logging (opcional)
-            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(logger)
         self.extractor = FlyoutDataExtractor()
-        self._event_bus = event_bus
     
-    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
-        """Publica evento no Event Bus se disponível."""
-        if self._event_bus and hasattr(self._event_bus, 'publish'):
-            try:
-                self._event_bus.publish(event_name, data)
-            except Exception:
-                pass
+
 
     @staticmethod
     @browser(**BROWSER_OPTIONS)
@@ -220,7 +211,7 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
         try:
             timeout_count = 0
             cfg = get_config().bingflyout
-            while not driver.is_element_present('div[class="onboarding_checklist_title"]', wait=cfg.timeout_short) and timeout_count < cfg.max_wait_iterations:
+            while not driver.is_element_present('#daily-streaks > div.threeOffers_header.spcBwTxt > p:nth-child(1)', wait=cfg.timeout_short) and timeout_count < cfg.max_wait_iterations:
                 driver.short_random_sleep()
                 timeout_count += 1
         except Exception:
@@ -251,7 +242,7 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
         return dados_extraidos
 
     @debug_log(log_args=False, log_result=False, log_duration=True)
-    def executar(self, sessao: ISessionManager) -> Dict[str, str]:
+    def executar(self, sessao: Any) -> Dict[str, str]:
         """
         Executa o fluxo do flyout.
         
@@ -297,12 +288,7 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
                         conta=profile
                     )
                     
-                    self._publish_event("flyout.bug_detected", {
-                        "account_id": profile,
-                        "bug_type": "DailySet_present",
-                        "details": dados.get("bug_detalhes"),
-                        "timestamp": time.time(),
-                    })
+
                     
                     return dados
                 
@@ -313,12 +299,7 @@ class BingFlyoutService(BaseService, IBingFlyoutService):
                 )
                 self.logger.sucesso("Dados extraídos do flyout com sucesso")
                 
-                self._publish_event("flyout.completed", {
-                    "account_id": profile,
-                    "user_id": dados.get("user_id"),
-                    "offer_id": dados.get("offer_id"),
-                    "timestamp": time.time(),
-                })
+
                 
                 return dados
                 

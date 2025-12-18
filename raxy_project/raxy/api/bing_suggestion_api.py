@@ -12,7 +12,6 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional, Sequence
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from raxy.interfaces.services import IBingSuggestion, ILoggingService, ISessionManager
 from raxy.core.exceptions import (
     BingAPIException,
     InvalidAPIResponseException,
@@ -96,7 +95,7 @@ class SuggestionParser:
             return url
 
 
-class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
+class BingSuggestionAPI(BaseAPIClient):
     """
     Cliente de API para sugestões do Bing.
     
@@ -106,18 +105,9 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
     
     def __init__(
         self,
-        logger: Optional[ILoggingService] = None,
+        logger: Optional[Any] = None,
         palavras_erro: Optional[Sequence[str]] = None,
-        event_bus: Optional[Any] = None
-    ):
-        """
-        Inicializa o cliente de sugestões.
-        
-        Args:
-            logger: Serviço de logging
-            palavras_erro: Palavras que indicam erro na resposta
-            event_bus: Event Bus para publicação de eventos
-        """
+    ) -> None:
         super().__init__(
             base_url=BASE_URL,
             logger=logger,
@@ -125,20 +115,11 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
         )
         
         self.parser = SuggestionParser()
-        self._event_bus = event_bus
-    
-    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
-        """Publica evento no Event Bus se disponível."""
-        if self._event_bus and hasattr(self._event_bus, 'publish'):
-            try:
-                self._event_bus.publish(event_name, data)
-            except Exception:
-                pass
 
     @debug_log(log_args=True, log_result=False, log_duration=True)
     def get_all(
         self,
-        sessao: ISessionManager,
+        sessao: Any,
         query: str,
         *,
         country: Optional[str] = None,
@@ -180,17 +161,15 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
             )
         
         # Valida resposta
-        self._validate_response(response, query)
-        
-        # Parse da resposta
         try:
-            response_data = response.json()
+            self.validate_response(response, context_info={"keyword": query})
         except Exception as e:
-            raise wrap_exception(
-                e, BingAPIException,
-                "Erro ao decodificar resposta JSON",
-                keyword=query
-            )
+            if "termo de erro" in str(e):
+                 raise BingAPIException(str(e), details={"keyword": query})
+            raise
+
+        # Parse da resposta
+        response_data = self.safe_json_parse(response)
         
         # Extrai sugestões
         suggestions = self.parser.parse_suggestions(response_data)
@@ -201,18 +180,12 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
             count=len(suggestions)
         )
         
-        self._publish_event("bing.suggestions.fetched", {
-            "keyword": query,
-            "suggestions_count": len(suggestions),
-            "timestamp": __import__('time').time(),
-        })
-        
         return suggestions
 
     @debug_log(log_args=True, log_result=True, log_duration=True)
     def get_random(
         self,
-        sessao: ISessionManager,
+        sessao: Any,
         query: str,
         *,
         country: Optional[str] = None,
@@ -278,11 +251,8 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
         Returns:
             Dict[str, Any]: Template preparado
         """
-        # Carrega template base
-        template = self.load_template(TEMPLATE_FILE)
-        
-        # Faz cópia profunda para não modificar original
-        template_copy = deepcopy(template)
+        # Carrega template base (cópia profunda)
+        template_copy = self.load_and_copy_template(TEMPLATE_FILE)
         
         # Atualiza URL com query
         if "url" in template_copy and isinstance(template_copy["url"], str):
@@ -293,37 +263,4 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
         
         return template_copy
     
-    def _validate_response(self, response: Any, keyword: str) -> None:
-        """
-        Valida a resposta da API.
-        
-        Args:
-            response: Resposta da API
-            keyword: Palavra-chave usada
-            
-        Raises:
-            InvalidAPIResponseException: Se resposta inválida
-        """
-        # Verifica se há corpo na resposta
-        text = getattr(response, "text", "")
-        if not text:
-            raise InvalidAPIResponseException(
-                "Resposta sem corpo",
-                details={
-                    "status_code": getattr(response, "status_code", None),
-                    "keyword": keyword
-                }
-            )
-        
-        # Verifica palavras de erro
-        text_lower = text.lower()
-        for error_word in self.error_words:
-            if error_word in text_lower:
-                raise BingAPIException(
-                    f"Resposta contém termo de erro: {error_word}",
-                    details={
-                        "keyword": keyword,
-                        "error_word": error_word,
-                        "preview": text[:200]
-                    }
-                )
+

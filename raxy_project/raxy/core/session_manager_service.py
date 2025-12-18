@@ -4,17 +4,17 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from raxy.domain.accounts import Conta
-from raxy.interfaces.drivers import IBrowserDriver
+from raxy.domain.proxy import Proxy
+from raxy.domain.session import SessionState
 from raxy.core.exceptions import (
     SessionException,
     ProxyRotationRequiredException,
-    ProfileException,
     LoginException,
     InvalidCredentialsException,
     ElementNotFoundException,
     wrap_exception,
+    ProfileException,
 )
-from raxy.interfaces.services import IProxyService, IMailTmService, ILoggingService, ISessionManager
 from raxy.services.base_service import BaseService
 
 # Importações dos módulos desacoplados
@@ -27,7 +27,7 @@ from raxy.core.session import (
 
 
 
-class SessionManagerService(BaseService, ISessionManager):
+class SessionManagerService(BaseService):
     """
     Serviço orquestrador de sessão.
     
@@ -42,10 +42,10 @@ class SessionManagerService(BaseService, ISessionManager):
     def __init__(
         self,
         conta: Conta,
-        proxy: dict | None = None,
-        proxy_service: Optional[IProxyService] = None,
-        mail_service: Optional[IMailTmService] = None,
-        logger: Optional[ILoggingService] = None,
+        proxy: Proxy | dict | None = None,
+        proxy_service: Optional[Any] = None,
+        mail_service: Optional[Any] = None,
+        logger: Optional[Any] = None,
         event_bus: Optional[Any] = None,
     ) -> None:
         """
@@ -53,7 +53,7 @@ class SessionManagerService(BaseService, ISessionManager):
         
         Args:
             conta: Conta a ser utilizada
-            proxy: Configuração de proxy
+            proxy: Configuração de proxy (Objeto Proxy ou dict)
             proxy_service: Serviço de proxy para rotação
             mail_service: Serviço de email temporário
             logger: Serviço de logging
@@ -70,7 +70,21 @@ class SessionManagerService(BaseService, ISessionManager):
         
         # Dados da conta e proxy
         self.conta = conta
-        self.proxy = proxy or {}
+        
+        # Normaliza proxy para objeto Proxy
+        if isinstance(proxy, dict):
+            self.proxy = Proxy(
+                id=proxy.get("id", ""),
+                url=proxy.get("url", ""),
+                type=proxy.get("type", "http"),
+                country=proxy.get("country"),
+                city=proxy.get("city")
+            )
+        elif isinstance(proxy, Proxy):
+            self.proxy = proxy
+        else:
+            self.proxy = Proxy(id="", url="")
+
         
         # Event Bus para comunicação assíncrona E state management
         self._event_bus = event_bus
@@ -78,7 +92,7 @@ class SessionManagerService(BaseService, ISessionManager):
         self._state_ttl: int = 3600  # TTL padrão de 1 hora
         
         # Estado da sessão (apenas driver local, resto no Redis)
-        self.driver: IBrowserDriver | None = None
+        self.driver: Any | None = None
         
         # Serviços externos
         self._proxy_service = proxy_service
@@ -245,7 +259,7 @@ class SessionManagerService(BaseService, ISessionManager):
         - Atualização do estado da sessão
         """
         perfil_nome = self.conta.id_perfil or self.conta.email
-        dados = {"proxy_id": self.proxy.get("id")}
+        dados = {"proxy_id": self.proxy.id}
         
         # 1. Garantir perfil e obter argumentos UA
         self.logger.info("Garantindo perfil e obtendo argumentos do User-Agent...")
@@ -271,7 +285,7 @@ class SessionManagerService(BaseService, ISessionManager):
         while tentativas > 0:
             try:
                 # 2. Executar login via BrowserLoginHandler
-                proxy_url = self.proxy.get("url") if self.proxy else None
+                proxy_url = self.proxy.url if self.proxy.is_valid else None
                 resultado = BrowserLoginHandler.executar_login(
                     profile=perfil_nome,
                     proxy=proxy_url,
@@ -315,7 +329,7 @@ class SessionManagerService(BaseService, ISessionManager):
                         e, SessionException,
                         "Falha ao iniciar sessão após múltiplas tentativas",
                         conta=self.conta.email,
-                        proxy_id=self.proxy.get("id")
+                        proxy_id=self.proxy.id
                     )
             finally:
                 tentativas -= 1
@@ -323,7 +337,7 @@ class SessionManagerService(BaseService, ISessionManager):
         if not self.driver:
             raise SessionException(
                 f"Falha ao iniciar a sessão após {config.session.max_login_attempts} tentativas.",
-                details={"conta": self.conta.email, "proxy_id": self.proxy.get("id")}
+                details={"conta": self.conta.email, "proxy_id": self.proxy.id}
             )
 
         self.logger.sucesso("Sessão iniciada com sucesso.")
@@ -338,7 +352,7 @@ class SessionManagerService(BaseService, ISessionManager):
         self._publish_event("session.started", {
             "session_id": session_id,
             "account_id": self.conta.email,
-            "proxy_id": self.proxy.get("id"),
+            "proxy_id": self.proxy.id,
             "user_agent": self.user_agent,
         })
         
@@ -346,7 +360,7 @@ class SessionManagerService(BaseService, ISessionManager):
             "account_id": self.conta.email,
             "email": self.conta.email,
             "profile_id": self.conta.id_perfil or self.conta.email,
-            "proxy_id": self.proxy.get("id"),
+            "proxy_id": self.proxy.id,
             "market": None,  # Pode ser extraído futuramente
         })
     
@@ -381,14 +395,14 @@ class SessionManagerService(BaseService, ISessionManager):
         
         if self._proxy_service:
             try:
-                self._proxy_service.rotate_proxy(self.proxy.get("id"))
+                self._proxy_service.rotate_proxy(self.proxy.id)
             except Exception as rotate_err:
                 self.logger.erro(f"Erro ao rotacionar proxy: {rotate_err}")
                 if tentativas == 1:
                     raise wrap_exception(
                         rotate_err, ProxyRotationRequiredException,
                         "Falha ao rotacionar proxy",
-                        proxy_id=self.proxy.get("id"),
+                        proxy_id=self.proxy.id,
                         attempts_left=tentativas
                     )
         else:

@@ -14,7 +14,6 @@ from typing import List, Optional, Dict, Any, Callable
 
 import requests
 
-from raxy.interfaces.services import IMailTmService, ILoggingService
 from raxy.domain.mailtm_data import Domain, Account, AuthenticatedSession, Message, MessageAddress
 from raxy.core.exceptions import (
     MailTmAPIException,
@@ -100,7 +99,7 @@ class MailTmHelper:
         )
 
 
-class MailTm(BaseAPIClient, IMailTmService):
+class MailTm(BaseAPIClient):
     """
     Cliente de API para Mail.tm.
     
@@ -108,13 +107,12 @@ class MailTm(BaseAPIClient, IMailTmService):
     e tratamento robusto de erros.
     """
     
-    def __init__(self, logger: Optional[ILoggingService] = None, event_bus: Optional[Any] = None):
+    def __init__(self, logger: Optional[Any] = None):
         """
         Inicializa o cliente Mail.tm.
         
         Args:
             logger: Serviço de logging
-            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(
             base_url=BASE_URL,
@@ -123,78 +121,23 @@ class MailTm(BaseAPIClient, IMailTmService):
         )
         
         self.helper = MailTmHelper()
-        self._event_bus = event_bus
+        self.session = requests.Session()
     
-    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
-        """Publica evento no Event Bus se disponível."""
-        if self._event_bus and hasattr(self._event_bus, 'publish'):
-            try:
-                self._event_bus.publish(event_name, data)
-            except Exception:
-                pass
 
-    def _request(self, method: str, endpoint: str, token: Optional[str] = None, **kwargs):
-        """Método central para realizar requisições HTTP com tratamento robusto de erros."""
-        url = f"{self.base_url}{endpoint}"
-        
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-            
-        try:
-            response = self.session.request(method, url, headers=headers, **kwargs)
-            response.raise_for_status()
-            if response.status_code == 204:
-                return None
-            return response.json()
-        except requests.exceptions.Timeout as e:
-            error_msg = f"Timeout ao acessar {url}"
-            self.logger.erro(error_msg)
-            raise RequestTimeoutException(
-                error_msg,
-                details={"url": url, "method": method, "endpoint": endpoint}
-            ) from e
-        except requests.exceptions.HTTPError as e:
-            status_code = e.response.status_code if e.response else None
-            error_msg = f"Erro na API: {status_code} - {e.response.text if e.response else 'Sem resposta'}"
-            self.logger.erro(f"Erro HTTP ao acessar {url}: {error_msg}")
-            raise MailTmAPIException(
-                error_msg,
-                details={"url": url, "method": method, "status_code": status_code}
-            ) from e
-        except requests.exceptions.ConnectionError as e:
-            error_msg = f"Erro de conexão ao acessar {url}"
-            self.logger.erro(error_msg)
-            raise RequestException(
-                error_msg,
-                details={"url": url, "method": method}
-            ) from e
-        except requests.exceptions.RequestException as e:
-            error_msg = f"Erro de requisição: {e}"
-            self.logger.erro(f"Erro ao acessar {url}: {e}")
-            raise wrap_exception(
-                e, RequestException,
-                error_msg,
-                url=url, method=method
-            )
+
+
 
     # --- Gerenciamento de Domínios ---
     
     def get_domains(self) -> List[Domain]:
         """Recupera a lista de domínios disponíveis com tratamento de erros."""
         self.logger.info("Buscando domínios disponíveis...")
-        try:
-            response = self._request("GET", "/domains")
-        except MailTmAPIException:
-            raise
-        except Exception as e:
-            raise wrap_exception(
-                e, MailTmAPIException,
-                "Erro ao buscar domínios"
-            )
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        
+        def _call():
+            return self._request("GET", "/domains", headers=headers)
+            
+        response = self.safe_execute(_call, MailTmAPIException, "Erro ao buscar domínios")
         
         if isinstance(response, dict) and "hydra:member" in response:
             try:
@@ -220,16 +163,12 @@ class MailTm(BaseAPIClient, IMailTmService):
         self.logger.info(f"Criando conta para o endereço: {address}")
         payload = {"address": address, "password": password}
         
-        try:
-            account_data = self._request("POST", "/accounts", json=payload)
-        except MailTmAPIException:
-            raise
-        except Exception as e:
-            raise wrap_exception(
-                e, MailTmAPIException,
-                "Erro ao criar conta",
-                address=address
-            )
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        
+        def _call():
+            return self._request("POST", "/accounts", json=payload, headers=headers)
+            
+        account_data = self.safe_execute(_call, MailTmAPIException, "Erro ao criar conta", address=address)
         
         try:
             account = Account(
@@ -260,12 +199,6 @@ class MailTm(BaseAPIClient, IMailTmService):
         
         self.logger.info(f"Conta {account.address} criada com sucesso.")
         
-        self._publish_event("mail.account.created", {
-            "address": account.address,
-            "account_id": account.id,
-            "timestamp": __import__('time').time(),
-        })
-        
         return AuthenticatedSession(account=account, token=token)
 
     def get_token(self, address: str, password: str) -> str:
@@ -273,16 +206,12 @@ class MailTm(BaseAPIClient, IMailTmService):
         self.logger.info(f"Obtendo token para {address}...")
         payload = {"address": address, "password": password}
         
-        try:
-            response = self._request("POST", "/token", json=payload)
-        except MailTmAPIException:
-            raise
-        except Exception as e:
-            raise wrap_exception(
-                e, MailTmAPIException,
-                "Erro ao obter token",
-                address=address
-            )
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        
+        def _call():
+            return self._request("POST", "/token", json=payload, headers=headers)
+            
+        response = self.safe_execute(_call, MailTmAPIException, "Erro ao obter token", address=address)
         
         token = response.get("token") if response else None
         if not token:
@@ -295,7 +224,12 @@ class MailTm(BaseAPIClient, IMailTmService):
     def get_me(self, token: str) -> Account:
         """Recupera os detalhes da conta associada a um token."""
         self.logger.info("Buscando detalhes da conta autenticada (/me)...")
-        me_data = self._request("GET", "/me", token=token)
+        headers = {
+            "Accept": "application/json", 
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        me_data = self._request("GET", "/me", headers=headers)
         return Account(id=me_data['id'], address=me_data['address'], is_disabled=me_data['isDisabled'], is_deleted=me_data['isDeleted'], created_at=me_data['createdAt'], updated_at=me_data['updatedAt'])
 
 
@@ -303,7 +237,12 @@ class MailTm(BaseAPIClient, IMailTmService):
         """Exclui a conta associada a uma sessão autenticada."""
         account_id = session.account.id
         self.logger.info(f"Excluindo a conta {account_id}...")
-        self._request("DELETE", f"/accounts/{account_id}", token=session.token)
+        headers = {
+            "Accept": "application/json", 
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {session.token}"
+        }
+        self._request("DELETE", f"/accounts/{account_id}", headers=headers)
         self.logger.info(f"Conta {session.account.address} ({account_id}) excluída com sucesso.")
 
     # --- Gerenciamento de Mensagens ---
@@ -311,7 +250,12 @@ class MailTm(BaseAPIClient, IMailTmService):
     def get_messages(self, token: str, page: int = 1) -> List[Message]:
         """Recupera uma coleção de mensagens para a conta associada a um token."""
         self.logger.info(f"Buscando mensagens na página {page}...")
-        response = self._request("GET", f"/messages?page={page}", token=token)
+        headers = {
+            "Accept": "application/json", 
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        response = self._request("GET", f"/messages?page={page}", headers=headers)
         
         messages = []
         if isinstance(response, dict) and "hydra:member" in response:
@@ -325,7 +269,12 @@ class MailTm(BaseAPIClient, IMailTmService):
     def get_message(self, token: str, message_id: str) -> Message:
         """Recupera os detalhes de uma mensagem específica pelo seu ID."""
         self.logger.info(f"Buscando detalhes da mensagem {message_id}...")
-        m = self._request("GET", f"/messages/{message_id}", token=token)
+        headers = {
+            "Accept": "application/json", 
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        m = self._request("GET", f"/messages/{message_id}", headers=headers)
         from_addr = MessageAddress(address=m['from'].get('address', ''), name=m['from'].get('name', ''))
         to_addrs = [MessageAddress(address=t.get('address', ''), name=t.get('name', '')) for t in m.get('to', [])]
         return Message(id=m['id'], account_id=m['accountId'], msgid=m['msgid'], from_address=from_addr, to=to_addrs, subject=m['subject'], intro=m['intro'], seen=m['seen'], is_deleted=m['isDeleted'], has_attachments=m.get('hasAttachments', False), size=m['size'], download_url=m.get('downloadUrl', ''), created_at=m['createdAt'], updated_at=m['updatedAt'])
@@ -335,11 +284,12 @@ class MailTm(BaseAPIClient, IMailTmService):
         """Atualiza o status de 'visto' de uma mensagem."""
         self.logger.info(f"Marcando mensagem {message_id} como {'vista' if seen else 'não vista'}...")
         payload = {"seen": seen}
-        headers_patch = {"Content-Type": "application/merge-patch+json"}
-        # O método _request lida com os headers padrão, mas podemos passar headers adicionais
-        self.session.headers.update(headers_patch)
-        response = self._request("PATCH", f"/messages/{message_id}", token=token, json=payload)
-        self.session.headers.pop("Content-Type") # Limpa para não afetar outras requisições
+        headers = {
+            "Accept": "application/json", 
+            "Content-Type": "application/merge-patch+json",
+            "Authorization": f"Bearer {token}"
+        }
+        response = self._request("PATCH", f"/messages/{message_id}", json=payload, headers=headers)
         return response
 
     # --- Métodos de Alto Nível (Helpers) ---
@@ -415,13 +365,6 @@ class MailTm(BaseAPIClient, IMailTmService):
             
             if messages:
                 self.logger.info("Mensagem recebida!")
-                
-                self._publish_event("mail.message.received", {
-                    "message_id": messages[0].id,
-                    "subject": messages[0].subject,
-                    "from_address": messages[0].from_address.address,
-                    "timestamp": __import__('time').time(),
-                })
                 
                 return messages[0]
             time.sleep(interval)

@@ -10,6 +10,8 @@ __pycache__/
 .venv
 env/
 venv/
+.lock
+.rdb
 
 # Logs e arquivos gerados em execucoes
 error_logs/

@@ -14,9 +14,6 @@ from typing import Any, Dict, Optional, Mapping, Sequence
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-from raxy.interfaces.repositories import IDatabaseRepository
-from raxy.interfaces.services import ILoggingService
-from raxy.interfaces.database import IDatabaseClient
 from raxy.core.exceptions import (
     DatabaseException,
     ValidationException,
@@ -67,7 +64,9 @@ class SupabaseConfig:
         return url, key
 
 
-class SupabaseRepository(IDatabaseRepository):
+from .base_api import BaseAPIClient
+
+class SupabaseRepository(BaseAPIClient):
     """
     Repositório de banco de dados usando Supabase.
     
@@ -82,8 +81,8 @@ class SupabaseRepository(IDatabaseRepository):
         self,
         url: Optional[str] = None,
         key: Optional[str] = None,
-        logger: Optional[ILoggingService] = None,
-        db_client: Optional[IDatabaseClient] = None
+        logger: Optional[Any] = None,
+        db_client: Optional[Any] = None
     ):
         """
         Inicializa o repositório.
@@ -94,26 +93,28 @@ class SupabaseRepository(IDatabaseRepository):
             logger: Serviço de logging
             db_client: Cliente de banco (se None, cria SupabaseDatabaseClient)
         """
-        self._logger = logger or self._get_default_logger()
         self.config = SupabaseConfig()
         
+        # Obtém credenciais se não fornecidas
+        if not url or not key:
+            try:
+                env_url, env_key = self.config.from_env()
+                url = url or env_url
+                key = key or env_key
+            except ValidationException:
+                # Se falhar e não tiver db_client, vai dar erro depois
+                pass
+
+        super().__init__(base_url=url or "https://supabase.io", logger=logger)
+        
         # Dependency Injection: recebe db_client ou cria padrão
-        if db_client is None:
-            # Obtém credenciais
-            if not url or not key:
-                url, key = self.config.from_env()
-            
+        if db_client is None and url and key:
             # Cria cliente Supabase padrão
             from raxy.database import SupabaseDatabaseClient
             db_client = SupabaseDatabaseClient(url, key)
-            self._logger.info("Cliente Supabase inicializado com sucesso")
+            self.logger.info("Cliente Supabase inicializado com sucesso")
         
         self._db_client = db_client
-    
-    def _get_default_logger(self) -> ILoggingService:
-        """Obtém logger padrão."""
-        from raxy.core.logging import get_logger
-        return get_logger()
 
     def adicionar_registro_farm(self, email: str, pontos: int) -> Optional[Dict[str, Any]]:
         """
@@ -129,13 +130,13 @@ class SupabaseRepository(IDatabaseRepository):
         # Valida entrada
         self._validate_farm_input(email, pontos)
         
-        self._logger.info(
+        self.logger.info(
             "Adicionando/atualizando registro de farm",
             email=email,
             pontos=pontos
         )
         
-        try:
+        def _call():
             # Prepara dados
             timestamp = datetime.now(timezone.utc).isoformat()
             data = {
@@ -145,29 +146,23 @@ class SupabaseRepository(IDatabaseRepository):
             }
             
             # Operação upsert usando IDatabaseClient
-            result = self._db_client.upsert(
+            return self._db_client.upsert(
                 table=self.config.TABLE_CONTAS,
                 data=data,
                 on_conflict="email"
             )
-            
-            if result:
-                self._logger.sucesso(
-                    "Registro farm atualizado",
-                    email=email,
-                    pontos=pontos
-                )
-                return result
-            else:
-                self._logger.erro("Falha ao atualizar registro")
-                return None
-                
-        except Exception as e:
-            self._logger.erro(
-                "Erro ao adicionar registro farm",
-                exception=e,
-                email=email
+
+        result = self.safe_execute(_call, DatabaseException, "Erro ao adicionar registro farm", email=email)
+        
+        if result:
+            self.logger.sucesso(
+                "Registro farm atualizado",
+                email=email,
+                pontos=pontos
             )
+            return result
+        else:
+            self.logger.erro("Falha ao atualizar registro")
             return None
     
     def consultar_conta(self, email: str) -> Optional[Dict[str, Any]]:
@@ -180,29 +175,22 @@ class SupabaseRepository(IDatabaseRepository):
         Returns:
             Optional[Dict[str, Any]]: Dados da conta ou None
         """
-        self._logger.debug(f"Consultando conta: {email}")
+        self.logger.debug(f"Consultando conta: {email}")
         
-        try:
-            # Usa IDatabaseClient
-            result = self._db_client.select_one(
+        def _call():
+            return self._db_client.select_one(
                 table=self.config.TABLE_CONTAS,
                 filters={"email": email},
                 columns="*"
             )
             
-            if result:
-                self._logger.info(f"Conta encontrada: {email}")
-                return result
-            else:
-                self._logger.info(f"Nenhuma conta encontrada: {email}")
-                return None
-                
-        except Exception as e:
-            self._logger.erro(
-                "Erro ao consultar conta",
-                exception=e,
-                email=email
-            )
+        result = self.safe_execute(_call, DatabaseException, "Erro ao consultar conta", email=email)
+            
+        if result:
+            self.logger.info(f"Conta encontrada: {email}")
+            return result
+        else:
+            self.logger.info(f"Nenhuma conta encontrada: {email}")
             return None
     
     def _validate_farm_input(self, email: str, pontos: int) -> None:
@@ -235,26 +223,19 @@ class SupabaseRepository(IDatabaseRepository):
         Returns:
             Sequence[Dict[str, Any]]: Lista de contas
         """
-        self._logger.debug("Listando todas as contas")
+        self.logger.debug("Listando todas as contas")
         
-        try:
-            # Usa IDatabaseClient
-            results = self._db_client.select(
+        def _call():
+            return self._db_client.select(
                 table=self.config.TABLE_CONTAS,
                 columns="*"
             )
             
-            if results:
-                self._logger.info(f"Total de {len(results)} conta(s) encontrada(s)")
-                return results
-            else:
-                self._logger.info("Nenhuma conta encontrada")
-                return []
-                
-        except Exception as e:
-            self._logger.erro(
-                "Erro ao listar contas",
-                exception=e,
-                details={"error": getattr(e, "error", None)}
-            )
+        results = self.safe_execute(_call, DatabaseException, "Erro ao listar contas")
+            
+        if results:
+            self.logger.info(f"Total de {len(results)} conta(s) encontrada(s)")
+            return results
+        else:
+            self.logger.info("Nenhuma conta encontrada")
             return []

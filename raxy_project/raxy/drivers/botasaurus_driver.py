@@ -9,10 +9,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 from botasaurus.browser import Driver
 
-from raxy.interfaces.drivers import IBrowserDriver
-
-
-class BotasaurusDriver(IBrowserDriver):
+class BotasaurusDriver:
     """
     Adapter para o Driver do Botasaurus.
     

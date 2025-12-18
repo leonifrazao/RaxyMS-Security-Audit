@@ -9,10 +9,7 @@ from typing import Any, Dict, Optional, Sequence
 
 from supabase import create_client, Client
 
-from raxy.interfaces.database import IDatabaseClient
-
-
-class SupabaseDatabaseClient(IDatabaseClient):
+class SupabaseDatabaseClient:
     """
     Adapter para Supabase.
     

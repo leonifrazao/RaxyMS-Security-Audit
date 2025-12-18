@@ -16,7 +16,8 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from raxy.domain import Conta, InfraServices
+from raxy.domain import Conta
+from raxy.domain.proxy import Proxy
 from raxy.core.session_manager_service import SessionManagerService
 from raxy.core.config import ExecutorConfig, ProxyConfig
 from raxy.core.exceptions import (
@@ -29,65 +30,10 @@ from raxy.core.exceptions import (
     wrap_exception,
 )
 from raxy.core.logging import debug_log
-from raxy.interfaces.services import IExecutorEmLoteService, ILoggingService
 from .base_service import BaseService
 
 
-@dataclass
-class EtapaResult:
-    """Resultado de uma etapa individual."""
-    nome: str
-    sucesso: bool
-    erro: Optional[str] = None
-    dados: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class ContaResult:
-    """Resultado detalhado do processamento de uma conta."""
-    email: str
-    sucesso_geral: bool
-    pontos_iniciais: int = 0
-    pontos_finais: int = 0
-    pontos_ganhos: int = 0
-    etapas: List[EtapaResult] = field(default_factory=list)
-    erro_fatal: Optional[str] = None
-    proxy_usado: Optional[str] = None
-    
-    def adicionar_etapa(self, nome: str, sucesso: bool, erro: Optional[str] = None, dados: Optional[Dict[str, Any]] = None) -> None:
-        """Adiciona resultado de uma etapa."""
-        self.etapas.append(EtapaResult(
-            nome=nome,
-            sucesso=sucesso,
-            erro=erro,
-            dados=dados
-        ))
-    
-    def get_resumo(self) -> Dict[str, Any]:
-        """Retorna resumo do resultado."""
-        etapas_ok = sum(1 for e in self.etapas if e.sucesso)
-        etapas_falha = len(self.etapas) - etapas_ok
-        
-        return {
-            "email": self.email,
-            "sucesso": self.sucesso_geral,
-            "pontos_iniciais": self.pontos_iniciais,
-            "pontos_finais": self.pontos_finais,
-            "pontos_ganhos": self.pontos_ganhos,
-            "etapas_ok": etapas_ok,
-            "etapas_falha": etapas_falha,
-            "total_etapas": len(self.etapas),
-            "erro_fatal": self.erro_fatal,
-            "proxy": self.proxy_usado,
-            "detalhes_etapas": [
-                {
-                    "nome": e.nome,
-                    "sucesso": e.sucesso,
-                    "erro": e.erro
-                }
-                for e in self.etapas
-            ]
-        }
+from raxy.domain.execution import ContaResult, EtapaResult
 
 
 class ExecutionStats:
@@ -134,22 +80,11 @@ class AccountProcessor:
         proxy_service,
         mail_service,
         db_repository,
-        logger: ILoggingService,
-        debug: bool = False,
-        event_bus=None
+        logger: Any,
+        debug: bool = False
     ):
         """
         Inicializa o processador com dependências específicas.
-        
-        Args:
-            rewards_service: Serviço de recompensas (IRewardsDataService)
-            bing_search_service: Serviço de busca Bing (IBingSuggestion)
-            flyout_service: Serviço de flyout (IBingFlyoutService)
-            proxy_service: Serviço de proxy (IProxyService)
-            mail_service: Serviço de email (IMailTmService)
-            db_repository: Repositório de banco de dados (IDatabaseRepository)
-            logger: Serviço de logging
-            debug: Se está em modo debug
         """
         # Dependências específicas - melhor desacoplamento
         self.rewards_service = rewards_service
@@ -160,16 +95,13 @@ class AccountProcessor:
         self.db_repository = db_repository
         self.logger = logger
         self.debug = debug
-        
-        # Event Bus (opcional)
-        self._event_bus = event_bus
     
     @debug_log(log_args=False, log_result=False, log_duration=True)
     def process(
         self,
         conta: Conta,
         acoes: Sequence[str],
-        proxy: Optional[Dict[str, str]] = None
+        proxy: Optional[Proxy] = None
     ) -> ContaResult:
         """
         Processa uma conta individual.
@@ -186,7 +118,7 @@ class AccountProcessor:
         resultado = ContaResult(
             email=conta.email,
             sucesso_geral=False,
-            proxy_usado=proxy.get("id") if proxy else None
+            proxy_usado=proxy.id if proxy else None
         )
         
         # Logger com contexto da conta
@@ -273,22 +205,21 @@ class AccountProcessor:
     def _criar_sessao(
         self,
         conta: Conta,
-        proxy: Optional[Dict[str, str]],
-        logger: ILoggingService
+        proxy: Optional[Proxy],
+        logger: Any
     ) -> SessionManagerService:
         """Cria e inicializa sessão."""
         sessao = SessionManagerService(
             conta=conta,
-            proxy=proxy or {},
+            proxy=proxy,
             proxy_service=self.proxy_service,
             mail_service=self.mail_service,
-            logger=logger,
-            event_bus=getattr(self, '_event_bus', None)
+            logger=logger
         )
         sessao.start()
         return sessao
     
-    def _obter_pontos(self, sessao: SessionManagerService, logger: ILoggingService) -> int:
+    def _obter_pontos(self, sessao: SessionManagerService, logger: Any) -> int:
         """Obtém pontos da conta."""
         try:
             pontos = self.rewards_service.obter_pontos(sessao)
@@ -300,7 +231,7 @@ class AccountProcessor:
         self,
         acao: str,
         sessao: SessionManagerService,
-        logger: ILoggingService
+        logger: Any
     ) -> tuple[bool, Optional[str]]:
         """Executa uma ação específica e retorna resultado.
         
@@ -331,7 +262,7 @@ class AccountProcessor:
         self,
         email: str,
         pontos: int,
-        logger: ILoggingService
+        logger: Any
     ) -> None:
         """Salva registro no banco de dados."""
         try:
@@ -341,7 +272,7 @@ class AccountProcessor:
             pass
 
 
-class ExecutorEmLote(BaseService, IExecutorEmLoteService):
+class ExecutorEmLote(BaseService):
     """
     Executor de fluxos em lote com processamento paralelo.
     
@@ -351,51 +282,59 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
     
     def __init__(
         self,
-        services: InfraServices,
+        rewards_service: Any,
+        bing_search_service: Any,
+        bing_flyout_service: Any,
+        proxy_manager: Any,
+        mail_tm_service: Any,
+        conta_repository: Any,
+        db_repository: Any,
         config: Optional[ExecutorConfig] = None,
         proxy_config: Optional[ProxyConfig] = None,
-        logger: Optional[ILoggingService] = None,
-        event_bus=None
+        logger: Optional[Any] = None
     ) -> None:
         """
         Inicializa o executor.
         
         Args:
-            services: Serviços de infraestrutura
+            rewards_service: Serviço de rewards
+            bing_search_service: Serviço de busca
+            bing_flyout_service: Serviço de flyout
+            proxy_manager: Gerenciador de proxies
+            mail_tm_service: Serviço de email
+            conta_repository: Repositório de contas
+            db_repository: Repositório de banco de dados
             config: Configuração do executor
             proxy_config: Configuração de proxy
             logger: Serviço de logging
-            event_bus: Event Bus para publicação de eventos
         """
         super().__init__(logger)
         self._config = config or ExecutorConfig()
         self._proxy_config = proxy_config or ProxyConfig()
-        self._services = services
         
-        # Event Bus
-        self._event_bus = event_bus
+        # Dependências diretas
+        self.rewards_service = rewards_service
+        self.bing_search_service = bing_search_service
+        self.bing_flyout_service = bing_flyout_service
+        self.proxy_manager = proxy_manager
+        self.mail_tm_service = mail_tm_service
+        self.conta_repository = conta_repository
+        self.db_repository = db_repository
         
         # Injeção de dependências específicas (melhor desacoplamento)
         self._processor = AccountProcessor(
-            rewards_service=services.rewards_data,
-            bing_search_service=services.bing_search,
-            flyout_service=services.bing_flyout_service,
-            proxy_service=services.proxy_manager,
-            mail_service=services.mail_tm_service,
-            db_repository=services.db_repository,
+            rewards_service=rewards_service,
+            bing_search_service=bing_search_service,
+            flyout_service=bing_flyout_service,
+            proxy_service=proxy_manager,
+            mail_service=mail_tm_service,
+            db_repository=db_repository,
             logger=self.logger,
-            debug=self._config.debug,
-            event_bus=event_bus
+            debug=self._config.debug
         )
         self._stats = ExecutionStats()
     
-    def _publish_event(self, event_name: str, data: Dict[str, Any]) -> None:
-        """Publica evento no Event Bus se disponível."""
-        if self._event_bus and hasattr(self._event_bus, 'publish'):
-            try:
-                self._event_bus.publish(event_name, data)
-            except Exception:
-                pass
+
 
     @debug_log(log_args=False, log_result=False, log_duration=True)
     def executar(
@@ -416,17 +355,7 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         Raises:
             ExecutionException: Se erro crítico na execução
         """
-        # Inicia Event Bus se disponível
-        event_bus_iniciado = False
-        if self._event_bus:
-            try:
-                if not getattr(self._event_bus, '_running', False):
-                    self.logger.info("Iniciando Event Bus (Redis) para estado distribuído...")
-                    self._event_bus.start()
-                    event_bus_iniciado = True
-                    self.logger.sucesso("Event Bus iniciado com sucesso")
-            except Exception as e:
-                self.logger.aviso(f"Não foi possível iniciar Event Bus: {e}. Continuando sem estado distribuído.")
+
         
         try:
             with self.logger.etapa("Execução em Lote"):
@@ -445,6 +374,9 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
                 # Prepara proxies se necessário
                 proxies = self._preparar_proxies() if self._proxy_config.enabled else []
                 
+                if self._proxy_config.enabled and not proxies:
+                    raise ExecutionException("Nenhum proxy disponível para execução. Verifique a configuração e a disponibilidade dos proxies.")
+
                 # Executa processamento paralelo
                 self._processar_paralelo(contas_proc, acoes_norm, proxies)
                 
@@ -452,27 +384,15 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
                 resumo = self._stats.get_summary()
                 self._log_resumo(resumo)
                 
-                # Publica evento de execução completa
-                self._publish_event("executor.batch_completed", {
-                    "total_accounts": resumo["total"],
-                    "success_count": resumo["sucesso"],
-                    "failed_count": resumo["falha"],
-                    "total_points": resumo["pontos_totais"],
-                    "success_rate": resumo["taxa_sucesso"],
-                    "timestamp": __import__('time').time(),
-                })
+
                 
                 return resumo
         
-        finally:
-            # Para Event Bus (Redis) se foi iniciado por este executor
-            if event_bus_iniciado and self._event_bus and hasattr(self._event_bus, 'stop'):
-                try:
-                    self.logger.info("Parando Event Bus (Redis)...")
-                    self._event_bus.stop()
-                    self.logger.sucesso("Event Bus parado com sucesso")
-                except Exception as e:
-                    self.logger.aviso(f"Erro ao parar Event Bus: {e}")
+        except Exception as e:
+            self.logger.erro(f"Erro na execução em lote: {e}")
+            raise wrap_exception(e, ExecutionException, "Erro crítico na execução em lote")
+        
+
     
     def _preparar_acoes(self, acoes: Optional[Iterable[str]]) -> List[str]:
         """
@@ -504,32 +424,45 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
             if contas is not None:
                 return list(contas)
             
-            return self._services.conta_repository.listar()
+            return self.conta_repository.listar()
         except Exception as e:
             self.handle_error(e, {"context": "carregamento de contas"})
     
-    def _preparar_proxies(self) -> List[Dict[str, str]]:
+    def _preparar_proxies(self) -> List[Proxy]:
         """
         Prepara proxies para uso.
         
         Returns:
-            List[Dict[str, str]]: Lista de proxies
+            List[Proxy]: Lista de proxies
         """
         try:
-            proxies = self._services.proxy_manager.start(
+            proxies_dicts = self.proxy_manager.start(
                 auto_test=self._proxy_config.auto_test,
                 threads=self._config.max_workers,
+                country=self._proxy_config.country,
                 find_first=20
             )
-            return proxies
+            
+            # Converte para objetos Proxy
+            return [
+                Proxy(
+                    id=p.get("id", ""),
+                    url=p.get("url", ""),
+                    type=p.get("type", "http"),
+                    country=p.get("country"),
+                    city=p.get("city")
+                )
+                for p in proxies_dicts
+            ]
         except Exception as e:
-            return []
+            self.logger.erro(f"Erro ao preparar proxies: {e}")
+            raise
     
     def _processar_paralelo(
         self,
         contas: List[Conta],
         acoes: List[str],
-        proxies: List[Dict[str, str]]
+        proxies: List[Proxy]
     ) -> None:
         """
         Processa contas em paralelo.
@@ -569,15 +502,7 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
                     resultado = futuro.result()
                     self._stats.add_result(resultado)
                     
-                    # Publica evento de conta processada
-                    if resultado.sucesso_geral:
-                        self._publish_event("executor.account_completed", {
-                            "account_id": conta.email,
-                            "points_earned": resultado.pontos_ganhos,
-                            "points_total": resultado.pontos_finais,
-                            "tasks_completed": sum(1 for e in resultado.etapas if e.sucesso),
-                            "timestamp": __import__('time').time(),
-                        })
+
                         
                 except Exception as e:
                     # Cria resultado de erro
@@ -592,7 +517,7 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         self,
         conta: Conta,
         acoes: List[str],
-        proxy: Optional[Dict[str, str]]
+        proxy: Optional[Proxy]
     ) -> ContaResult:
         """
         Wrapper para processar conta com tratamento de erros.
@@ -612,7 +537,7 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
                 email=conta.email,
                 sucesso_geral=False,
                 erro_fatal=f"Erro no wrapper: {str(e)}",
-                proxy_usado=proxy.get("id") if proxy else None
+                proxy_usado=proxy.id if proxy else None
             )
     
     def _log_resumo(self, resumo: Dict[str, Any]) -> None:

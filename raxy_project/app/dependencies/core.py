@@ -92,3 +92,11 @@ def delete_session(request: Request, session_id: str) -> None:
                 session_object.close()
             except Exception:
                 pass # Ignora erros ao fechar a sessão
+
+
+def get_task_queue(request: Request):
+    """Retorna a fila de tarefas do RQ."""
+    queue = getattr(request.app.state, "task_queue", None)
+    if queue is None:
+        raise HTTPException(status_code=503, detail="Sistema de filas indisponível (Redis desabilitado?)")
+    return queue

@@ -10,6 +10,7 @@ packages = [{include = "raxy"}]
 python = "^3.10"
 botasaurus = "*"
 rich = "*"
+python-dotenv = "*"
 supabase = "*"
 random-user-agent = "*"
 flask = "*"
@@ -17,14 +18,15 @@ fastapi = "*"
 uvicorn = {extras = ["standard"], version = "*"}
 typer = {extras = ["all"], version = "*"}
 loguru = "*"
-dependency-injector = "*"
+
 pyyaml = "*"
 httpx = "*"
-python-dotenv = "*"
+
 urllib3 = "*"
 redis = "*"
 requests = "*"
-selenium = "*"
+
+rq = "*"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request
 
-from .base import get_session_store
+from .core import _ensure_session_store as get_session_store
 from raxy.core.session_manager_service import SessionManagerService
 
 

@@ -4,15 +4,22 @@ from __future__ import annotations
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from dependencies import (
+from app.dependencies import (
+    get_account_repository,
+    get_session,
+    get_session_store,
     delete_session,
     get_logging_service,
-    get_session_store,
     get_proxy_service,
     get_mailtm_service,
 )
-from schemas import AuthRequest, AuthResponse, LoggingOperationResponse, SessionCloseRequest
-from core import BaseController
+from app.schemas import (
+    AuthRequest,
+    AuthResponse,
+    SessionCloseRequest,
+    LoggingOperationResponse,
+)
+from app.core import BaseController
 from raxy.domain import Conta
 from raxy.interfaces.services import ILoggingService, IProxyService, IMailTmService
 from raxy.core.session_manager_service import SessionManagerService, ProxyRotationRequiredException

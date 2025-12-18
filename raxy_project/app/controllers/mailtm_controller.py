@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from dependencies import get_mailtm_service
-from schemas import (
+from app.dependencies import get_mailtm_service
+from app.schemas import (
     MailTmCreateAccountRequest,
     MailTmCreateAccountResponse,
     MailTmGetMessagesResponse,
     MailTmGetMessageResponse,
     MailTmGetDomainsResponse,
 )
-from core import BaseController
+from app.core import BaseController
 from raxy.interfaces.services import IMailTmService
 
 

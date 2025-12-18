@@ -1,3 +1,3 @@
-from .manager import Proxy
+from .manager import ProxyManager
 
-__all__ = ["Proxy"]
+__all__ = ["ProxyManager"]
