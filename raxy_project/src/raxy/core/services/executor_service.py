@@ -136,8 +136,8 @@ class ExecutorEmLote:
             # Obter pontos iniciais
             try:
                 resultado.pontos_iniciais = rewards_api.obter_pontos()
-            except:
-                pass
+            except Exception as e:
+                logger.aviso(f"Não foi possível obter pontos iniciais: {e}")
             
             # Executar ações
             for acao in acoes:
@@ -154,8 +154,8 @@ class ExecutorEmLote:
             try:
                 resultado.pontos_finais = rewards_api.obter_pontos()
                 resultado.pontos_ganhos = resultado.pontos_finais - resultado.pontos_iniciais
-            except:
-                pass
+            except Exception as e:
+                logger.aviso(f"Não foi possível obter pontos finais: {e}")
             
             resultado.sucesso_geral = True
             logger.sucesso(f"+{resultado.pontos_ganhos} pontos")
@@ -168,8 +168,8 @@ class ExecutorEmLote:
             if sessao:
                 try:
                     sessao.close()
-                except:
-                    pass
+                except Exception as e:
+                    logger.aviso(f"Erro ao fechar sessão: {e}")
         
         return resultado
     

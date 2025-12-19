@@ -1,39 +1,41 @@
-[tool.poetry]
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
 name = "raxy-logic"
 version = "2.0.0"
 description = "Biblioteca com a lógica de negócio principal do Raxy - Clean Architecture."
-authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-packages = [{include = "raxy", from = "src"}]
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "botasaurus",
+    "rich",
+    "python-dotenv",
+    "supabase",
+    "random-user-agent",
+    "flask",
+    "fastapi",
+    "uvicorn[standard]",
+    "typer[all]",
+    "loguru",
+    "pyyaml",
+    "httpx",
+    "urllib3",
+    "redis",
+    "requests",
+    "rq",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-botasaurus = "*"
-rich = "*"
-python-dotenv = "*"
-supabase = "*"
-random-user-agent = "*"
-flask = "*"
-fastapi = "*"
-uvicorn = {extras = ["standard"], version = "*"}
-typer = {extras = ["all"], version = "*"}
-loguru = "*"
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
 
-pyyaml = "*"
-httpx = "*"
-
-urllib3 = "*"
-redis = "*"
-requests = "*"
-
-rq = "*"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["raxy*"]
 
 [tool.ruff]
 line-length = 120

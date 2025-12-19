@@ -13,7 +13,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from raxy.infrastructure.config.config import LoggerConfig, LEVEL_VALUES
+from raxy.config import LoggerConfig
+from raxy.config.constants import LEVEL_VALUES
 from .context import get_context, context_scope
 from .formatters import ConsoleFormatter, FileFormatter, JSONFormatter, ErrorFormatter
 from .handlers import (

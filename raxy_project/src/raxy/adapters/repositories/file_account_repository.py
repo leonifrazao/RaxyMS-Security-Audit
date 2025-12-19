@@ -1,136 +1,55 @@
-"""Implementações de repositório baseadas em arquivos texto."""
+"""
+Implementação de repositório de contas em arquivo.
+"""
 
-from __future__ import annotations
-
-import re
 from pathlib import Path
-from typing import Iterable, Sequence, Optional, Any
+from typing import Sequence, Optional
+import re
 
-from raxy.core.domain import Conta
-from raxy.core.exceptions import (
-    FileRepositoryException,
-    DataValidationException,
-    DataNotFoundException,
-    wrap_exception,
-)
+from raxy.core.interfaces import AccountRepository
+from raxy.core.models import Conta
+from raxy.core.exceptions import DataNotFoundException
+from raxy.infrastructure.logging import get_logger
 
-
-def carregar_contas(
-    caminho_arquivo: str | Path,
-    filesystem: Optional[Any] = None
-) -> list[Conta]:
-    """
-    Carrega contas de um arquivo com tratamento robusto de erros.
+class FileAccountRepository(AccountRepository):
+    """Repositório que lê contas de um arquivo de texto."""
     
-    Args:
-        caminho_arquivo: Caminho do arquivo
-        filesystem: Sistema de arquivos (se None, usa LocalFileSystem)
-    """
-    # Usa LocalFileSystem se não fornecido
-    if filesystem is None:
-        from raxy.infrastructure.local_filesystem import LocalFileSystem
-        filesystem = LocalFileSystem()
-    
-    caminho = str(caminho_arquivo)
-    
-    if not filesystem.exists(caminho):
-        raise DataNotFoundException(
-            f"Arquivo não encontrado: {caminho}",
-            details={"caminho": caminho}
-        )
+    def __init__(self, file_path: str | Path):
+        self.file_path = Path(file_path)
+        self.logger = get_logger()
 
-    try:
-        conteudo = filesystem.read_text(caminho, encoding="utf-8")
-    except UnicodeDecodeError as e:
-        raise wrap_exception(
-            e, FileRepositoryException,
-            "Erro de codificação ao ler arquivo",
-            caminho=caminho
-        )
-    except Exception as e:
-        raise wrap_exception(
-            e, FileRepositoryException,
-            "Erro ao ler arquivo de contas",
-            caminho=caminho
-        )
-
-    contas: list[Conta] = []
-    for numero_linha, linha in enumerate(conteudo.splitlines(), start=1):
+    def listar(self) -> Sequence[Conta]:
+        """Lê contas do arquivo formatado user:pass."""
+        if not self.file_path.exists():
+            self.logger.aviso(f"Arquivo de contas não encontrado: {self.file_path}")
+            return []
+            
+        contas = []
         try:
-            linha = linha.strip()
-            if not linha or linha.startswith("#") or ":" not in linha:
-                continue
-
-            email, senha = (parte.strip() for parte in linha.split(":", 1))
-            if not email or not senha:
-                continue
-
-            # Validação básica de email
-            if "@" not in email:
-                raise DataValidationException(
-                    f"Email inválido na linha {numero_linha}",
-                    details={"email": email, "linha": numero_linha}
-                )
-
-            base = email.lower().replace("@", "_at_")
-            id_perfil = re.sub(r"[^a-z0-9._-]+", "_", base).strip("_") or "perfil"
-            contas.append(Conta(email=email, senha=senha, id_perfil=id_perfil))
-        except DataValidationException:
-            # Re-lança exceções de validação
-            raise
+            content = self.file_path.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                line = line.strip()
+                if not line or ":" not in line or line.startswith("#"):
+                    continue
+                
+                parts = line.split(":", 1)
+                if len(parts) == 2:
+                    email, senha = parts[0].strip(), parts[1].strip()
+                    # Gera ID de perfil seguro
+                    safe_id = re.sub(r"[^a-z0-9]", "_", email.lower())
+                    contas.append(Conta(email=email, senha=senha, id_perfil=safe_id))
+                    
+            self.logger.debug(f"Carregadas {len(contas)} contas de {self.file_path}")
+            return contas
+            
         except Exception as e:
-            # Ignora linhas problemáticas mas continua processando
-            pass
+            self.logger.erro(f"Erro ao ler arquivo de contas: {e}")
+            return []
 
-    return contas
-
-
-class ArquivoContaRepository:
-    """Repositório de contas baseado em arquivo."""
-    
-    def __init__(self, caminho_arquivo: str | Path, filesystem: Optional[Any] = None):
-        self.caminho_arquivo = caminho_arquivo
-        self.filesystem = filesystem
-        
-    def listar(self) -> list[Conta]:
-        """Lista todas as contas do arquivo."""
-        return carregar_contas(self.caminho_arquivo, self.filesystem)
-
-
-class HistoricoPontuacaoMemoriaRepository:
-    """Implementa o registro de pontos em memória (útil para testes) com tratamento de erros."""
-
-    def __init__(self) -> None:
-        try:
-            self._ultimos: dict[str, int] = {}
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao inicializar repositório de histórico"
-            )
-
-    def registrar_pontos(self, conta: Conta, pontos: int) -> None:
-        """Registra pontos com validação."""
-        try:
-            if not isinstance(pontos, int) or pontos < 0:
-                raise DataValidationException(
-                    "Pontos devem ser um inteiro não-negativo",
-                    details={"pontos": pontos, "tipo": type(pontos).__name__}
-                )
-            self._ultimos[conta.email] = pontos
-        except DataValidationException:
-            raise
-        except Exception as e:
-            raise wrap_exception(
-                e, FileRepositoryException,
-                "Erro ao registrar pontos",
-                email=conta.email, pontos=pontos
-            )
-
-    def obter_ultimo_total(self, conta: Conta) -> int | None:
-        """Obtém o último total com tratamento de erros."""
-        try:
-            return self._ultimos.get(conta.email)
-        except Exception as e:
-            # Retorna None em caso de erro
-            return None
+    def atualizar_pontos(self, email: str, pontos: int) -> bool:
+        """
+        Em arquivo texto simples, atualizar pontos é complexo/ineficiente.
+        Geralmente apenas logamos ou usamos outro arquivo de 'state'.
+        """
+        self.logger.info(f"Persistência de pontos não implementada para arquivo texto ({email}: {pontos})")
+        return True

@@ -1,0 +1,13 @@
+botasaurus
+rich
+python-dotenv
+supabase
+random-user-agent
+fastapi
+uvicorn
+typer
+loguru
+pyyaml
+httpx
+urllib3
+rq

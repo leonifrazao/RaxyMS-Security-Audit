@@ -5,7 +5,7 @@ Este módulo fornece um sistema de logging completo e extensível,
 dividido em componentes especializados seguindo o princípio SOLID.
 """
 
-from raxy.infrastructure.config.config import LoggerConfig
+from raxy.config import LoggerConfig
 from .logger import RaxyLogger
 from .context import LogContext
 from .formatters import LogFormatter
