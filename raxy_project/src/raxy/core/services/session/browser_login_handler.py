@@ -141,22 +141,15 @@ class BrowserLoginHandler:
         elif market == expected_country:
             registro.sucesso(f"✅ Market correto: {expected_country.upper()}")
         
-        # Coleta cookies do domínio de pesquisa
+        # Coleta cookies de ambos os domínios
         session_cfg = get_config().session
-        registro.info("Coletando cookies do domínio de pesquisa...")
-        driver.google_get(session_cfg.bing_url)
-        driver.short_random_sleep()
-        
-        if driver.is_element_present(session_cfg.selectors["id_s_span"], wait=Wait.VERY_LONG):
-            registro.info("Conta logada com sucesso no bing")
-        else:
-            registro.aviso("Conta não logada no bing")
+        cookies = BrowserLoginHandler._coletar_cookies_hibridos(driver, session_cfg)
         
         token = extract_request_verification_token(html)
         # Wrap driver nativo em BotasaurusDriver (Adapter Pattern)
         wrapped_driver = BotasaurusDriver(driver)
         return {
-            "cookies": driver.get_cookies_dict(),
+            "cookies": cookies,
             "ua": driver.profile.get("UA"),
             "token": token,
             "driver": wrapped_driver,
@@ -365,6 +358,9 @@ class BrowserLoginHandler:
         elif market == expected_country:
             registro.sucesso(f"✅ Market correto: {expected_country.upper()}")
         
+        # Coleta cookies do Rewards (onde já estamos)
+        cookies_rewards = driver.get_cookies_dict()
+        
         # Coleta cookies do domínio de pesquisa
         session_cfg = get_config().session
         registro.info("Coletando cookies do domínio de pesquisa...")
@@ -396,12 +392,42 @@ class BrowserLoginHandler:
         if driver.is_element_present(session_cfg.selectors["card_0"], wait=Wait.LONG):
             registro.info("Cartões de metas detectados no flyout.")
         
+        # Coleta cookies finais (já estamos no bing/flyout)
+        cookies_bing = driver.get_cookies_dict()
+        
+        # Mescla cookies
+        merged_cookies = cookies_rewards.copy()
+        merged_cookies.update(cookies_bing)
+        
         token = extract_request_verification_token(html)
         # Wrap driver nativo em BotasaurusDriver (Adapter Pattern)
         wrapped_driver = BotasaurusDriver(driver)
         return {
-            "cookies": driver.get_cookies_dict(),
+            "cookies": merged_cookies,
             "ua": driver.profile.get("UA"),
             "token": token,
             "driver": wrapped_driver,
         }
+    
+    @staticmethod
+    def _coletar_cookies_hibridos(driver: Driver, session_cfg: Any) -> dict[str, str]:
+        """Coleta e mescla cookies do Rewards e do Bing."""
+        # 1. Cookies do Rewards (onde já estamos)
+        cookies_rewards = driver.get_cookies_dict()
+        
+        # 2. Navega e coleta do Bing
+        get_logger().info("Coletando cookies do domínio de pesquisa...")
+        driver.google_get(session_cfg.bing_url)
+        driver.short_random_sleep()
+        
+        if driver.is_element_present(session_cfg.selectors["id_s_span"], wait=Wait.VERY_LONG):
+            get_logger().info("Conta logada com sucesso no bing")
+        else:
+            get_logger().aviso("Conta não logada no bing")
+            
+        cookies_bing = driver.get_cookies_dict()
+        
+        # 3. Mescla (Bing tem prioridade se houver conflito, mas geralmente complementam)
+        merged = cookies_rewards.copy()
+        merged.update(cookies_bing)
+        return merged

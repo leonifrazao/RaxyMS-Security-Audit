@@ -115,7 +115,7 @@ class RewardsDataAPI(BaseAPIClient):
             base_url=base_url,
             session=session,
             logger=logger,
-            error_words=palavras_erro or config.api.rewards.error_words
+            error_words=palavras_erro
         )
         
         self.parser = RewardsDataParser()

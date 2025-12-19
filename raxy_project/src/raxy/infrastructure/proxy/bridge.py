@@ -184,7 +184,7 @@ class XrayBridgeManager:
         name: str
     ) -> Tuple[subprocess.Popen[bytes], Path]:
         """
-        Inicializa o Xray com captura de stdout/stderr.
+        Inicializa o Xray redirecionando logs para arquivo.
         
         Args:
             xray_bin: Caminho para o binário Xray
@@ -200,12 +200,42 @@ class XrayBridgeManager:
             json.dumps(cfg, ensure_ascii=False, indent=2), 
             encoding="utf-8"
         )
+        
+        log_path = tmpdir / "access.log"
+        error_log_path = tmpdir / "error.log"
+        
+        stdout_file = open(log_path, "w")
+        stderr_file = open(error_log_path, "w")
 
         proc = subprocess.Popen(
             [xray_bin, "-config", str(cfg_path)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=stdout_file,
+            stderr=stderr_file,
+            cwd=str(tmpdir) # Importante para xray encontrar assets se precisar
         )
+        
+        # Verifica se morreu imediatamente
+        try:
+            exit_code = proc.wait(timeout=0.5)
+            # Se retornou, morreu
+            stderr_file.flush()
+            stderr_file.close() # Fecha escrita antes de ler
+            stdout_file.close()
+            
+            with open(error_log_path, "r") as f:
+                error_msg = f.read()
+            raise RuntimeError(f"Xray morreu imediatamente (code {exit_code}): {error_msg}")
+        except subprocess.TimeoutExpired:
+            # Processo ainda rodando, tudo ok
+            pass
+            
+        # Fecha handles no processo pai (filho mantém aberto)
+        try:
+            stdout_file.close()
+            stderr_file.close()
+        except Exception:
+            pass
+            
         return proc, cfg_path
     
     def create_bridge(

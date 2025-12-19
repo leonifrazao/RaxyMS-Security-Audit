@@ -98,7 +98,7 @@ class BingSuggestionAPI(BaseAPIClient):
         super().__init__(
             base_url=base_url,
             logger=logger,
-            error_words=palavras_erro or config.api.bing_suggestion.error_words
+            error_words=palavras_erro
         )
         
         self.parser = SuggestionParser()

@@ -173,7 +173,12 @@ class BaseAPIClient:
                 return None
             
             if hasattr(response, 'json'):
-                return response.json()
+                try:
+                    return response.json()
+                except Exception:
+                    # Se falhar o parse (ex: HTML ou vazio), retorna o objeto response original
+                    # O chamador deve verificar o tipo
+                    return response
             
             return response
             
