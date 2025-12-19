@@ -413,18 +413,20 @@ class BrowserLoginHandler:
     def _coletar_cookies_hibridos(driver: Driver, session_cfg: Any) -> dict[str, str]:
         """Coleta e mescla cookies do Rewards e do Bing."""
         # 1. Cookies do Rewards (onde já estamos)
+        driver.short_random_sleep() # Garante persistência
         cookies_rewards = driver.get_cookies_dict()
         
         # 2. Navega e coleta do Bing
         get_logger().info("Coletando cookies do domínio de pesquisa...")
         driver.google_get(session_cfg.bing_url)
-        driver.short_random_sleep()
+        driver.short_random_sleep() # Garante carregamento
         
         if driver.is_element_present(session_cfg.selectors["id_s_span"], wait=Wait.VERY_LONG):
             get_logger().info("Conta logada com sucesso no bing")
         else:
             get_logger().aviso("Conta não logada no bing")
-            
+        
+        driver.short_random_sleep() # Garante persistência
         cookies_bing = driver.get_cookies_dict()
         
         # 3. Mescla (Bing tem prioridade se houver conflito, mas geralmente complementam)

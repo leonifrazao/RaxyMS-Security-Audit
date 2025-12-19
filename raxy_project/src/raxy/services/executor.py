@@ -119,6 +119,9 @@ class BatchExecutor:
             res.adicionar_etapa("login", True)
             if sessao.proxy:
                 res.proxy_usado = sessao.proxy.url
+            
+            cookie_count = len(sessao.cookies) if sessao.cookies else 0
+            logger.debug(f"Sessão pós-login possui {cookie_count} cookies")
 
             # --- 2. Setup APIs ---
             # Aqui idealmente teríamos uma Factory ou Injeção de Dependência

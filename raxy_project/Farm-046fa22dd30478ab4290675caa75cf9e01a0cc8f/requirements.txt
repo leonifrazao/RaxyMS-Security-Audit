@@ -1,0 +1,15 @@
+botasaurus
+rich
+supabase
+random-user-agent
+flask
+fastapi
+uvicorn[standard]
+typer[all]
+loguru
+dependency-injector
+pyyaml
+httpx
+python-dotenv
+urllib3
+redis

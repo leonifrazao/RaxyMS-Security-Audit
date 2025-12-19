@@ -118,6 +118,9 @@ class RewardsDataAPI(BaseAPIClient):
             error_words=palavras_erro
         )
         
+        cookie_count = len(self.cookies)
+        self.logger.debug(f"RewardsDataAPI inicializada com {cookie_count} cookies")
+        
         self.parser = RewardsDataParser()
         self._token_antifalsificacao: Optional[str] = None
         
