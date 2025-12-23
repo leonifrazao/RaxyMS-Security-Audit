@@ -19,9 +19,9 @@ from rich.panel import Panel
 from rich import box
 
 from raxy.services.base_service import BaseService
-from raxy.interfaces.services import ILoggingService
+from raxy.interfaces.services import ILoggingService, IDashboardService
 
-class LiveDashboardService(BaseService):
+class LiveDashboardService(BaseService, IDashboardService):
     """
     Serviço que gerencia o dashboard em tempo real no terminal.
     """

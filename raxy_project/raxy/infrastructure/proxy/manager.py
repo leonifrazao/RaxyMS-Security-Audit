@@ -332,7 +332,7 @@ class Proxy(IProxyService):
         limit_reached = stop_on_success is not None and stop_on_success > 0
         if limit_reached and success_count >= stop_on_success:
             if self.console:
-                self.console.print(f"\\n[bold green]Encontradas {success_count} proxies válidas no cache, atingindo o limite de {stop_on_success}. Testes adicionais ignorados.[/]")
+                self.console.print(f"[bold green]Encontradas {success_count} proxies válidas no cache, atingindo o limite de {stop_on_success}. Testes adicionais ignorados.[/]")
             for idx, raw, outbound in to_test:
                 all_results.append(make_base_entry(idx, raw, outbound))
             all_results.sort(key=lambda x: x.index)
@@ -393,7 +393,7 @@ class Proxy(IProxyService):
                 return entry
 
             if self.console:
-                self.console.print(f"\\n[yellow]Iniciando teste de {len(to_test)} proxies com até {threads} workers...[/]")
+                self.console.print(f"[yellow]Iniciando teste de {len(to_test)} proxies com até {threads} workers...[/]")
             
             with ThreadPoolExecutor(max_workers=threads) as executor:
                 futures = {executor.submit(worker, idx, raw, outbound) for idx, raw, outbound in to_test}
@@ -413,7 +413,7 @@ class Proxy(IProxyService):
                         
                         if limit_reached and success_count >= stop_on_success:
                             if self.console:
-                                self.console.print(f"\\n[bold green]Limite de {stop_on_success} proxies encontradas. Finalizando testes.[/]")
+                                self.console.print(f"[bold green]Limite de {stop_on_success} proxies encontradas. Finalizando testes.[/]")
                             for f in futures:
                                 if not f.done():
                                     f.cancel()
@@ -761,12 +761,12 @@ class Proxy(IProxyService):
                 )
                 if not alive:
                     if self.console:
-                        self.console.print("\n[yellow]Todos os processos xray finalizaram.[/yellow]")
+                        self.console.print("[yellow]Todos os processos xray finalizaram.[/yellow]")
                     break
                 time.sleep(0.5)
         except KeyboardInterrupt:
             if self.console:
-                self.console.print("\n[yellow]Interrupção recebida, encerrando pontes...[/yellow]")
+                self.console.print("[yellow]Interrupção recebida, encerrando pontes...[/yellow]")
         finally:
             self.stop()
 

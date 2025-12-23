@@ -8,6 +8,7 @@ do sistema de logging (handlers, formatadores, contexto, etc).
 from __future__ import annotations
 
 import sys
+import time
 import traceback
 from contextlib import contextmanager
 from datetime import datetime
@@ -61,13 +62,7 @@ class RaxyLogger(ILoggingService):
             use_stderr=True
         )
         
-        # Adiciona buffer se configurado
-        if self.config.buffer_size > 0:
-            console_handler = BufferedHandler(
-                target_handler=console_handler,
-                buffer_size=self.config.buffer_size
-            )
-        
+        # Console não usa buffer para garantir mensagens imediatas
         self.handlers.append(console_handler)
         
         # Handler de arquivo (se configurado)

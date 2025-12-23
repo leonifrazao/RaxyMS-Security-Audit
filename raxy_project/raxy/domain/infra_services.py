@@ -6,7 +6,8 @@ from raxy.interfaces.services import (
     IBingSuggestion,
     IBingFlyoutService,
     IProxyService,
-    IMailTmService
+    IMailTmService,
+    IDashboardService
 )
 
 
@@ -20,4 +21,5 @@ class InfraServices:
     proxy_manager: IProxyService
     logger: ILoggingService
     mail_tm_service: IMailTmService
-    dashboard: "Any" # LiveDashboardService (avoid circular import)
+    dashboard: IDashboardService
+

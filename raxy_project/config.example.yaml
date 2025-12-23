@@ -1,0 +1,157 @@
+# Configuração Exemplo do Raxy
+# Copie este arquivo para config.yaml e ajuste conforme necessário.
+
+# ============================================================================
+# CONFIGURAÇÃO GERAL
+# ============================================================================
+app_name: Raxy
+version: 2.0.0
+
+# Modo debug: ativa logs mais detalhados
+debug: false
+
+# Ambiente: dev, staging, ou prod
+environment: prod
+
+# Diretórios (opcionais, descomente para personalizar)
+# data_dir: /path/to/data
+# cache_dir: /path/to/cache
+# logs_dir: /path/to/logs
+
+# ============================================================================
+# EXECUTOR (Gerenciamento de Tarefas)
+# ============================================================================
+executor:
+  # Arquivo contendo a lista de contas/usuários
+  users_file: users.txt
+  
+  # Número máximo de workers (threads/processos) simultâneos
+  max_workers: 4
+  
+  # Ações a serem executadas
+  # Válidas: login, flyout, rewards, bing, email
+  actions:
+    - login
+    - flyout
+    - rewards
+    - bing
+  
+  # Tentativas em caso de erro
+  retry_attempts: 2
+  
+  # Timeout por tarefa em segundos
+  timeout: 300
+  
+  # Ativa dashboard em tempo real (requer dependências adicionais)
+  enable_dashboard: true
+
+# ============================================================================
+# PROXY (Gerenciamento de IP)
+# ============================================================================
+proxy:
+  # Habilita uso de proxies
+  enabled: true
+  
+  # Fontes de proxy (webshare, proxylist, ou URLs diretas)
+  sources:
+    - webshare
+    - proxylist
+  
+  # País preferencial (código ISO de 2 letras)
+  country: US
+  
+  # Mostrar progresso no console
+  use_console: true
+  
+  # Testar proxies automaticamente antes de usar
+  auto_test: true
+
+# ============================================================================
+# API (Configurações de APIs Externas)
+# ============================================================================
+api:
+  # Timeout padrão para requisições
+  default_timeout: 30
+  
+  # Configurações do Supabase (opcional)
+  # supabase_url: "https://seu-projeto.supabase.co"
+  # supabase_key: "sua-chave-anon-ou-service-role"
+  
+  # Configuração específica para Microsoft Rewards
+  rewards:
+    error_words:
+      - captcha
+      - temporarily unavailable
+      - error
+      - blocked
+      
+  # Configuração para Bing Suggestion
+  bing_suggestion:
+    error_words:
+      - captcha
+      - temporarily unavailable
+      - error
+      - blocked
+      
+  # Configuração para Mail.tm (Emails temporários)
+  mail_tm:
+    max_wait_time: 300
+    poll_interval: 2
+
+# ============================================================================
+# LOGGING (Logs e Monitoramento)
+# ============================================================================
+logging:
+  nome: raxy
+  
+  # Nível mínimo: DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL
+  nivel_minimo: INFO
+  
+  # Configurações de exibição
+  mostrar_tempo: true
+  mostrar_localizacao: true
+  usar_cores: true
+  
+  # Arquivo de log (opcional)
+  # arquivo_log: logs/raxy.log
+  # sobrescrever_arquivo: false
+  # rotacao_arquivo: "100 MB"
+  # retencao_arquivo: "7 days"
+
+# ============================================================================
+# SESSÃO (Browser e Navegação)
+# ============================================================================
+session:
+  # Softwares para User-Agent (edge, chrome, firefox)
+  softwares_padrao:
+    - edge
+  
+  # Sistemas operacionais para User-Agent (windows, linux, macos)
+  sistemas_padrao:
+    - windows
+    - linux
+    - macos
+  
+  # Limite de User-Agents a gerar
+  ua_limit: 100
+  
+  # URLs Importantes
+  rewards_url: "https://rewards.bing.com/"
+  bing_url: "https://www.bing.com"
+  bing_flyout_url: "https://www.bing.com/rewards/panelflyout?channel=bingflyout&partnerId=BingRewards&isDarkMode=1&requestedLayout=onboarding&form=rwfobc"
+  
+  # Limites de segurança
+  max_login_attempts: 5
+  
+  # Seletores CSS (Geralmente não precisa alterar, use os padrões do código)
+  # selectors:
+  #   email_input: "input[type='email'], #i0116"
+  #   password_input: "input[type='password'], #i0118"
+
+# ============================================================================
+# BING FLYOUT (Configurações Específicas)
+# ============================================================================
+bingflyout:
+  timeout_short: 5
+  timeout_long: 10
+  max_wait_iterations: 10

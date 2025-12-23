@@ -6,6 +6,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -15,6 +16,7 @@ from typing import Any, Dict, Optional, Tuple, Generator, ContextManager
 
 from raxy.interfaces.services.IProxyComponents import IProxyProcessManager
 from raxy.domain.proxy import Outbound
+from raxy.core.logging import log
 from .parser import decode_bytes
 
 
@@ -55,9 +57,8 @@ class ProcessManager(IProxyProcessManager):
             found = cls.shutil_which(candidate)
             if found:
                 return found
-        raise FileNotFoundError(
-            "Não foi possível localizar o binário do Xray/V2Ray. Instale o xray-core ou configure XRAY_PATH."
-        )
+        log.critico("Não foi possível localizar o binário do Xray/V2Ray. Instale o xray-core ou configure XRAY_PATH.")
+        sys.exit(1)
 
     def find_available_port(self) -> int:
         """Encontra uma porta TCP disponível pedindo ao SO para alocar uma."""

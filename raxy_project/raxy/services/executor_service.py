@@ -34,7 +34,7 @@ from raxy.core.exceptions import (
     wrap_exception,
 )
 from raxy.core.logging import debug_log
-from raxy.interfaces.services import IExecutorEmLoteService, ILoggingService
+from raxy.interfaces.services import IExecutorEmLoteService, ILoggingService, IDashboardService
 from .base_service import BaseService
 import time
 
@@ -87,7 +87,7 @@ class AccountProcessor:
         mail_service,
         db_repository,
         logger: ILoggingService,
-        dashboard_service: Any = None, # Avoid circular import
+        dashboard_service: Optional[IDashboardService] = None,
         debug: bool = False
     ):
         """
@@ -101,7 +101,7 @@ class AccountProcessor:
             mail_service: Serviço de email (IMailTmService)
             db_repository: Repositório de banco de dados (IDatabaseRepository)
             logger: Serviço de logging
-            dashboard_service: Serviço de dashboard (LiveDashboardService)
+            dashboard_service: Serviço de dashboard (IDashboardService)
             debug: Se está em modo debug
         """
         # Dependências específicas - melhor desacoplamento

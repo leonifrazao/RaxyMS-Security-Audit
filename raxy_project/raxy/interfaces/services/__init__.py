@@ -7,17 +7,17 @@ from .IRewardsDataService import IRewardsDataService
 from .IBingSuggestion import IBingSuggestion
 from .IBingFlyoutService import IBingFlyoutService
 from .IMailTmService import IMailTmService
-from .IMailTmService import IMailTmService
 from .ISessionManager import ISessionManager
+from .IDashboardService import IDashboardService
 
 __all__ = [
     "IExecutorEmLoteService",
     "ILoggingService",
-    "INavegadorRewardsService",
     "IProxyService",
     "IRewardsDataService",
     "IBingSuggestion",
     "IBingFlyoutService",
     "IMailTmService",
     "ISessionManager",
+    "IDashboardService",
 ]
