@@ -1,0 +1,25 @@
+{
+  "method": "POST",
+  "url": "https://www.bing.com/rewardsapp/reportActivity?IG=307CB20E9E0A4D16B7AD976A8FCE6E93&IID=SERP.5064&q={definir}&qs=n&form={form}&sp=-1&lq=0&pq={definir}&sc=12-10&sk=&cvid=E48CE2A223D449D1867C42E2180F985C&ajaxreq=1",
+  "headers": {
+    "accept": "*/*",
+    "accept-language": "en-US,en;q=0.9",
+    "content-type": "application/x-www-form-urlencoded",
+    "ect": "4g",
+    "priority": "u=1, i",
+    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
+    "sec-ch-ua-arch": "\"x86\"",
+    "sec-ch-ua-bitness": "\"64\"",
+    "sec-ch-ua-full-version": "\"143.0.7499.109\"",
+    "sec-ch-ua-full-version-list": "\"Google Chrome\";v=\"143.0.7499.109\", \"Chromium\";v=\"143.0.7499.109\", \"Not A(Brand\";v=\"24.0.0.0\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-model": "\"\"",
+    "sec-ch-ua-platform": "\"Linux\"",
+    "sec-ch-ua-platform-version": "\"\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "Referer": "https://www.bing.com/search?q={definir}&qs=n&form={form}&sp=-1&lq=0&pq={definir}&sc=12-10&sk=&cvid=E48CE2A223D449D1867C42E2180F985C"
+  },
+  "data": "url=https%3A//www.bing.com/search%3Fq%3D{definir}%26qs%3Dn%26form%3D{form}%26sp%3D-1%26lq%3D0%26pq%3D{definir}%26sc%3D12-10%26sk%3D%26cvid%3DE48CE2A223D449D1867C42E2180F985C&V=web"
+}

@@ -1,41 +1,38 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "raxy-logic"
-version = "2.0.0"
-description = "Biblioteca com a lógica de negócio principal do Raxy - Clean Architecture."
+version = "1.0.0"
+description = "Biblioteca com a lógica de negócio principal do Raxy."
+authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-authors = [{ name = "Your Name", email = "you@example.com" }]
-requires-python = ">=3.10"
-dependencies = [
-    "botasaurus",
-    "rich",
-    "python-dotenv",
-    "supabase",
-    "random-user-agent",
-    "flask",
-    "fastapi",
-    "uvicorn[standard]",
-    "typer[all]",
-    "loguru",
-    "pyyaml",
-    "httpx",
-    "urllib3",
-    "redis",
-    "requests",
-    "rq",
-]
+packages = [{include = "raxy"}]
 
-[project.optional-dependencies]
-dev = [
-    "pytest",
-]
+[tool.poetry.dependencies]
+python = "^3.10"
+botasaurus = "*"
+rich = "*"
+supabase = "*"
+random-user-agent = "*"
+flask = "*"
+fastapi = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+typer = {extras = ["all"], version = "*"}
+loguru = "*"
+dependency-injector = "*"
+pyyaml = "*"
+httpx = "*"
+python-dotenv = "*"
+urllib3 = "*"
+redis = "*"
+requests = "*"
+selenium = "*"
+wonderwords = "*"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["raxy*"]
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 120
