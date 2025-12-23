@@ -1,39 +1,45 @@
-[tool.poetry]
-name = "raxy-logic"
-version = "2.0.0"
-description = "Biblioteca com a lógica de negócio principal do Raxy - Clean Architecture."
-authors = ["Your Name <you@example.com>"]
-readme = "README.md"
-packages = [{include = "raxy", from = "src"}]
-
-[tool.poetry.dependencies]
-python = "^3.10"
-botasaurus = "*"
-rich = "*"
-python-dotenv = "*"
-supabase = "*"
-random-user-agent = "*"
-flask = "*"
-fastapi = "*"
-uvicorn = {extras = ["standard"], version = "*"}
-typer = {extras = ["all"], version = "*"}
-loguru = "*"
-
-pyyaml = "*"
-httpx = "*"
-
-urllib3 = "*"
-redis = "*"
-requests = "*"
-
-rq = "*"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raxy-logic"
+version = "1.0.0"
+description = "Biblioteca com a lógica de negócio principal do Raxy."
+authors = [
+    {name = "Your Name", email = "you@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "botasaurus",
+    "rich",
+    "supabase",
+    "random-user-agent",
+    "flask",
+    "fastapi",
+    "uvicorn[standard]",
+    "typer",
+    "loguru",
+    "dependency-injector",
+    "pyyaml",
+    "httpx",
+    "python-dotenv",
+    "urllib3",
+    "redis",
+    "requests",
+    "selenium",
+    "wonderwords",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
+
+[tool.setuptools.packages.find]
+include = ["raxy*"]
+exclude = ["profiles*"]
 
 [tool.ruff]
 line-length = 120

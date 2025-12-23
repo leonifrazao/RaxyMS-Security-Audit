@@ -1,145 +1,157 @@
-# Raxy Configuration File (EXAMPLE)
-# =================================
-# Copie este arquivo para config.yaml e preencha com seus dados.
+# Configuração Exemplo do Raxy
+# Copie este arquivo para config.yaml e ajuste conforme necessário.
 
-# Application Settings
+# ============================================================================
+# CONFIGURAÇÃO GERAL
+# ============================================================================
 app_name: Raxy
-version: "2.0.0"
+version: 2.0.0
+
+# Modo debug: ativa logs mais detalhados
 debug: false
-environment: dev  # dev, staging, prod
 
-# Directories (relative to project root or absolute paths)
-# These will be created automatically if they don't exist
-# cache_dir: /tmp/raxy/cache
-# logs_dir: ./logs
+# Ambiente: dev, staging, ou prod
+environment: prod
 
-# Executor Configuration
+# Diretórios (opcionais, descomente para personalizar)
+# data_dir: /path/to/data
+# cache_dir: /path/to/cache
+# logs_dir: /path/to/logs
+
+# ============================================================================
+# EXECUTOR (Gerenciamento de Tarefas)
+# ============================================================================
 executor:
+  # Arquivo contendo a lista de contas/usuários
   users_file: users.txt
+  
+  # Número máximo de workers (threads/processos) simultâneos
   max_workers: 4
+  
+  # Ações a serem executadas
+  # Válidas: login, flyout, rewards, bing, email
   actions:
     - login
+    - flyout
     - rewards
     - bing
+  
+  # Tentativas em caso de erro
   retry_attempts: 2
+  
+  # Timeout por tarefa em segundos
   timeout: 300
-  debug: false
+  
+  # Ativa dashboard em tempo real (requer dependências adicionais)
+  enable_dashboard: true
 
-# Proxy Configuration
+# ============================================================================
+# PROXY (Gerenciamento de IP)
+# ============================================================================
 proxy:
+  # Habilita uso de proxies
   enabled: true
+  
+  # Fontes de proxy (webshare, proxylist, ou URLs diretas)
   sources:
-    - https://api.github.com/repos/F0rc3Run/F0rc3Run/contents/splitted-by-country/United_States.txt?ref=main
+    - webshare
+    - proxylist
+  
+  # País preferencial (código ISO de 2 letras)
   country: US
+  
+  # Mostrar progresso no console
   use_console: true
+  
+  # Testar proxies automaticamente antes de usar
   auto_test: true
-  test_timeout: 10.0
-  cache_filename: proxy_cache.json
-  cache_version: 1
 
-# Session Configuration
-session:
-  # User-Agent settings
-  softwares_padrao:
-    - edge
-  sistemas_padrao:
-    - windows
-    - linux
-    - macos
-  ua_limit: 100
-  
-  # URLs principais
-  rewards_url: https://rewards.bing.com/
-  bing_url: https://www.bing.com
-  bing_flyout_url: https://www.bing.com/rewards/panelflyout?channel=bingflyout&partnerId=BingRewards&isDarkMode=1&requestedLayout=onboarding&form=rwfobc
-  
-  # Configurações de tentativas
-  max_login_attempts: 5
-  
-  # Títulos de páginas esperados
-  rewards_title: microsoft rewards
-  verify_email_title: verify your email
-  protect_account_title: let's protect your account
-  
-  # Seletores CSS
-  selectors:
-    # Login
-    email_input: "input[type='email'], #i0116"
-    password_input: "input[type='password'], #i0118"
-    submit_button: "button[type='submit'], #idSIButton9"
-    # Verificação
-    email_verify_link: "#view > div > span:nth-child(6) > div > span"
-    skip_link: "a[id='iShowSkip']"
-    primary_button: "button[data-testid='primaryButton']"
-    # Status
-    id_s_span: 'span[id="id_s"]'
-    role_presentation: "span[role='presentation']"
-    # Rewards
-    join_now: 'a[class="joinNowText"]'
-    card_0: 'div[id="Card_0"]'
-
-# BingFlyout Service Configuration
-bingflyout:
-  timeout_short: 5  # seconds
-  timeout_long: 10  # seconds
-  max_wait_iterations: 10
-
-# API Configuration
+# ============================================================================
+# API (Configurações de APIs Externas)
+# ============================================================================
 api:
-  supabase_url: "YOUR_SUPABASE_URL_HERE"
-  supabase_key: "YOUR_SUPABASE_KEY_HERE"
-  findip_token: "YOUR_FINDIP_TOKEN_HERE"
-  
-  # Timeouts (em segundos)
+  # Timeout padrão para requisições
   default_timeout: 30
   
-  # Rewards API
+  # Configurações do Supabase (opcional)
+  # supabase_url: "https://seu-projeto.supabase.co"
+  # supabase_key: "sua-chave-anon-ou-service-role"
+  
+  # Configuração específica para Microsoft Rewards
   rewards:
     error_words:
       - captcha
       - temporarily unavailable
       - error
       - blocked
-  
-  # Bing Suggestion API
+      
+  # Configuração para Bing Suggestion
   bing_suggestion:
     error_words:
       - captcha
       - temporarily unavailable
       - error
       - blocked
-  
-  # Mail.tm API
+      
+  # Configuração para Mail.tm (Emails temporários)
   mail_tm:
-    url: "https://api.mail.tm"
-    max_wait_time: 300  # 5 minutos
-    poll_interval: 2  # segundos
+    max_wait_time: 300
+    poll_interval: 2
 
-# Logging Configuration
+# ============================================================================
+# LOGGING (Logs e Monitoramento)
+# ============================================================================
 logging:
-  nivel_minimo: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  usar_console: true
-  usar_arquivo: true
-  arquivo_log: app.log
-  rotacao: daily
-  formato_colorido: true
-  formato_detalhado: false
-  diretorio_erros: null
-  max_workers: 2
+  nome: raxy
+  
+  # Nível mínimo: DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL
+  nivel_minimo: INFO
+  
+  # Configurações de exibição
+  mostrar_tempo: true
+  mostrar_localizacao: true
+  usar_cores: true
+  
+  # Arquivo de log (opcional)
+  # arquivo_log: logs/raxy.log
+  # sobrescrever_arquivo: false
+  # rotacao_arquivo: "100 MB"
+  # retencao_arquivo: "7 days"
 
-# Event Bus Configuration (Redis Pub/Sub) + State Management
-events:
-  enabled: true
-  host: localhost
-  port: 6379
-  db: 0
-  password: null
-  prefix: "raxy:events:"
+# ============================================================================
+# SESSÃO (Browser e Navegação)
+# ============================================================================
+session:
+  # Softwares para User-Agent (edge, chrome, firefox)
+  softwares_padrao:
+    - edge
   
-  account_events: true
-  rewards_events: true
-  proxy_events: true
-  session_events: true
+  # Sistemas operacionais para User-Agent (windows, linux, macos)
+  sistemas_padrao:
+    - windows
+    - linux
+    - macos
   
-  state_enabled: true
-  state_default_ttl: 3600
+  # Limite de User-Agents a gerar
+  ua_limit: 100
+  
+  # URLs Importantes
+  rewards_url: "https://rewards.bing.com/"
+  bing_url: "https://www.bing.com"
+  bing_flyout_url: "https://www.bing.com/rewards/panelflyout?channel=bingflyout&partnerId=BingRewards&isDarkMode=1&requestedLayout=onboarding&form=rwfobc"
+  
+  # Limites de segurança
+  max_login_attempts: 5
+  
+  # Seletores CSS (Geralmente não precisa alterar, use os padrões do código)
+  # selectors:
+  #   email_input: "input[type='email'], #i0116"
+  #   password_input: "input[type='password'], #i0118"
+
+# ============================================================================
+# BING FLYOUT (Configurações Específicas)
+# ============================================================================
+bingflyout:
+  timeout_short: 5
+  timeout_long: 10
+  max_wait_iterations: 10
