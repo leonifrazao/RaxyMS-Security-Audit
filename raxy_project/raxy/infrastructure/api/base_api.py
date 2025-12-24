@@ -20,7 +20,7 @@ class BaseAPIClient(ABC):
     - Logger
     - Configurações básicas (base_url, timeout, error_words)
     
-    As requisições HTTP devem usar SessionManagerService.execute_template()
+    As requisições HTTP devem usar SessionManager.execute_template()
     que já gerencia cookies, UA, proxy e retry.
     """
     

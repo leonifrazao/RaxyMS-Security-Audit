@@ -10,9 +10,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Any
-from wonderwords import RandomWord
 import random
-import string
 
 from rich.console import Console
 from rich.table import Table
@@ -22,7 +20,7 @@ from rich import box
 from raxy.domain import Conta, InfraServices
 from raxy.domain.execution import BatchExecutionResult, ContaResult, EtapaResult
 from raxy.domain.proxy import ProxyItem
-from raxy.services.session_manager_service import SessionManagerService
+from raxy.infrastructure.session.session_manager import SessionManager
 from raxy.core.config import ExecutorConfig, ProxyConfig
 from raxy.core.exceptions import (
     InvalidCredentialsException,
@@ -114,7 +112,7 @@ class AccountProcessor:
         self.logger = logger
         self.dashboard = dashboard_service
         self.debug = debug
-        self.word_generator = RandomWord()
+
     
     @debug_log(log_args=False, log_result=False, log_duration=True)
     def process(
@@ -266,9 +264,9 @@ class AccountProcessor:
         conta: Conta,
         proxy: Optional[ProxyItem],
         logger: ILoggingService
-    ) -> SessionManagerService:
+    ) -> SessionManager:
         """Cria e inicializa sessão."""
-        sessao = SessionManagerService(
+        sessao = SessionManager(
             conta=conta,
             proxy=proxy,
             proxy_service=self.proxy_service,
@@ -278,7 +276,7 @@ class AccountProcessor:
         sessao.start()
         return sessao
     
-    def _obter_pontos(self, sessao: SessionManagerService, logger: ILoggingService) -> int:
+    def _obter_pontos(self, sessao: SessionManager, logger: ILoggingService) -> int:
         """Obtém pontos da conta."""
         try:
             pontos = self.rewards_service.obter_pontos(sessao)
@@ -289,7 +287,7 @@ class AccountProcessor:
     def _executar_acao_com_resultado(
         self,
         acao: str,
-        sessao: SessionManagerService,
+        sessao: SessionManager,
         logger: ILoggingService
     ) -> tuple[bool, Optional[str]]:
         """Executa uma ação específica e retorna resultado.
@@ -307,81 +305,13 @@ class AccountProcessor:
                 return True, None
                 
             elif acao == "bing":
-                # 1. Obter estado inicial
-                logger.debug("Verificando progresso de busca PC...")
-                
-                # Fetch inicial
-                try:
-                    dashboard = self.rewards_service.obter_recompensas(sessao, bypass_request_token=True)
-                    current, max_val = self.rewards_service.get_pc_search_progress(dashboard)
-                except Exception as e:
-                    logger.aviso(f"Erro ao obter dashboard inicial: {e}")
-                    current, max_val = 0, 150 # Fallback seguro
-                
-                # Controle de loop
-                attempts = 0
-                last_valid_max = max_val if max_val > 0 else 150
-                
-                searches_without_progress = 0
-                
-                while current < last_valid_max:
-                    attempts += 1
-                    
-                    # Gera query única usando Wonderwords + Sugestões
-                    query = self._generate_search_query(sessao, logger)
-                    form_code = self._get_random_form_code()
-                    
-                    logger.info(f"Busca PC {attempts}: {current}/{last_valid_max} - Termo: '{query}' [Form: {form_code}]")
-                    
-                    # Executa pesquisa
-                    if self.bing_search_service.realizar_pesquisa(sessao, query, form_code=form_code):
-                        # Delay aleatório natural (user requested faster)
-                        time.sleep(random.uniform(5.0, 6.0))
-                        
-                        searches_without_progress += 1
-                        
-                        # Verify progress condition:
-                        # 1. Every 5 searches (Stuck check)
-                        # 2. Close to completion (Precision)
-                        should_check = (searches_without_progress >= 5) or ((last_valid_max - current) <= 15)
-                        
-                        if should_check:
-                            try:
-                                dashboard = self.rewards_service.obter_recompensas(sessao, bypass_request_token=True)
-                                new_current, new_max = self.rewards_service.get_pc_search_progress(dashboard)
-                                
-                                # Lógica para ignorar reset falso (0 max)
-                                if new_max == 0 and last_valid_max > 0:
-                                    logger.debug("Dashboard retornou max=0, ignorando update por segurança.")
-                                    # Não atualiza current nem last_valid_max
-                                else:
-                                    # Se houve progresso real
-                                    if new_current > current:
-                                        current = new_current
-                                        searches_without_progress = 0 # Reset stuck counter
-                                    else:
-                                        # Max changed but current distinct?
-                                        pass
-                                    
-                                    if new_max > 0:
-                                        last_valid_max = new_max
-                                
-                                # Se após verificar, ainda estamos s/ progresso há 5 tentativas -> BUG DETECTED
-                                if searches_without_progress >= 5:
-                                    logger.aviso(f"Detectado bug de não contabilização após 5 pesquisas. Interrompendo busca PC.")
-                                    break
-                                    
-                            except Exception as e:
-                                logger.aviso(f"Erro ao atualizar progresso: {e}")
-                                # Em caso de erro, não resetamos o contador para forçar nova verificação ou saída eventual
-                    else:
-                        logger.aviso("Falha na execução da pesquisa")
-                        time.sleep(5)
-                
-                if current >= last_valid_max:
-                    logger.info(f"Busca PC concluída! {current}/{last_valid_max}")
-                else:
-                    logger.aviso(f"Busca PC encerrada. {current}/{last_valid_max}")
+                # 1. Busca PC
+                if not self.bing_search_service.realizar_ciclo_pesquisa(sessao, self.rewards_service, mobile=False):
+                     return False, "Falha na busca PC"
+
+                # 2. Busca Mobile
+                if not self.bing_search_service.realizar_ciclo_pesquisa(sessao, self.rewards_service, mobile=True):
+                     return False, "Falha na busca Mobile"
                 
                 return True, None
                 
@@ -394,42 +324,7 @@ class AccountProcessor:
                  logger.aviso(f"Erro na etapa '{acao}'", erro=erro_msg, exception=e)
             return False, erro_msg
 
-    def _generate_search_query(self, sessao, logger) -> str:
-        """Gera uma query de pesquisa única e natural."""
-        try:
-            # 1. Gera palavra aleatória (seed)
-            seed = self.word_generator.word()
-            
-            # 2. Tenta obter sugestão do Bing para essa seed
-            # Isso gera termos compostos muito naturais (ex: "apple" -> "apple pie recipe")
-            suggestions = self.bing_search_service.get_all(sessao, seed)
-            
-            if suggestions:
-                # Escolhe uma sugestão aleatória
-                import random
-                return random.choice(suggestions).text
-            else:
-                # Fallback: Seed + Sulfixo aleatório
-                import random
-                import string
-                suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
-                return f"{seed} {suffix}"
-                
-        except Exception as e:
-            # Fallback final em caso de erro na API ou biblioteca
-            import random
-            import string
-            return ''.join(random.choices(string.ascii_lowercase, k=8))
 
-    def _get_random_form_code(self) -> str:
-        """Retorna um código FORM aleatório."""
-        import random
-        # Lista baseada em tráfego real
-        forms = [
-            "QBLH", "QBRE", "HDRSC1", "LGWQS1", 
-            "R5FD", "QSRE1", "QSRE2", "QSRE3"
-        ]
-        return random.choice(forms)
     
     def _salvar_no_banco(
         self,

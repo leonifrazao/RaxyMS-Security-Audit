@@ -53,7 +53,9 @@ def replace_placeholders(obj: Any, placeholders: Mapping[str, Any]) -> Any:
     
     if isinstance(obj, str):
         for k, v in placeholders.items():
-            obj = obj.replace("{definir}", str(v)).replace("{"+str(k)+"}", str(v))
+            if k == "definir":
+                obj = obj.replace("{definir}", str(v))
+            obj = obj.replace("{"+str(k)+"}", str(v))
         return obj
     
     if isinstance(obj, dict):
