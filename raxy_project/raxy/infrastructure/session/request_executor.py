@@ -1,5 +1,5 @@
 """
-Executor de requisições para o SessionManagerService.
+Executor de requisições para o SessionManager.
 
 Responsável por executar templates de requisição com tratamento robusto.
 """
@@ -20,6 +20,7 @@ from raxy.core.exceptions import (
 from raxy.core.logging import debug_log
 from raxy.interfaces.services import ILoggingService
 from raxy.services.base_service import BaseService
+from raxy.domain.proxy import ProxyItem
 
 
 class RequestExecutor(BaseService):
@@ -32,58 +33,31 @@ class RequestExecutor(BaseService):
     - Adicionar headers e cookies necessários
     - Executar requisições via Botasaurus request
     - Tratar erros e status HTTP
+    
+    Stateless: Recebe todo o contexto da sessão (cookies, UA, etc) em cada execução.
     """
     
     def __init__(
         self,
-        cookies: dict[str, str] | None = None,
-        user_agent: str | None = None,
-        token_antifalsificacao: str | None = None,
-        proxy: ProxyItem | None = None,
         logger: Optional[ILoggingService] = None,
     ):
         """
         Inicializa o executor de requisições.
         
         Args:
-            cookies: Cookies da sessão
-            user_agent: User-Agent da sessão
-            token_antifalsificacao: Token de verificação
-            proxy: Configuração de proxy
             logger: Serviço de logging (opcional)
         """
         super().__init__(logger)
-        self.cookies = cookies or {}
-        self.user_agent = user_agent or ""
-        self.token_antifalsificacao = token_antifalsificacao
-        self.proxy = proxy or {}
-    
-    def atualizar_sessao(
-        self,
-        cookies: dict[str, str] | None = None,
-        user_agent: str | None = None,
-        token_antifalsificacao: str | None = None
-    ):
-        """
-        Atualiza dados da sessão.
-        
-        Args:
-            cookies: Novos cookies
-            user_agent: Novo User-Agent
-            token_antifalsificacao: Novo token
-        """
-        if cookies is not None:
-            self.cookies = cookies
-        if user_agent is not None:
-            self.user_agent = user_agent
-        if token_antifalsificacao is not None:
-            self.token_antifalsificacao = token_antifalsificacao
     
     @debug_log(log_args=False, log_result=False, log_duration=True)
     def executar_template(
         self,
         template_path_or_dict: str | Path | Mapping[str, Any],
         *,
+        cookies: dict[str, str],
+        user_agent: str,
+        token_antifalsificacao: str | None = None,
+        proxy: ProxyItem | None = None,
         placeholders: Mapping[str, Any] | None = None,
         use_ua: bool = True,
         use_cookies: bool = True,
@@ -94,9 +68,13 @@ class RequestExecutor(BaseService):
         
         Args:
             template_path_or_dict: Caminho para o template ou dicionário
+            cookies: Cookies da sessão
+            user_agent: User-Agent a ser usado
+            token_antifalsificacao: Token de verificação anti-falsificação
+            proxy: Proxy a ser usado
             placeholders: Valores para substituir no template
-            use_ua: Se deve usar o User-Agent da sessão
-            use_cookies: Se deve usar os cookies da sessão
+            use_ua: Se deve usar o User-Agent fornecido
+            use_cookies: Se deve usar os cookies fornecidos
             bypass_request_token: Se deve adicionar token de verificação
             
         Returns:
@@ -116,13 +94,16 @@ class RequestExecutor(BaseService):
         # Prepara argumentos da requisição
         args = self._preparar_argumentos(
             template, 
+            cookies=cookies,
+            user_agent=user_agent,
+            token_antifalsificacao=token_antifalsificacao,
             use_ua=use_ua,
             use_cookies=use_cookies,
             bypass_request_token=bypass_request_token
         )
         
         # Executa a requisição
-        return self._executar_requisicao(args)
+        return self._executar_requisicao(args, proxy=proxy)
     
     def _carregar_template(
         self, 
@@ -168,6 +149,9 @@ class RequestExecutor(BaseService):
     def _preparar_argumentos(
         self,
         template: dict[str, Any],
+        cookies: dict[str, str],
+        user_agent: str,
+        token_antifalsificacao: str | None,
         use_ua: bool,
         use_cookies: bool,
         bypass_request_token: bool
@@ -177,6 +161,9 @@ class RequestExecutor(BaseService):
         
         Args:
             template: Template carregado
+            cookies: Cookies da sessão
+            user_agent: UA da sessão
+            token_antifalsificacao: Token da sessão
             use_ua: Se deve usar User-Agent
             use_cookies: Se deve usar cookies
             bypass_request_token: Se deve adicionar token
@@ -187,43 +174,44 @@ class RequestExecutor(BaseService):
         metodo = str(template.get("method", "GET")).lower()
         url = template.get("url") or template.get("path")
         headers = dict(template.get("headers") or {})
-        cookies = dict(template.get("cookies") or {})
+        cookies_req = dict(template.get("cookies") or {})
         
         # Adiciona User-Agent
-        if use_ua and self.user_agent:
-            headers.setdefault("User-Agent", self.user_agent)
+        if use_ua and user_agent:
+            headers.setdefault("User-Agent", user_agent)
         
         # Adiciona cookies
         if use_cookies:
-            cookies = {**self.cookies, **cookies}
+            cookies_req = {**cookies, **cookies_req}
         
         # Prepara dados
         data = template.get("data")
         json_payload = template.get("json")
         
         # Adiciona token de verificação
-        if bypass_request_token and self.token_antifalsificacao and metodo in {"post", "put", "patch", "delete"}:
+        if bypass_request_token and token_antifalsificacao and metodo in {"post", "put", "patch", "delete"}:
             if isinstance(data, dict) and not data.get("__RequestVerificationToken"):
-                data["__RequestVerificationToken"] = self.token_antifalsificacao
+                data["__RequestVerificationToken"] = token_antifalsificacao
             if isinstance(json_payload, dict) and not json_payload.get("__RequestVerificationToken"):
-                json_payload["__RequestVerificationToken"] = self.token_antifalsificacao
-            headers.setdefault("RequestVerificationToken", self.token_antifalsificacao)
+                json_payload["__RequestVerificationToken"] = token_antifalsificacao
+            headers.setdefault("RequestVerificationToken", token_antifalsificacao)
         
         return {
             "metodo": metodo,
             "url": url,
             "headers": headers,
-            "cookies": cookies,
+            "cookies": cookies_req,
             "data": data,
             "json": json_payload,
         }
     
-    def _executar_requisicao(self, args: dict[str, Any]) -> Any:
+    def _executar_requisicao(self, args: dict[str, Any], proxy: ProxyItem | None = None) -> Any:
         """
         Executa a requisição via Botasaurus.
         
         Args:
             args: Argumentos da requisição
+            proxy: Item de proxy a ser usado (opcional)
             
         Returns:
             Resposta da requisição
@@ -233,7 +221,8 @@ class RequestExecutor(BaseService):
             ProxyRotationRequiredException: Se status HTTP >= 400
         """
         try:
-            resposta = self._enviar(args, proxy=self.proxy.uri if self.proxy else None)
+            proxy_uri = proxy.uri if proxy else None
+            resposta = self._enviar(args, proxy=proxy_uri)
         except Exception as e:
             raise wrap_exception(
                 e, SessionException,
@@ -245,13 +234,10 @@ class RequestExecutor(BaseService):
         # Verifica status HTTP
         status = getattr(resposta, "status_code", None)
         
-
-
-        
         if status and status >= 400:
             raise ProxyRotationRequiredException(
                 status, 
-                self.proxy.tag if self.proxy else "unknown", 
+                proxy.tag if proxy else "unknown", 
                 url=args.get("url")
             )
         
@@ -274,3 +260,4 @@ class RequestExecutor(BaseService):
         kwargs = args.copy()
         metodo = kwargs.pop("metodo")
         return getattr(req, metodo)(**kwargs)
+

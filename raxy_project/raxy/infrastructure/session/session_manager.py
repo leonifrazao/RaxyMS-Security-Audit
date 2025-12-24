@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Mapping, Optional
+import time
 
 from raxy.domain.proxy import ProxyItem
 from raxy.domain.accounts import Conta
@@ -18,18 +19,13 @@ from raxy.core.exceptions import (
 from raxy.interfaces.services import IProxyService, IMailTmService, ILoggingService, ISessionManager
 from raxy.services.base_service import BaseService
 
-# Importações dos módulos desacoplados
-from raxy.infrastructure.session import (
-    ProfileManager,
-    BrowserLoginHandler,
-    RequestExecutor
-)
+# Importações locais do pacote infrastructure.session
+from .profile_manager import ProfileManager
+from .browser_login_handler import BrowserLoginHandler
+from .request_executor import RequestExecutor
 
 
-
-
-
-class SessionManagerService(BaseService, ISessionManager):
+class SessionManager(BaseService, ISessionManager):
     """
     Serviço orquestrador de sessão.
     
@@ -86,9 +82,9 @@ class SessionManagerService(BaseService, ISessionManager):
             mail_service=mail_service,
             logger=self.logger
         )
+        # RequestExecutor agora é stateless e só precisa do logger
         self._request_executor = RequestExecutor(
-            logger=self.logger,
-            proxy=self.proxy
+            logger=self.logger
         )
     
     @property
@@ -100,7 +96,6 @@ class SessionManagerService(BaseService, ISessionManager):
     def cookies(self, value: dict[str, str]) -> None:
         """Define cookies."""
         self._cookies = value or {}
-        self._sync_executor()
     
     @property
     def user_agent(self) -> str:
@@ -111,7 +106,6 @@ class SessionManagerService(BaseService, ISessionManager):
     def user_agent(self, value: str) -> None:
         """Define User-Agent."""
         self._user_agent = value or ""
-        self._sync_executor()
     
     @property
     def token_antifalsificacao(self) -> str | None:
@@ -122,15 +116,6 @@ class SessionManagerService(BaseService, ISessionManager):
     def token_antifalsificacao(self, value: str | None) -> None:
         """Define token."""
         self._token_antifalsificacao = value
-        self._sync_executor()
-
-    def _sync_executor(self):
-        """Sincroniza estado com RequestExecutor."""
-        self._request_executor.atualizar_sessao(
-            cookies=self.cookies,
-            user_agent=self.user_agent,
-            token_antifalsificacao=self.token_antifalsificacao
-        )
 
     def start(self) -> None:
         """
@@ -226,7 +211,6 @@ class SessionManagerService(BaseService, ISessionManager):
         
         if sucesso:
             self.logger.sucesso("Sessão atualizada com sucesso.")
-            import time
             self._session_start_time = time.time()
         else:
              raise SessionException(
@@ -244,8 +228,6 @@ class SessionManagerService(BaseService, ISessionManager):
         self.cookies = resultado.get("cookies", {})
         self.user_agent = resultado.get("ua", "")
         self.token_antifalsificacao = resultado.get("token")
-        
-        # RequestExecutor já é atualizado pelos setters
     
     def _tratar_rotacao_proxy(self, e: ProxyRotationRequiredException, tentativas: int) -> None:
         """
@@ -277,6 +259,7 @@ class SessionManagerService(BaseService, ISessionManager):
         use_ua: bool = True,
         use_cookies: bool = True,
         bypass_request_token: bool = True,
+        mobile: bool = False,
     ) -> Any:
         """
         Executa um template de requisição.
@@ -287,6 +270,7 @@ class SessionManagerService(BaseService, ISessionManager):
             use_ua: Se deve usar o User-Agent da sessão
             use_cookies: Se deve usar os cookies da sessão
             bypass_request_token: Se deve adicionar token de verificação
+            mobile: Se True, tenta usar User-Agent mobile (override)
             
         Returns:
             Resposta da requisição
@@ -300,10 +284,25 @@ class SessionManagerService(BaseService, ISessionManager):
                 details={"conta": self.conta.email}
             )
         
-        self.logger.debug(f"Executando template: {template_path_or_dict.name if isinstance(template_path_or_dict, Path) else 'dict'}")
+        self.logger.debug(f"Executando template: {template_path_or_dict.name if isinstance(template_path_or_dict, Path) else 'dict'} (Mobile={mobile})")
+        
+        # Determina UA a ser usado
+        ua_to_use = self.user_agent
+        if mobile:
+            perfil = self.conta.id_perfil or self.conta.email
+            try:
+                ua_to_use = self._profile_manager.garantir_mobile_ua(perfil)
+                self.logger.debug("Usando User-Agent Mobile Override")
+            except Exception as e:
+                self.logger.aviso(f"Falha ao obter UA Mobile, usando padrão: {e}")
+
         
         return self._request_executor.executar_template(
             template_path_or_dict,
+            cookies=self.cookies,
+            user_agent=ua_to_use,
+            token_antifalsificacao=self.token_antifalsificacao,
+            proxy=self.proxy,
             placeholders=placeholders,
             use_ua=use_ua,
             use_cookies=use_cookies,
@@ -315,7 +314,6 @@ class SessionManagerService(BaseService, ISessionManager):
         Limpa recursos da sessão.
         """
         # Calcula duração da sessão (meramente informativo agora)
-        import time
         duration_seconds = 0.0
         if self._session_start_time:
             duration_seconds = time.time() - self._session_start_time
@@ -329,4 +327,4 @@ class SessionManagerService(BaseService, ISessionManager):
     def __repr__(self) -> str:
         """Representação string do serviço."""
         status = "ativa" if self.cookies else "inativa"
-        return f"SessionManagerService(conta={self.conta.email}, status={status})"
+        return f"SessionManager(conta={self.conta.email}, status={status})"

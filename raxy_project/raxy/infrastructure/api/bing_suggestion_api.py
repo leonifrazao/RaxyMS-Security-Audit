@@ -11,8 +11,10 @@ import random
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Sequence
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+import time
+import string
 
-from raxy.interfaces.services import IBingSuggestion, ILoggingService, ISessionManager
+from raxy.interfaces.services import IBingSuggestion, ILoggingService, ISessionManager, IRewardsDataService
 from raxy.core.exceptions import (
     BingAPIException,
     InvalidAPIResponseException,
@@ -216,70 +218,75 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
             suggestion=selected.text
         )
         
-    @debug_log(log_args=True, log_result=True, log_duration=True)
+    @debug_log(log_args=True, log_result=False, log_duration=True)
     def realizar_pesquisa(
         self,
         sessao: ISessionManager,
-        query: str,
-        **kwargs
+        termo: str,
+        form_code: str = "QBLH",
+        mobile: bool = False
     ) -> bool:
         """
-        Realiza uma pesquisa no Bing para pontuar.
+        Realiza uma pesquisa no Bing.
         
         Args:
             sessao: Sessão do usuário
-            query: Termo da pesquisa
+            termo: Termo a pesquisar
+            form_code: Código da origem (form)
+            mobile: Se deve realizar pesquisa mobile
             
         Returns:
             bool: True se sucesso, False caso contrário
         """
-        self._validate_keyword(query)
-        self.logger.debug(f"Realizando pesquisa bing: {query}")
-        
         try:
             # Carrega template
-            template_name = get_config().api.bing_suggestion.template_realizar_pesquisa
-            template = self.load_template(template_name)
+            template = self.load_template("realizar_pesquisa.json")
             
-            # Substituições
-            # Substituições
-            form_val = kwargs.get("form_code", "QBRE")
-
+            # Realiza substituições manuais para garantir encoding correto
+            import urllib.parse
+            q_encoded = urllib.parse.quote(termo)
+            
             # 1. URL
             if "url" in template and isinstance(template["url"], str):
-                 import urllib.parse
-                 q_encoded = urllib.parse.quote(query)
-                 template["url"] = template["url"].replace("{definir}", q_encoded).replace("{form}", form_val)
+                 template["url"] = template["url"].replace("{definir}", q_encoded).replace("{form}", form_code)
                  
-            # 2. Headers
-            if "headers" in template and "Referer" in template["headers"]:
-                import urllib.parse
-                q_encoded = urllib.parse.quote(query)
-                template["headers"]["Referer"] = template["headers"]["Referer"].replace("{definir}", q_encoded).replace("{form}", form_val)
+            # 2. Headers (Referer)
+            if "headers" in template and isinstance(template.get("headers"), dict):
+                headers = template["headers"]
+                if "Referer" in headers and isinstance(headers["Referer"], str):
+                    headers["Referer"] = headers["Referer"].replace("{definir}", q_encoded).replace("{form}", form_code)
                 
-            # 3. Data
-            if "data" in template:
-                if isinstance(template["data"], dict) and "url" in template["data"]:
-                    template["data"]["url"] = template["data"]["url"].replace("{definir}", query).replace("{form}", form_val)
-                elif isinstance(template["data"], str):
-                    # Codifica query DUPLAMENTE para o corpo (que contém URL encoded)
-                    # Ex: 'siria cara' -> 'siria%20cara' -> 'siria%2520cara'
-                    import urllib.parse
-                    q_encoded = urllib.parse.quote(query)
-                    q_double_encoded = urllib.parse.quote(q_encoded)
-                    template["data"] = template["data"].replace("{definir}", q_double_encoded).replace("{form}", form_val)
+                # Fix: Update Client Hints for Mobile
+                if mobile:
+                    headers["sec-ch-ua-mobile"] = "?1"
+                    headers["sec-ch-ua-platform"] = '"Android"' # Default safe assumption for mobile
+                    # Remove conflicting desktop hints if present
+                    if "sec-ch-ua-arch" in headers: del headers["sec-ch-ua-arch"]
+                    if "sec-ch-ua-bitness" in headers: del headers["sec-ch-ua-bitness"]
 
-            # Executa
-            self._execute_request(
-                sessao,
+                
+            # 3. Data (Body) - Double Encoding may be required based on previous logic
+            if "data" in template and isinstance(template["data"], str):
+                 q_double_encoded = urllib.parse.quote(q_encoded)
+                 template["data"] = template["data"].replace("{definir}", q_double_encoded).replace("{form}", form_code)
+
+            # Executa requisição (sem placeholders pois já substituímos)
+            response = sessao.execute_template(
                 template,
-                bypass_request_token=False, 
-                error_context=f"search={query}"
+                placeholders=None,
+                mobile=mobile
             )
+            
+            # Valida resposta
+            self._validate_response(response, context={
+                "termo": termo, 
+                "mobile": mobile
+            })
+            
             return True
-
+            
         except Exception as e:
-            self.logger.erro(f"Erro ao realizar pesquisa '{query}': {e}")
+            self.logger.aviso(f"Erro ao realizar pesquisa '{termo}': {e}")
             return False
 
     def _validate_keyword(self, keyword: str) -> None:
@@ -328,3 +335,132 @@ class BingSuggestionAPI(BaseAPIClient, IBingSuggestion):
         return template_copy
     
 
+    def realizar_ciclo_pesquisa(
+        self,
+        sessao: ISessionManager,
+        rewards_service: IRewardsDataService,
+        mobile: bool = False
+    ) -> bool:
+        """
+        Realiza ciclo completo de pesquisa (PC ou Mobile).
+        
+        Args:
+            sessao: Sessão ativa
+            rewards_service: Serviço de rewards para verificação de progresso
+            mobile: Se True, realiza pesquisas mobile. Se False, PC.
+            
+        Returns:
+            bool: True se completou com sucesso (ou já estava completo)
+        """
+        tipo = "Mobile" if mobile else "PC"
+        self.logger.debug(f"Iniciando ciclo de pesquisa {tipo}...")
+        
+        try:
+            # 1. Fetch inicial de progresso
+            dashboard = rewards_service.obter_recompensas(sessao, bypass_request_token=True)
+            
+            if mobile:
+                current, max_val = rewards_service.get_mobile_search_progress(dashboard)
+            else:
+                current, max_val = rewards_service.get_pc_search_progress(dashboard)
+                
+        except Exception as e:
+            self.logger.aviso(f"Erro ao obter dashboard inicial ({tipo}): {e}")
+            # Fallback seguro
+            current, max_val = 0, 100 if mobile else 150
+            
+        # Verifica se já completou
+        # Ajuste: se max_val for 0 (erro de parse ou API), assumimos que precisamos tentar
+        last_valid_max = max_val if max_val > 0 else (100 if mobile else 150)
+        
+        if current >= last_valid_max:
+            self.logger.info(f"Busca {tipo} já concluída: {current}/{last_valid_max}")
+            return True
+            
+        # Loop de pesquisa
+        attempts = 0
+        searches_without_progress = 0
+        
+        while current < last_valid_max:
+            attempts += 1
+            
+            # Gera query
+            query = self._generate_search_query(sessao)
+            form_code = self._get_random_form_code()
+            
+            self.logger.info(f"Busca {tipo} {attempts}: {current}/{last_valid_max} - Termo: '{query}'")
+            
+            # Executa
+            success = self.realizar_pesquisa(sessao, query, form_code=form_code, mobile=mobile)
+            
+            if success:
+                # Delay natural
+                time.sleep(random.uniform(5.0, 7.0))
+                searches_without_progress += 1
+                
+                # Verifica progresso
+                # A cada 5 buscas ou se estiver perto do fim
+                should_check = (searches_without_progress >= 5) or ((last_valid_max - current) <= 15)
+                
+                if should_check:
+                    try:
+                        dashboard = rewards_service.obter_recompensas(sessao, bypass_request_token=True)
+                        if mobile:
+                            new_curr, new_max = rewards_service.get_mobile_search_progress(dashboard)
+                        else:
+                            new_curr, new_max = rewards_service.get_pc_search_progress(dashboard)
+                            
+                        # Valida atualização
+                        valid_update = True
+                        if new_max == 0 and last_valid_max > 0:
+                            valid_update = False # Ignora reset estranho
+                            
+                        if valid_update:
+                            if new_curr > current:
+                                current = new_curr
+                                searches_without_progress = 0 # Reset stuck counter
+                            
+                            if new_max > 0:
+                                last_valid_max = new_max
+                                
+                        if searches_without_progress >= 5:
+                            self.logger.aviso(f"Sem progresso após 5 buscas ({tipo}). Interrompendo.")
+                            break
+                            
+                    except Exception as e:
+                        self.logger.aviso(f"Erro verificando progresso: {e}")
+            else:
+                self.logger.aviso(f"Falha na requisição ({tipo})")
+                time.sleep(5)
+                
+        self.logger.info(f"Ciclo {tipo} finalizado. {current}/{last_valid_max}")
+        return True
+
+    def _generate_search_query(self, sessao: ISessionManager) -> str:
+        """Gera uma query de pesquisa única e natural."""
+        try:
+            # Tenta usar wonderwords se disponível
+            try:
+                from wonderwords import RandomWord
+                r = RandomWord()
+                seed = r.word()
+            except ImportError:
+                # Fallback se lib não existe
+                seed = ''.join(random.choices(string.ascii_lowercase, k=random.randint(4, 8)))
+                
+            # Obtém sugestões para naturalidade
+            suggestions = self.get_all(sessao, seed)
+            
+            if suggestions:
+                return random.choice(suggestions).text
+            
+            return f"{seed} {random.randint(100, 999)}"
+                
+        except Exception:
+            # Fallback final
+            return f"search {random.randint(1, 10000)}"
+
+    def _get_random_form_code(self) -> str:
+        """Retorna código FORM aleatório."""
+        forms = ["QBLH", "QBRE", "HDRSC1", "LGWQS1", "R5FD", "QSRE1"]
+        return random.choice(forms)

@@ -1,5 +1,5 @@
 """
-Gerenciamento de perfis para o SessionManagerService.
+Gerenciamento de perfis para o SessionManager.
 
 Responsável por criar, atualizar e gerenciar perfis de navegador.
 """
@@ -159,6 +159,55 @@ class ProfileManager(BaseService):
         
         return agente
     
+    def garantir_mobile_ua(self, perfil: str) -> str:
+        """
+        Garante que exista um UA mobile para o perfil e o retorna.
+        
+        Args:
+            perfil: Nome do perfil
+            
+        Returns:
+            User-Agent mobile
+        """
+        try:
+            perfil_data = Profiles.get_profile(perfil)
+        except Exception:
+            perfil_data = {}
+            
+        if not perfil_data:
+            # Perfil nem existe ainda, cria normal primeiro? 
+            # Ou apenas gera o UA on-the-fly se não tiver perfil?
+            # O ideal é que o perfil exista. Se não, gera.
+            # Mas vamos assumir que o perfil já deva existir se estamos rodando pesquisa.
+            pass
+            
+        ua_mobile = perfil_data.get("UA_MOBILE")
+        
+        if not ua_mobile:
+            # Gera novo UA mobile
+            try:
+                from random_user_agent.user_agent import UserAgent
+                from random_user_agent.params import SoftwareName, OperatingSystem, DeviceType
+                
+                mobile_rotator = UserAgent(
+                    software_names=[SoftwareName.CHROME.value],
+                    operating_systems=[OperatingSystem.ANDROID.value, OperatingSystem.IOS.value],
+                    device_types=[DeviceType.MOBILE.value, DeviceType.TABLET.value],
+                    limit=100
+                )
+                ua_mobile = mobile_rotator.get_random_user_agent()
+            except ImportError:
+                 # Fallback hardcoded caso lib nao tenha suporte ou falhe
+                 ua_mobile = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
+
+            # Salva no perfil se existir
+            if perfil_data:
+                perfil_data["UA_MOBILE"] = ua_mobile
+                Profiles.set_profile(perfil, perfil_data)
+                self.logger.debug(f"UA Mobile gerado e salvo para '{perfil}': {ua_mobile}")
+                
+        return ua_mobile
+
     def obter_dados_perfil(self, perfil: str) -> dict:
         """
         Obtém os dados completos de um perfil.
@@ -174,3 +223,4 @@ class ProfileManager(BaseService):
         except Exception as e:
             self.logger.erro(f"Erro ao obter dados do perfil: {e}", perfil=perfil)
             return {}
+
