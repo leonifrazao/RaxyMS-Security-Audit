@@ -667,13 +667,13 @@ class ExecutorEmLote(BaseService, IExecutorEmLoteService):
         console.print("\n")
         if resumo.contas_falha == 0:
             console.print(Panel(
-                f"[bold green]✅ Processamento concluído com sucesso! {resumo.pontos_totais} pontos obtidos.[/bold green]",
+                f"[bold green] Processamento concluído com sucesso! {resumo.pontos_totais} pontos obtidos.[/bold green]",
                 border_style="green",
                 box=box.DOUBLE
             ))
         else:
             console.print(Panel(
-                f"[bold yellow]⚠️ Processamento concluído com {resumo.contas_falha} falha(s). {resumo.pontos_totais} pontos obtidos.[/bold yellow]",
+                f"[bold yellow] Processamento concluído com {resumo.contas_falha} falha(s). {resumo.pontos_totais} pontos obtidos.[/bold yellow]",
                 border_style="yellow",
                 box=box.DOUBLE
             ))

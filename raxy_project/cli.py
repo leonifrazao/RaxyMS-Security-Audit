@@ -123,17 +123,17 @@ def run(
     # Caso 1: Execução de conta única
     if email:
         if not password:
-            console.print("[bold red]❌ A opção --password é obrigatória quando --email é fornecida.[/bold red]")
+            console.print("[bold red] A opção --password é obrigatória quando --email é fornecida.[/bold red]")
             raise typer.Exit(code=1)
         
-        console.print(f"[bold cyan]🚀 Iniciando execução para conta única: {email}[/bold cyan]")
+        console.print(f"[bold cyan] Iniciando execução para conta única: {email}[/bold cyan]")
         id_perfil_final = profile_id or email
         contas_para_executar.append(Conta(email, password, id_perfil_final))
         console.print(f"   - [b]Perfil ID:[/b] {id_perfil_final}")
     
     # Caso 2: Execução em lote (comportamento padrão)
     else:
-        console.print("[bold cyan]🚀 Iniciando execução em lote...[/bold cyan]")
+        console.print("[bold cyan] Iniciando execução em lote...[/bold cyan]")
         console.print(f"   - [b]Origem das contas:[/b] {source}")
         
         # Seleciona repositório baseado na fonte selectionada
@@ -149,28 +149,28 @@ def run(
                      from raxy.infrastructure.database import SupabaseRepository
                      repo = SupabaseRepository()
              except Exception as e:
-                 console.print(f"[bold red]❌ Erro ao inicializar repositório Cloud: {e}[/bold red]")
+                 console.print(f"[bold red] Erro ao inicializar repositório Cloud: {e}[/bold red]")
                  raise typer.Exit(code=1)
         else:
              # Default: Local SQLite
-             console.print("[yellow]Usando SQLite (Local)...[/yellow]")
+             console.print("[yellow] Usando SQLite (Local)...[/yellow]")
              repo = container.conta_repository() # Deve retornar SQLiteRepository
 
         try:
             # Lista contas usando interface unificada IContaRepository
             contas_para_executar = repo.listar()
             if not contas_para_executar:
-                console.print("[bold red]❌ Nenhuma conta encontrada no banco de dados. Use 'raxy accounts import' para adicionar.[/bold red]")
+                console.print("[bold red] Nenhuma conta encontrada no banco de dados. Use 'raxy accounts import' para adicionar.[/bold red]")
                 raise typer.Exit(code=1)
         except Exception as e:
-            console.print(f"[bold red]❌ Erro ao acessar banco de dados: {e}[/bold red]")
+            console.print(f"[bold red] Erro ao acessar banco de dados: {e}[/bold red]")
             raise typer.Exit(code=1)
 
     acoes_finais = actions or app_config.executor.actions
     console.print(f"   - [b]Ações:[/b] {acoes_finais}")
     
     executor.executar(acoes=acoes_finais, contas=contas_para_executar)
-    console.print("[bold green]✅ Execução concluída.[/bold green]")
+    console.print("[bold green] Execução concluída.[/bold green]")
 
 
 # --- Subcomandos (sem alterações) ---
@@ -186,7 +186,7 @@ def import_accounts(
     try:
         contas = fs.import_accounts_from_file(file_path)
     except Exception as e:
-        console.print(f"[bold red]❌ Erro ao ler arquivo: {e}[/bold red]")
+        console.print(f"[bold red] Erro ao ler arquivo: {e}[/bold red]")
         raise typer.Exit(code=1)
 
     if not contas:
@@ -212,7 +212,7 @@ def import_accounts(
             except Exception as e:
                 console.print(f"[red]Falha ao salvar {conta.email}: {e}[/red]")
 
-    console.print(f"[bold green]✅ Importação concluída. {sucesso}/{len(contas)} contas salvas.[/bold green]")
+    console.print(f"[bold green]Importação concluída. {sucesso}/{len(contas)} contas salvas.[/bold green]")
 
 
 @accounts_app.command("list", help="Lista as contas do banco de dados.")
@@ -234,11 +234,11 @@ def list_accounts(
     try:
         contas = repo.listar_contas()
     except Exception as e:
-        console.print(f"[bold red]❌ Erro ao acessar banco: {e}[/bold red]")
+        console.print(f"[bold red] Erro ao acessar banco: {e}[/bold red]")
         return
 
     if not contas:
-        console.print(f"[yellow]Nenhuma conta encontrada em {source}.[/yellow]")
+        console.print(f"[yellow] Nenhuma conta encontrada em {source}.[/yellow]")
         return
 
     table = Table(title=title, show_header=True, header_style="bold magenta")
@@ -290,7 +290,7 @@ def test_proxies(
         find_first=find_first,
         verbose=True,
     )
-    console.print("[bold green]✅ Teste de proxies concluído.[/bold green]")
+    console.print("[bold green] Teste de proxies concluído.[/bold green]")
 
 
 @proxy_app.command("start", help="Inicia as pontes de proxy HTTP e aguarda.")
@@ -319,9 +319,9 @@ def stop_proxies() -> None:
     """Para os processos de proxy em background."""
     container = get_container()
     proxy_service = container.proxy_service()
-    console.print("[bold yellow]Parando pontes de proxy...[/bold yellow]")
+    console.print("[bold yellow] Parando pontes de proxy...[/bold yellow]")
     proxy_service.stop()
-    console.print("[bold green]✅ Pontes paradas com sucesso.[/bold green]")
+    console.print("[bold green] Pontes paradas com sucesso.[/bold green]")
 
 
 @proxy_app.command("rotate", help="Rotaciona o proxy de uma ponte HTTP ativa.")
@@ -332,19 +332,19 @@ def rotate_proxy(
     container = get_container()
     proxy_service = container.proxy_service()
     if not proxy_service.get_http_proxy():
-        console.print("[yellow]Nenhuma ponte ativa. Iniciando pontes antes de rotacionar...[/yellow]")
+        console.print("[yellow] Nenhuma ponte ativa. Iniciando pontes antes de rotacionar...")
         proxy_service.start(auto_test=True, wait=False)
         if not proxy_service.get_http_proxy():
-            console.print("[bold red]❌ Falha ao iniciar pontes. Não é possível rotacionar.[/bold red]")
+            console.print("[bold red] Falha ao iniciar pontes. Não é possível rotacionar.[/bold red]")
             raise typer.Exit(code=1)
 
     console.print(f"[bold cyan]Rotacionando proxy da ponte ID {bridge_id}...[/bold cyan]")
     success = proxy_service.rotate_proxy(bridge_id)
     if not success:
-        console.print(f"[bold red]❌ Falha ao rotacionar a ponte {bridge_id}.[/bold red]")
+        console.print(f"[bold red] Falha ao rotacionar a ponte {bridge_id}.[/bold red]")
         raise typer.Exit(code=1)
     else:
-        console.print("[bold green]✅ Proxy rotacionado com sucesso![/bold green]")
+        console.print("[bold green] Proxy rotacionado com sucesso![/bold green]")
         console.print(proxy_service.get_http_proxy())
 
 
@@ -361,19 +361,19 @@ def clear_cache(
     cache_path = Path(__file__).parent / "raxy" / "infrastructure" / "proxy" / "proxy_cache.json"
     
     if not cache_path.exists():
-        console.print("[yellow]⚠️  Cache não encontrado.[/yellow]")
+        console.print("[yellow] Cache não encontrado.[/yellow]")
         return
     
     if age:
-        console.print(f"[yellow]⚠️  Limpeza por idade ainda não implementada. Limpando todo o cache...[/yellow]")
+        console.print(f"[yellow] Limpeza por idade ainda não implementada. Limpando todo o cache...[/yellow]")
     
     try:
         # Remove o arquivo de cache
         cache_path.unlink()
-        console.print("[bold green]✅ Cache limpo com sucesso![/bold green]")
+        console.print("[bold green] Cache limpo com sucesso![/bold green]")
         console.print(f"[dim]Arquivo removido: {cache_path}[/dim]")
     except Exception as e:
-        console.print(f"[bold red]❌ Erro ao limpar cache: {e}[/bold red]")
+        console.print(f"[bold red] Erro ao limpar cache: {e}[/bold red]")
         raise typer.Exit(code=1)
 
 

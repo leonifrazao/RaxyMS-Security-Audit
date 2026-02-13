@@ -1,363 +1,284 @@
-# Raxy Farm
 
-A comprehensive automation and management platform for Microsoft Rewards accounts, designed with enterprise-grade architecture and modern development practices.
+<a id="readme-top"></a>
 
-## Overview
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![Unlicense License][license-shield]][license-url]
 
-Raxy Farm is a full-stack application that automates Microsoft Rewards point farming across multiple accounts. The system consists of a robust Python backend handling automation logic and a modern React dashboard for monitoring, management, and operations.
 
-Built for scalability and reliability, the platform supports both file-based and database-driven account management, parallel execution, intelligent proxy rotation, and real-time monitoring capabilities.
 
----
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/leonifrazao/MSRewardsFarm">
+    <img src="images/logo.png" alt="Logo" width="80" height="80">
+  </a>
 
-## Key Features
+  <h3 align="center">RaxyMS</h3>
 
-### Backend Automation Engine
+  <p align="center">
+    A powerful CLI automation tool for Microsoft Rewards farming, built with Python and designed for scalability.
+    <br />
+    <a href="https://github.com/leonifrazao/MSRewardsFarm"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/leonifrazao/MSRewardsFarm">View Demo</a>
+    &middot;
+    <a href="https://github.com/leonifrazao/MSRewardsFarm/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    &middot;
+    <a href="https://github.com/leonifrazao/MSRewardsFarm/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+  </p>
+</div>
 
-**Batch Processing**  
-Execute farming operations across multiple accounts simultaneously using `ThreadPoolExecutor`, dramatically reducing total processing time while respecting rate limits and system resources.
 
-**Intelligent Proxy Management**  
-Seamless integration with Xray/V2Ray proxies for connection routing. The system automatically tests proxy health, rotates connections, and manages proxy pools to ensure consistent account access without geographic restrictions.
 
-**Flexible Data Sources**  
-Dual-mode account management supporting both traditional file-based configuration (`users.txt`) and modern cloud database storage via Supabase. Switch between sources dynamically based on operational needs.
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#about-the-project">About The Project</a>
+      <ul>
+        <li><a href="#key-features">Key Features</a></li>
+        <li><a href="#built-with">Built With</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+      </ul>
+    </li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+</details>
 
-**Clean Architecture**  
-Enterprise-grade codebase structured around SOLID principles with dependency injection, clear separation of concerns between domain entities, services, repositories, and API clients. The modular design ensures maintainability and testability.
 
-**RESTful API**  
-Comprehensive FastAPI implementation exposing all backend functionality through well-documented HTTP endpoints at `/api/v1`. Enables integration with the dashboard, CLI tools, or third-party applications.
 
-**Powerful CLI Interface**  
-Feature-rich command-line interface built with Typer for direct terminal operations. Execute farms, test proxies, list accounts, and perform administrative tasks without starting the API server.
+<!-- ABOUT THE PROJECT -->
+## About The Project
 
-**Structured Logging**  
-Production-ready logging system using Rich library for colorful, contextual console output and Loguru for advanced log management. Track execution flow, debug issues, and monitor system health in real-time.
+**RaxyMS** is a specialized command-line interface (CLI) application designed to automate Microsoft Rewards activities. It provides a robust engine for managing multiple accounts, handling proxy connections, and executing farming tasks efficiently.
 
-### Frontend Dashboard
+Unlike browser-extension based solutions, RaxyMS runs logically in the backend, supporting concurrent execution and advanced state management via local databases (SQLite) or cloud sync (Supabase).
 
-**Reactive Control Panel**  
-Modern single-page application built with Next.js 15 App Router and React 19. Real-time data visualization with instant updates as operations progress.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-**Advanced Account Management**  
-Comprehensive account table with search, filtering by data source, multi-select operations, and detailed status indicators. View points, activity history, and per-account metrics at a glance.
 
-**Performance Metrics**  
-Key performance indicators dashboard displaying total accounts, accumulated points, active farms, success rates, and historical trends. Make data-driven decisions about account operations.
+### Key Features
 
-**Operational Controls**  
-Intuitive interface for adding accounts, launching batch farm operations, executing individual account runs, and managing proxy configurations. All operations provide immediate feedback and progress tracking.
+*   **Robust CLI**: Fully featured terminal interface using `Typer` and `Rich` for beautiful output and ease of use.
+*   **Batch Automation**: Process multiple accounts in parallel with configurable worker threads.
+*   **Proxy System**: Integrated proxy management with support for Xray/V2Ray, including auto-testing and rotation.
+*   **Dual Storage**: Store account data locally in SQLite or sync with Supabase for centralized management.
+*   **Headless Operation**: Powered by `Botasaurus` for reliable browser automation.
+*   **Terminal Dashboard**: Real-time status updates and metrics directly in your terminal.
 
-**Modern UI/UX**  
-Built with Tailwind CSS and shadcn/ui component library for a polished, professional appearance. Full theme support (light/dark modes), responsive design for desktop and mobile, and accessibility compliant.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-**Efficient State Management**  
-TanStack Query (React Query) for server state management with intelligent caching, automatic background revalidation, and optimistic updates. Zustand for client-side state coordination across components.
 
----
+### Built With
 
-## Architecture
+*   [![Python][Python.org]][Python-url]
+*   [Typer](https://typer.tiangolo.com/)
+*   [Rich](https://rich.readthedocs.io/en/stable/)
+*   [Botasaurus](https://github.com/omkarcloud/botasaurus)
+*   [Supabase](https://supabase.com/)
+*   [SQLite](https://www.sqlite.org/index.html)
 
-### System Design
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Raxy Farm follows a monorepo structure with clear separation between backend and frontend concerns.
 
-#### Backend (`raxy_project/`)
 
-A modular monolith in Python with layered architecture:
+<!-- GETTING STARTED -->
+## Getting Started
 
-**Application Layer (`app/`)**  
-FastAPI application serving as the HTTP gateway. Controllers handle request/response, validate inputs, and delegate to core services. Provides OpenAPI documentation and CORS configuration.
-
-**Core Library (`raxy/`)**  
-The heart of the system containing all business logic:
-
-- **`domain/`**: Core entities like `Conta` (Account) with business rules and validation logic
-- **`interfaces/`**: Abstract base classes defining contracts for services, repositories, and external APIs
-- **`services/`**: Business logic implementation - authentication, execution orchestration, proxy management, and scoring
-- **`repositories/`**: Data access layer with implementations for file storage and database persistence
-- **`api/`**: External API clients for Bing Rewards, Microsoft authentication, and Supabase
-- **`core/`**: Cross-cutting concerns like configuration management and utility functions
-- **`container.py`**: Dependency injection container wiring interfaces to concrete implementations
-- **`proxy/`**: Proxy pool management, health checking, and rotation strategies
-
-**CLI (`cli.py`)**  
-Typer-based command-line interface for direct system interaction outside the API server.
-
-#### Frontend (`raxy-dashboard/`)
-
-Next.js application with modern React patterns:
-
-- **`src/app/`**: App Router pages and route handlers
-- **`src/components/`**: Reusable UI components including full shadcn/ui integration
-- **`src/features/`**: Feature-specific modules with co-located components, hooks, and logic
-- **`src/lib/`**: Utilities, API clients, and helper functions
-- **`src/hooks/`**: Custom React hooks for shared functionality
-- **`src/providers/`**: React Context providers for theming and global state
-- **`src/stores/`**: Zustand stores for client-side state management
-
----
-
-## Technology Stack
-
-### Backend
-- **Python 3.11+** - Modern Python with type hints and async support
-- **FastAPI** - High-performance async web framework with automatic OpenAPI documentation
-- **Typer** - CLI framework with automatic help generation and type validation
-- **Botasaurus** - Browser automation engine for reward farming
-- **Supabase Client** - Python client for Supabase database operations
-- **Rich** - Terminal output formatting and progress tracking
-- **Loguru** - Advanced logging with rotation, filtering, and formatting
-- **Pydantic** - Data validation using Python type annotations
-- **Xray/V2Ray** - Proxy protocol support via external process management
-
-### Frontend
-- **TypeScript** - Static typing for JavaScript
-- **Next.js 15** - React framework with App Router and server components
-- **React 19** - Modern React with concurrent features
-- **Tailwind CSS** - Utility-first CSS framework
-- **shadcn/ui** - High-quality accessible component library
-- **TanStack Query** - Powerful asynchronous state management
-- **Zustand** - Lightweight state management
-- **Zod** - TypeScript-first schema validation
-- **React Hook Form** - Performant form handling
-- **Lucide React** - Clean, consistent icon set
-
----
-
-## Installation and Setup
+To get RaxyMS running locally, follow these steps.
 
 ### Prerequisites
 
-- Python 3.11 or higher
-- Node.js 18 or higher
-- pnpm (recommended) or npm/yarn
-- Xray or V2Ray executable in system PATH (for proxy functionality)
+*   **Python 3.10+**: Ensure you have a compatible Python version installed.
+*   **Xray / V2Ray**: Required if you plan to use the proxy features. Ensure the executable is in your system PATH or configured correctly.
+*   **Nix (Optional)**: For a reproducible development environment.
 
-### Backend Configuration
+### Installation
 
-1. **Navigate to backend directory:**
-   ```bash
-   cd raxy_project
-   ```
+#### Option 1: Using Nix (Recommended)
 
-2. **Create virtual environment:**
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # Windows: .venv\Scripts\activate
-   ```
+If you have [Nix](https://nixos.org/download.html) installed, you can set up the entire environment automatically:
 
-3. **Install dependencies:**
-   ```bash
-   pip install -r ../requirements.txt
-   ```
-
-4. **Environment configuration:**
-   
-   Create `.env` in `raxy_project/` root:
-   ```env
-   # Supabase Configuration (if using database source)
-   SUPABASE_URL=https://your-project-ref.supabase.co
-   SUPABASE_KEY=your-supabase-anon-key
-   
-   # Optional: Proxy configuration
-   PROXY_TEST_URL=https://www.bing.com
-   ```
-
-5. **Account configuration (file-based):**
-   
-   Create `users.txt` in `raxy_project/` root with accounts (one per line):
-   ```
-   email@example.com:password123
-   another@example.com:password456
-   ```
-
-### Frontend Configuration
-
-1. **Navigate to frontend directory:**
-   ```bash
-   cd raxy-dashboard
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   pnpm install
-   ```
-
-3. **Environment configuration:**
-   
-   Create `.env.local` in `raxy-dashboard/` root:
-   ```env
-   NEXT_PUBLIC_RAXY_API_URL=http://127.0.0.1:8000
-   ```
-
----
-
-## Running the Application
-
-### Backend Server
-
-Start the FastAPI server for dashboard integration:
-
-```bash
-cd raxy_project
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```sh
+# Enter the nix shell (installs Python, dependencies, and system libraries)
+nix-shell
 ```
 
-API documentation available at `http://127.0.0.1:8000/docs`
+Inside the shell, you are ready to run the CLI.
 
-### Frontend Dashboard
+#### Option 2: Manual Installation
 
-With the backend running, start the development server:
+1.  **Clone the repository**
+    ```sh
+    git clone https://github.com/leonifrazao/MSRewardsFarm.git
+    cd MSRewardsFarm/raxy_project
+    ```
 
-```bash
-cd raxy-dashboard
-pnpm dev
-```
+2.  **Install dependencies**
+    ```sh
+    pip install .
+    # OR
+    pip install -r requirements.txt
+    ```
 
-Access the dashboard at `http://localhost:3000`
+3.  **Configuration**
+    Copy the example configuration file:
+    ```sh
+    cp config.example.yaml config.yaml
+    ```
+    Edit `config.yaml` to adjust settings like `max_workers`, `users_file` path, or Supabase credentials.
 
-### CLI Operations
+4.  **Environment Variables (Optional)**
+    If using Supabase, create a `.env` file:
+    ```env
+    SUPABASE_URL=your_project_url
+    SUPABASE_KEY=your_anon_key
+    ```
 
-Execute operations directly without the API server:
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-**Run farm with file accounts:**
-```bash
-cd raxy_project
+
+
+<!-- USAGE EXAMPLES -->
+## Usage
+
+RaxyMS is controlled entirely via the `cli.py` script. Here are the common commands:
+
+### Basic Farming
+Run the standard farming process for all configured accounts:
+```sh
 python cli.py run
 ```
 
-**Run farm with database accounts:**
-```bash
-python cli.py run --source database
+### Specific Account
+Run farming for a single account (useful for testing):
+```sh
+python cli.py run --email user@example.com --password yourpassword
 ```
 
-**Test proxy pool:**
-```bash
+### Account Management
+Import accounts from a text file (format: `email:password` per line):
+```sh
+python cli.py accounts import users.txt
+```
+
+List all accounts in the database:
+```sh
+python cli.py accounts list
+```
+
+### Proxy Management
+Test your proxy list:
+```sh
 python cli.py proxy test --threads 20 --country US
 ```
 
-**List file accounts:**
-```bash
-python cli.py accounts list-file
+Start proxy bridges manually:
+```sh
+python cli.py proxy start
 ```
 
-**List database accounts:**
-```bash
-python cli.py accounts list-db
+For a full list of commands and options, run:
+```sh
+python cli.py --help
 ```
 
----
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Project Structure
 
-```
-Raxy Farm/
-├── raxy_project/              # Backend Python application
-│   ├── app/                   # FastAPI application layer
-│   │   ├── controllers/       # HTTP request handlers
-│   │   ├── main.py           # Application entry point
-│   │   └── dependencies.py   # DI container setup
-│   ├── raxy/                 # Core business logic library
-│   │   ├── api/              # External API clients
-│   │   ├── core/             # Configuration and utilities
-│   │   ├── domain/           # Domain entities
-│   │   ├── interfaces/       # Abstract contracts
-│   │   ├── repositories/     # Data access layer
-│   │   ├── services/         # Business logic
-│   │   ├── proxy/            # Proxy management
-│   │   └── container.py      # DI container
-│   └── cli.py                # CLI interface
-├── raxy-dashboard/           # Frontend Next.js application
-│   ├── src/
-│   │   ├── app/              # Next.js pages
-│   │   ├── components/       # UI components
-│   │   ├── features/         # Feature modules
-│   │   ├── hooks/            # Custom hooks
-│   │   ├── lib/              # Utilities and API clients
-│   │   ├── providers/        # Context providers
-│   │   └── stores/           # State management
-│   └── public/               # Static assets
-├── requirements.txt          # Python dependencies
-└── README.md                 # This file
-```
 
----
+<!-- ROADMAP -->
+## Roadmap
 
-## API Documentation
+- [x] Core CLI Architecture
+- [x] Batch Processing Engine
+- [x] Proxy Management & Rotation
+- [x] SQLite & Supabase Adapters
+- [x] Terminal Dashboard
+- [ ] Advanced Scheduling (Cron/Daemon mode)
+- [ ] Docker Containerization
+- [ ] Multi-region/Language Support
 
-When the backend is running, comprehensive API documentation is available at:
+See the [open issues](https://github.com/your_username/repo_name/issues) for a full list of proposed features (and known issues).
 
-- **Swagger UI**: `http://127.0.0.1:8000/docs`
-- **ReDoc**: `http://127.0.0.1:8000/redoc`
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Key Endpoints
 
-- `GET /api/v1/accounts` - List all accounts with filtering
-- `POST /api/v1/accounts` - Add new account
-- `POST /api/v1/farm/run` - Execute farm for all accounts
-- `POST /api/v1/farm/run/{account_id}` - Execute farm for specific account
-- `GET /api/v1/metrics` - Retrieve performance metrics
-- `GET /api/v1/proxies` - List available proxies
-- `POST /api/v1/proxies/test` - Test proxy health
 
----
+<!-- CONTRIBUTING -->
+## Contributing
 
-## Development
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
-### Backend Development
+1.  Fork the Project
+2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the Branch (`git push origin feature/AmazingFeature`)
+5.  Open a Pull Request
 
-The backend follows clean architecture principles:
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-1. Define entities in `raxy/domain/`
-2. Create interfaces in `raxy/interfaces/`
-3. Implement services in `raxy/services/`
-4. Wire dependencies in `raxy/container.py`
-5. Expose via controllers in `app/controllers/`
 
-### Frontend Development
 
-The frontend uses feature-based organization:
-
-1. Create feature directory in `src/features/`
-2. Implement components, hooks, and types
-3. Add API client methods in `src/lib/api/`
-4. Create pages in `src/app/` using feature components
-
-### Testing
-
-**Backend:**
-```bash
-cd raxy_project
-python -m pytest raxy/tests/
-```
-
-**Frontend:**
-```bash
-cd raxy-dashboard
-pnpm test
-```
-
----
-
-## Security Considerations
-
-- Never commit `.env` or `.env.local` files
-- Store sensitive credentials in environment variables
-- Use service accounts with minimal required permissions
-- Regularly rotate API keys and database credentials
-- Review proxy sources for security and reliability
-- Implement rate limiting in production deployments
-
----
-
+<!-- LICENSE -->
 ## License
 
-This project is provided as-is for educational and personal use. Please review Microsoft Rewards terms of service and ensure compliance with all applicable regulations.
+Distributed under the Unlicense License. See `LICENSE.txt` for more information.
 
----
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+
+
+<!-- CONTACT -->
+## Contact
+
+Leoni Frazão - leoni.frazao.oliveira@gmail.com
+
+Project Link: [https://github.com/leonifrazao/MSRewardsFarm](https://github.com/leonifrazao/MSRewardsFarm)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+
+<!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-Built with modern development practices and enterprise-grade tools to provide a reliable, scalable, and maintainable solution for Microsoft Rewards automation.
+*   [Typer](https://typer.tiangolo.com/)
+*   [Rich](https://rich.readthedocs.io/en/stable/)
+*   [Botasaurus](https://github.com/omkarcloud/botasaurus)
+*   [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+
+<!-- MARKDOWN LINKS & IMAGES -->
+[contributors-shield]: https://img.shields.io/github/contributors/othneildrew/Best-README-Template.svg?style=for-the-badge
+[contributors-url]: https://github.com/othneildrew/Best-README-Template/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/othneildrew/Best-README-Template.svg?style=for-the-badge
+[forks-url]: https://github.com/othneildrew/Best-README-Template/network/members
+[stars-shield]: https://img.shields.io/github/stars/othneildrew/Best-README-Template.svg?style=for-the-badge
+[stars-url]: https://github.com/othneildrew/Best-README-Template/stargazers
+[issues-shield]: https://img.shields.io/github/issues/othneildrew/Best-README-Template.svg?style=for-the-badge
+[issues-url]: https://github.com/othneildrew/Best-README-Template/issues
+[license-shield]: https://img.shields.io/github/license/othneildrew/Best-README-Template.svg?style=for-the-badge
+[license-url]: https://github.com/othneildrew/Best-README-Template/blob/master/LICENSE.txt
+[product-screenshot]: images/screenshot.png
+[Python.org]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
+[Python-url]: https://python.org

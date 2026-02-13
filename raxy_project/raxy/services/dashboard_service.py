@@ -208,9 +208,9 @@ class LiveDashboardService(BaseService, IDashboardService):
             t = self.results["total"]
             
         summary_grid.add_row(
-            f"[green]✅ Sucessos: {s}[/green]",
-            f"[red]❌ Falhas: {f}[/red]",
-            f"[bold]📊 Total Processado: {t}/{self.total_accounts}[/bold]"
+            f"[green] Sucessos: {s}[/green]",
+            f"[red] Falhas: {f}[/red]",
+            f"[bold] Total Processado: {t}/{self.total_accounts}[/bold]"
         )
         
         self.layout["footer"].update(
