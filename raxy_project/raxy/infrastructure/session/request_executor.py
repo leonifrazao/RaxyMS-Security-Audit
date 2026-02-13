@@ -20,7 +20,7 @@ from raxy.core.exceptions import (
 from raxy.core.logging import debug_log
 from raxy.interfaces.services import ILoggingService
 from raxy.services.base_service import BaseService
-from raxy.domain.proxy import ProxyItem
+from raxy.models.proxy import ProxyItem
 
 
 class RequestExecutor(BaseService):

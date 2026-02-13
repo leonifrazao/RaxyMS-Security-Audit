@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from raxy.domain.proxy import Outbound, ProxyItem, ProxyTestResult
+from raxy.models.proxy import Outbound, ProxyItem, ProxyTestResult
 
 DEFAULT_CACHE_FILENAME: str = "proxy_cache.json"
 CACHE_VERSION: int = 1

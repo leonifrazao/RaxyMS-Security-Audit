@@ -7,7 +7,7 @@ from typing import Mapping, TYPE_CHECKING, Any, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
     from raxy.interfaces.services import ISessionManager
-    from raxy.domain.rewards import RewardsDashboard, CollectionResult
+    from raxy.models.rewards import RewardsDashboard, CollectionResult
 
 
 class IRewardsDataService(ABC):

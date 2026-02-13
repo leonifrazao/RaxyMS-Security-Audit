@@ -7,7 +7,7 @@ import re
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, unquote, urlparse, urlsplit
 
-from raxy.domain.proxy import Outbound
+from raxy.models.proxy import Outbound
 
 
 def b64decode_padded(value: str) -> bytes:

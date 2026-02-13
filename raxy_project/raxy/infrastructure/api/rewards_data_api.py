@@ -13,7 +13,7 @@ import time
 import json
 
 from raxy.interfaces.services import IRewardsDataService, ILoggingService, ISessionManager
-from raxy.domain.rewards import Promotion, DailySet, RewardsDashboard, CollectionResult, TaskResult, PunchCard
+from raxy.models.rewards import Promotion, DailySet, RewardsDashboard, CollectionResult, TaskResult, PunchCard
 from raxy.core.exceptions import (
     RewardsAPIException,
     InvalidAPIResponseException,

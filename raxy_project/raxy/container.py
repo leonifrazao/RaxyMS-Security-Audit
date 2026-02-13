@@ -19,19 +19,18 @@ from raxy.core.config import AppConfig, ExecutorConfig, get_config
 # (Interfaces removidas pois não são usadas diretamente no container, apenas as implementações)
 
 # Implementações
-from raxy.infrastructure.repositories.file_account_repository import ArquivoContaRepository
+from raxy.infrastructure.database import SQLiteRepository, SupabaseRepository
 from raxy.services.executor_service import ExecutorEmLote
 from raxy.core.logging import get_logger
 from raxy.infrastructure.api.rewards_data_api import RewardsDataAPI
 from raxy.infrastructure.api.bing_suggestion_api import BingSuggestionAPI
-from raxy.infrastructure.api.supabase_api import SupabaseRepository
 from raxy.services.bingflyout_service import BingFlyoutService
 from raxy.services.dashboard_service import LiveDashboardService
 from raxy.infrastructure.proxy import Proxy
 from raxy.infrastructure.proxy.process import ProcessManager
 from raxy.infrastructure.proxy.network import NetworkManager
 from raxy.infrastructure.api.mail_tm_api import MailTm
-from raxy.domain import InfraServices
+from raxy.models import InfraServices
 
 
 
@@ -108,17 +107,18 @@ class ApplicationContainer(containers.DeclarativeContainer):
     mail_tm_service = providers.Singleton(MailTm)
     
     # Repositórios
+    conta_repository = providers.Singleton(
+        SQLiteRepository,
+        db_path="raxy.db"
+    )
+
     database_repository = providers.Singleton(
-        lambda config: SupabaseRepository(
+        lambda config, sqlite_repo: SupabaseRepository(
             url=config.api.supabase_url,
             key=config.api.supabase_key
-        ) if config.api.has_supabase else None,
-        config=config
-    )
-    
-    conta_repository = providers.Singleton(
-        ArquivoContaRepository,
-        caminho_arquivo=executor_config.provided.users_file
+        ) if config.api.has_supabase else sqlite_repo,
+        config=config,
+        sqlite_repo=conta_repository
     )
     
     # Serviços de Negócio

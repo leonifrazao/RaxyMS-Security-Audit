@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 from typing import Iterable, Sequence, TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:  # pragma: no cover
-    from raxy.domain import Conta
-    from raxy.domain.execution import BatchExecutionResult
+    from raxy.models import Conta
+    from raxy.models.execution import BatchExecutionResult
 
 
 class IExecutorEmLoteService(ABC):

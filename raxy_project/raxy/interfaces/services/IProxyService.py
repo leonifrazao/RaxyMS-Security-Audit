@@ -3,7 +3,7 @@ from typing import List, Dict, Optional, Iterable, Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
 if TYPE_CHECKING:
-    from raxy.domain.proxy import ProxyItem
+    from raxy.models.proxy import ProxyItem
 
 
 class IProxyService(ABC):

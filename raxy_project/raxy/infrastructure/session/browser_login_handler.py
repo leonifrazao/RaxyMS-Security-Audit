@@ -10,9 +10,9 @@ from botasaurus.browser import Driver, Wait, browser
 from botasaurus.lang import Lang
 from botasaurus.soupify import soupify
 
-from raxy.interfaces.drivers import IBrowserDriver
-from raxy.infrastructure.drivers import BotasaurusDriver
-from raxy.infrastructure.drivers.network_inspector import NetWork
+from raxy.interfaces.webdrivers import IBrowserDriver
+from raxy.infrastructure.webdrivers import BotasaurusDriver
+from raxy.infrastructure.webdrivers.network_inspector import NetWork
 from raxy.infrastructure.session.session_utils import (
     extract_request_verification_token,
     normalize_credentials,

@@ -10,7 +10,11 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from raxy.interfaces.storage import IFileSystem
+from raxy.interfaces.database import IFileSystem
+from raxy.models import Conta
+from raxy.core.logging import get_logger
+from raxy.core.exceptions import DataValidationException, FileRepositoryException, DataNotFoundException, wrap_exception
+import re
 
 
 class LocalFileSystem(IFileSystem):
@@ -144,3 +148,51 @@ class LocalFileSystem(IFileSystem):
         if self._base_path:
             return str(self._base_path.joinpath(*parts))
         return str(Path(*parts))
+
+    def import_accounts_from_file(self, path: str | Path) -> List[Conta]:
+        """
+        Lê e analisa um arquivo de texto contendo contas (email:senha).
+        
+        Args:
+            path: Caminho do arquivo a ser importado.
+            
+        Returns:
+            Lista de objetos Conta analisados.
+        """
+        caminho = str(path)
+        if not self.exists(caminho):
+             raise DataNotFoundException(f"Arquivo não encontrado: {caminho}", details={"path": caminho})
+
+        logger = get_logger()
+        logger.debug(f"Importando contas de: {caminho}")
+
+        try:
+            content = self.read_text(caminho)
+        except Exception as e:
+            raise wrap_exception(e, FileRepositoryException, "Erro ao ler arquivo de importação", path=caminho)
+
+        contas = []
+        for i, line in enumerate(content.splitlines(), start=1):
+            line = line.strip()
+            if not line or line.startswith("#") or ":" not in line:
+                continue
+
+            try:
+                parts = line.split(":", 1)
+                email = parts[0].strip()
+                senha = parts[1].strip()
+
+                if "@" not in email:
+                     logger.aviso(f"Linha {i}: Email inválido ignorado ({email})")
+                     continue
+
+                # Gera ID de perfil baseado no email se não existir lógica melhor
+                base = email.lower().replace("@", "_at_")
+                id_perfil = re.sub(r"[^a-z0-9._-]+", "_", base).strip("_")
+
+                contas.append(Conta(email=email, senha=senha, id_perfil=id_perfil))
+            except Exception as e:
+                logger.aviso(f"Linha {i}: Erro ao processar conta", erro=str(e))
+
+        logger.info(f"Importação concluída. {len(contas)} contas analisadas.")
+        return contas

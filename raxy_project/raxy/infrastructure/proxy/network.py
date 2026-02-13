@@ -15,7 +15,7 @@ except ImportError:
     requests = None
 
 from raxy.interfaces.services.IProxyComponents import IProxyNetworkManager, IProxyProcessManager
-from raxy.domain.proxy import Outbound
+from raxy.models.proxy import Outbound
 from .parser import decode_bytes
 
 logger = logging.getLogger(__name__)

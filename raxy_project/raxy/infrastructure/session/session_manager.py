@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 import time
 
-from raxy.domain.proxy import ProxyItem
-from raxy.domain.accounts import Conta
-from raxy.interfaces.drivers import IBrowserDriver
+from raxy.models.proxy import ProxyItem
+from raxy.models.accounts import Conta
+from raxy.interfaces.webdrivers import IBrowserDriver
 from raxy.core.exceptions import (
     SessionException,
     ProxyRotationRequiredException,

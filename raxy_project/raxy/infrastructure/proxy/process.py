@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Generator, ContextManager
 
 from raxy.interfaces.services.IProxyComponents import IProxyProcessManager
-from raxy.domain.proxy import Outbound
+from raxy.models.proxy import Outbound
 from raxy.core.logging import log
 from .parser import decode_bytes
 

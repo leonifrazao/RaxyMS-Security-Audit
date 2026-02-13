@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
-from raxy.domain.accounts import Conta
-from raxy.interfaces.drivers import IBrowserDriver
+from raxy.models.accounts import Conta
+from raxy.interfaces.webdrivers import IBrowserDriver
 
 
 class ISessionManager(ABC):

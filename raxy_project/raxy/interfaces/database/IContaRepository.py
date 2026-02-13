@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Iterable, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from raxy.domain import Conta
+    from raxy.models import Conta
 
 
 class IContaRepository(ABC):

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from raxy.interfaces.services import ISessionManager
-    from raxy.domain.flyout import FlyoutResult
+    from raxy.models.flyout import FlyoutResult
 
 
 class IBingFlyoutService(ABC):

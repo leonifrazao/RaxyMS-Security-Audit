@@ -17,9 +17,9 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from raxy.domain import Conta, InfraServices
-from raxy.domain.execution import BatchExecutionResult, ContaResult, EtapaResult
-from raxy.domain.proxy import ProxyItem
+from raxy.models import Conta, InfraServices
+from raxy.models.execution import BatchExecutionResult, ContaResult, EtapaResult
+from raxy.models.proxy import ProxyItem
 from raxy.infrastructure.session.session_manager import SessionManager
 from raxy.core.config import ExecutorConfig, ProxyConfig
 from raxy.core.exceptions import (
@@ -37,7 +37,7 @@ from .base_service import BaseService
 import time
 
 
-# Local definitions of EtapaResult and ContaResult removed in favor of raxy.domain.execution
+# Local definitions of EtapaResult and ContaResult removed in favor of raxy.models.execution
 # Using imported classes instead.
 
 
@@ -231,12 +231,13 @@ class AccountProcessor:
             )
             
             # Etapa 5: Salvar no banco
-            if resultado.pontos_finais > 0:
-                try:
-                    self._salvar_no_banco(conta.email, resultado.pontos_finais, logger)
-                    resultado.adicionar_etapa("salvar_banco", True)
-                except Exception as e:
-                    resultado.adicionar_etapa("salvar_banco", False, erro=str(e))
+            # Removido check de > 0 para garantir update de ultima_farm
+            logger.info(f"Salvando dados no banco: {conta.email} - {resultado.pontos_finais} pts")
+            try:
+                self._salvar_no_banco(conta.email, resultado.pontos_finais, logger)
+                resultado.adicionar_etapa("salvar_banco", True)
+            except Exception as e:
+                resultado.adicionar_etapa("salvar_banco", False, erro=str(e))
             
             # Marca como sucesso geral
             resultado.sucesso_geral = True
@@ -337,6 +338,8 @@ class AccountProcessor:
             if self.db_repository:
                 self.db_repository.adicionar_registro_farm(email, pontos)
         except Exception as e:
+            if logger:
+                logger.erro(f"Erro ao salvar no banco: {str(e)}", exception=e)
             pass
 
 

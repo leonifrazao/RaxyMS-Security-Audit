@@ -11,7 +11,7 @@ from botasaurus.browser import Driver
 
 from raxy.core.logging import get_logger
 
-from raxy.interfaces.drivers import IBrowserDriver
+from raxy.interfaces.webdrivers import IBrowserDriver
 
 
 class BotasaurusDriver(IBrowserDriver):

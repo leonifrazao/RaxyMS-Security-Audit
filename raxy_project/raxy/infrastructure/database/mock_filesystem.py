@@ -7,9 +7,11 @@ permitindo testes rápidos e isolados.
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Union, TYPE_CHECKING
 
-from raxy.interfaces.storage import IFileSystem
+from raxy.interfaces.database import IFileSystem
+if TYPE_CHECKING:
+    from raxy.models import Conta
 
 
 class MockFileSystem(IFileSystem):
@@ -260,6 +262,18 @@ class MockFileSystem(IFileSystem):
         """Retorna todos os arquivos (útil para debugging)."""
         return self._files.copy()
     
-    def get_all_dirs(self) -> set[str]:
+    def get_all_dirs(self) -> List[str]:
         """Retorna todos os diretórios (útil para debugging)."""
-        return self._dirs.copy()
+        return list(self._dirs)
+
+    def import_accounts_from_file(self, path: str | Path) -> List["Conta"]:
+        """
+        Mock da importação de contas.
+        Retorna lista vazia por padrão, ou poderia ser mockado para retornar dados.
+        """
+        # Se o arquivo existe e tem conteúdo, poderíamos tentar parsear
+        # Mas para mock simples, retornamos vazio ou erro se não existir
+        if not self.exists(path):
+            from raxy.core.exceptions import DataNotFoundException
+            raise DataNotFoundException(f"Arquivo não encontrado no mock: {path}")
+        return [].copy()

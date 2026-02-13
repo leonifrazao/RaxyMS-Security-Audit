@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
+from raxy.interfaces.database import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
     ILoggingService,
     IRewardsDataService,

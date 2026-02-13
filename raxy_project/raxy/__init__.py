@@ -2,10 +2,10 @@
 
 from raxy.infrastructure.api.rewards_data_api import RewardsDataAPI
 from raxy.container import ApplicationContainer, get_container, reset_container, override_config
-from raxy.domain import Conta
-from raxy.infrastructure.repositories.file_account_repository import (
-    ArquivoContaRepository,
-    HistoricoPontuacaoMemoriaRepository,
+from raxy.models import Conta
+from raxy.infrastructure.database import (
+    SQLiteRepository,
+    SupabaseRepository,
 )
 from raxy.services.executor_service import ExecutorEmLote
 from raxy.core.config import (
@@ -24,9 +24,9 @@ log = get_logger()
 
 __all__ = [
     # Domínio e repositórios
-    "ArquivoContaRepository",
+    "SQLiteRepository",
+    "SupabaseRepository",
     "Conta",
-    "HistoricoPontuacaoMemoriaRepository",
     
     # Serviços
     "ExecutorEmLote",

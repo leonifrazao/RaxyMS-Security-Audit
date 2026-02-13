@@ -15,7 +15,7 @@ from typing import List, Optional, Dict, Any, Callable
 import requests
 
 from raxy.interfaces.services import IMailTmService, ILoggingService
-from raxy.domain.mailtm_data import Domain, Account, AuthenticatedSession, Message, MessageAddress
+from raxy.models.mailtm_data import Domain, Account, AuthenticatedSession, Message, MessageAddress
 from raxy.core.exceptions import (
     MailTmAPIException,
     RequestException,

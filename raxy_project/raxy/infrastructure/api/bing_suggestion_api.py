@@ -23,7 +23,7 @@ from raxy.core.exceptions import (
 from raxy.core.config import get_config
 from raxy.core.logging import debug_log
 from .base_api import BaseAPIClient
-from raxy.domain.suggestion import Suggestion
+from raxy.models.suggestion import Suggestion
 
 
 class SuggestionParser:

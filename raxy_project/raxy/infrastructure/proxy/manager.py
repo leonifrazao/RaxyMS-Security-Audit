@@ -25,7 +25,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from raxy.interfaces.services import IProxyService
 from raxy.core.logging import debug_log, get_logger
 from raxy.interfaces.services.IProxyComponents import IProxyProcessManager, IProxyNetworkManager
-from raxy.domain.proxy import Outbound, BridgeRuntime, ProxyItem, ProxyTestResult
+from raxy.models.proxy import Outbound, BridgeRuntime, ProxyItem, ProxyTestResult
 from .parser import parse_uri_to_outbound
 from .storage import (
     DEFAULT_CACHE_FILENAME,

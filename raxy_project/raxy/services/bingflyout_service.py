@@ -11,7 +11,7 @@ import random
 import re
 from pathlib import Path
 from typing import Dict, Mapping, Optional, Any
-from raxy.domain.flyout import FlyoutResult
+from raxy.models.flyout import FlyoutResult
 import time
 
 from bs4 import BeautifulSoup

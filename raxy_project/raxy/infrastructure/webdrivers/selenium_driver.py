@@ -8,15 +8,16 @@ demonstrando o poder do desacoplamento arquitetural.
 from __future__ import annotations
 import time
 import random
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, List, Optional, Callable
 
 from selenium import webdriver
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-from raxy.interfaces.drivers import IBrowserDriver
+from raxy.interfaces.webdrivers import IBrowserDriver
 from raxy.core.logging import get_logger
 
 
@@ -295,12 +296,12 @@ class SeleniumDriver(IBrowserDriver):
     
     @property
     def profile(self) -> Dict[str, Any]:
-        """Perfil do navegador."""
-        return self._profile
+        """Perfil do navegador (não suportado nativamente no Selenium sem gestão externa)."""
+        return {}
     
     # ========== Métodos Utilitários ==========
     
-    def get_native_driver(self) -> webdriver.Chrome | webdriver.Firefox:
+    def get_native_driver(self) -> WebDriver:
         """
         Retorna o driver nativo do Selenium.
         

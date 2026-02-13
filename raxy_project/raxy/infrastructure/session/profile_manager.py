@@ -10,7 +10,7 @@ import time
 from random_user_agent.user_agent import UserAgent
 from botasaurus.profiles import Profiles
 
-from raxy.domain.accounts import Conta
+from raxy.models.accounts import Conta
 from raxy.core.config import get_config
 from raxy.core.exceptions import ProfileException, wrap_exception
 from raxy.core.logging import debug_log

@@ -6,7 +6,7 @@ from .services import (
     IRewardsDataService,
     IBingSuggestion
 )
-from .repositories import IContaRepository, IHistoricoPontuacaoRepository, IDatabaseRepository
+from .database import IContaRepository, IHistoricoPontuacaoRepository, IDatabaseRepository
 
 __all__ = [
     "IAutenticadorRewardsService",

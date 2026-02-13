@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 from unittest.mock import MagicMock
 
-from raxy.interfaces.drivers import IBrowserDriver
+from raxy.interfaces.webdrivers import IBrowserDriver
 
 
 class MockDriver(IBrowserDriver):
@@ -152,8 +152,10 @@ class MockDriver(IBrowserDriver):
     
     @property
     def profile(self) -> Dict[str, Any]:
-        """Perfil mock."""
-        return self._profile
+        return {}
+
+    def get_native_driver(self) -> Any:
+        return "MockNativeDriver"
     
     # ========== Métodos de Configuração para Testes ==========
     

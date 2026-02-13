@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Tuple, Generator, ContextManager
 from pathlib import Path
 import subprocess
 
-from raxy.domain.proxy import Outbound
+from raxy.models.proxy import Outbound
 
 
 class IProxyProcessManager(ABC):

@@ -211,3 +211,11 @@ class IBrowserDriver(ABC):
     def profile(self) -> Dict[str, Any]:
         """Perfil do navegador."""
         pass
+
+    @abstractmethod
+    def get_native_driver(self) -> Any:
+        """
+        Retorna o driver nativo subjacente.
+        Use com cuidado, pois quebra o encapsulamento.
+        """
+        pass

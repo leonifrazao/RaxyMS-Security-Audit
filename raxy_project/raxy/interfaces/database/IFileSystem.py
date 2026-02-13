@@ -7,8 +7,11 @@ deve seguir para garantir desacoplamento completo.
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from pathlib import Path
+
+if TYPE_CHECKING:
+    from raxy.models import Conta
 
 
 class IFileSystem(ABC):
@@ -256,5 +259,20 @@ class IFileSystem(ABC):
             
         Returns:
             str: Caminho completo
+        """
+        pass
+
+    # ========== Negócio (Helpers) ==========
+
+    @abstractmethod
+    def import_accounts_from_file(self, path: str | Path) -> List["Conta"]:
+        """
+        Lê e analisa um arquivo de texto contendo contas.
+
+        Args:
+            path: Caminho do arquivo a ser importado.
+
+        Returns:
+            Lista de objetos Conta analisados.
         """
         pass

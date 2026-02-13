@@ -14,14 +14,15 @@ from dependency_injector import providers
 
 from raxy.container import ApplicationContainer, get_container
 from raxy.core.config import AppConfig, ExecutorConfig, get_config
-from raxy.domain.accounts import Conta
-from raxy.interfaces.repositories import IContaRepository, IDatabaseRepository
+from raxy.models.accounts import Conta
+from raxy.interfaces.database import IContaRepository, IDatabaseRepository
 from raxy.interfaces.services import (
     IExecutorEmLoteService,
     ILoggingService,
     IProxyService,
 )
 from raxy.infrastructure.proxy import Proxy
+from raxy.infrastructure.database import LocalFileSystem, SQLiteRepository, SupabaseRepository
 
 # --- Configuração da Aplicação CLI ---
 app = typer.Typer(
@@ -60,8 +61,8 @@ def run(
     ] = None,
     source: Annotated[
         str,
-        typer.Option(help="Origem das contas para execução em lote: 'file' ou 'database'.", case_sensitive=False),
-    ] = "file",
+        typer.Option(help="Origem das contas: 'local' (sqlite) ou 'cloud' (supabase).", case_sensitive=False),
+    ] = "local",
     email: Annotated[
         Optional[str],
         typer.Option("-e", "--email", help="Email de uma conta específica para executar (ignora --source).")
@@ -135,32 +136,35 @@ def run(
         console.print("[bold cyan]🚀 Iniciando execução em lote...[/bold cyan]")
         console.print(f"   - [b]Origem das contas:[/b] {source}")
         
-        if source.lower() == "database":
-            console.print("[yellow]Carregando contas do banco de dados...[/yellow]")
-            db_repo = container.database_repository()
-            registros = db_repo.listar_contas()
-            for registro in registros:
-                if not isinstance(registro, dict): continue
-                db_email = registro.get("email")
-                db_senha = registro.get("senha") or registro.get("password") or ""
-                if not db_email or not db_senha:
-                    logger.aviso("Registro de conta inválido no DB ignorado.", registro=str(registro)[:100])
-                    continue
-                db_perfil = registro.get("id_perfil") or registro.get("perfil") or db_email
-                contas_para_executar.append(Conta(db_email, db_senha, db_perfil))
+        # Seleciona repositório baseado na fonte selectionada
+        if source.lower() in ("cloud", "supabase", "database"):
+             console.print("[yellow]Usando Supabase (Cloud)...[/yellow]")
+             # Container deve ser configurado para usar Supabase se necessário, ou instanciamos aqui
+             # Idealmente, o container já resolve isso se a config estiver certa, mas aqui forçamos
+             # Para simplificar, vamos assumir que o default do container será SQLite, e override se cloud
+             try:
+                 repo = container.database_repository() # Tenta pegar o do container, que pode ser None se config ausente
+                 if not repo:
+                     # Se não configurado no container, tenta instanciar direto
+                     from raxy.infrastructure.database import SupabaseRepository
+                     repo = SupabaseRepository()
+             except Exception as e:
+                 console.print(f"[bold red]❌ Erro ao inicializar repositório Cloud: {e}[/bold red]")
+                 raise typer.Exit(code=1)
+        else:
+             # Default: Local SQLite
+             console.print("[yellow]Usando SQLite (Local)...[/yellow]")
+             repo = container.conta_repository() # Deve retornar SQLiteRepository
+
+        try:
+            # Lista contas usando interface unificada IContaRepository
+            contas_para_executar = repo.listar()
             if not contas_para_executar:
-                console.print("[bold red]❌ Nenhuma conta encontrada no banco de dados.[/bold red]")
+                console.print("[bold red]❌ Nenhuma conta encontrada no banco de dados. Use 'raxy accounts import' para adicionar.[/bold red]")
                 raise typer.Exit(code=1)
-        else: # source == 'file'
-            try:
-                file_repo = container.conta_repository()
-                contas_para_executar = file_repo.listar()
-                if not contas_para_executar:
-                    console.print(f"[bold red]❌ Nenhuma conta encontrada no arquivo de origem.[/bold red]")
-                    raise typer.Exit(code=1)
-            except FileNotFoundError:
-                console.print(f"[bold red]❌ Arquivo de contas não encontrado no caminho configurado.[/bold red]")
-                raise typer.Exit(code=1)
+        except Exception as e:
+            console.print(f"[bold red]❌ Erro ao acessar banco de dados: {e}[/bold red]")
+            raise typer.Exit(code=1)
 
     acoes_finais = actions or app_config.executor.actions
     console.print(f"   - [b]Ações:[/b] {acoes_finais}")
@@ -170,40 +174,74 @@ def run(
 
 
 # --- Subcomandos (sem alterações) ---
-@accounts_app.command("list-file", help="Lista as contas do arquivo (ex: users.txt).")
-def list_file_accounts() -> None:
-    """Exibe as contas configuradas no arquivo de texto."""
-    container = get_container()
-    repo = container.conta_repository()
+@accounts_app.command("import", help="Importa contas de um arquivo de texto para o banco de dados.")
+def import_accounts(
+    file_path: str = typer.Argument(..., help="Caminho do arquivo users.txt (formato email:senha)."),
+    target: str = typer.Option("local", help="Destino: 'local' (sqlite) ou 'cloud' (supabase)."),
+) -> None:
+    """Carrega contas do arquivo e salva no banco de dados selecionado."""
+    console.print(f"[bold cyan]Importando contas de {file_path} para {target}...[/bold cyan]")
+    
+    fs = LocalFileSystem()
     try:
-        contas = repo.listar()
-        if not contas:
-            console.print("[yellow]Nenhuma conta encontrada no arquivo.[/yellow]")
-            return
-        
-        table = Table(title="Contas do Arquivo", show_header=True, header_style="bold magenta")
-        table.add_column("Email")
-        table.add_column("ID do Perfil")
-        for conta in contas:
-            table.add_row(conta.email, conta.id_perfil)
-        console.print(table)
-    except FileNotFoundError:
-        console.print("[bold red]❌ Arquivo de contas não encontrado.[/bold red]")
+        contas = fs.import_accounts_from_file(file_path)
+    except Exception as e:
+        console.print(f"[bold red]❌ Erro ao ler arquivo: {e}[/bold red]")
         raise typer.Exit(code=1)
 
-
-@accounts_app.command("list-db", help="Lista as contas do banco de dados.")
-def list_db_accounts() -> None:
-    """Exibe as contas configuradas no banco de dados."""
-    container = get_container()
-    repo = container.database_repository()
-    contas = repo.listar_contas()
-
     if not contas:
-        console.print("[yellow]Nenhuma conta encontrada no banco de dados.[/yellow]")
+        console.print("[yellow]Nenhuma conta válida encontrada no arquivo.[/yellow]")
         return
 
-    table = Table(title="Contas do Banco de Dados", show_header=True, header_style="bold magenta")
+    # Seleciona repositório
+    if target.lower() in ("cloud", "supabase"):
+        from raxy.infrastructure.database import SupabaseRepository
+        repo = SupabaseRepository()
+    else:
+        from raxy.infrastructure.database import SQLiteRepository
+        # Instancia repository sqlite padrão
+        repo = SQLiteRepository()
+
+    # Salva
+    sucesso = 0
+    with typer.progressbar(contas, label="Salvando contas") as progress:
+        for conta in progress:
+            try:
+                repo.salvar(conta)
+                sucesso += 1
+            except Exception as e:
+                console.print(f"[red]Falha ao salvar {conta.email}: {e}[/red]")
+
+    console.print(f"[bold green]✅ Importação concluída. {sucesso}/{len(contas)} contas salvas.[/bold green]")
+
+
+@accounts_app.command("list", help="Lista as contas do banco de dados.")
+def list_accounts(
+    source: str = typer.Option("local", help="Fonte: 'local' (sqlite) ou 'cloud' (supabase).")
+) -> None:
+    """Exibe as contas configuradas no banco de dados."""
+    
+    if source.lower() in ("cloud", "supabase"):
+        from raxy.infrastructure.database import SupabaseRepository
+        repo = SupabaseRepository()
+        title = "Contas Supabase (Cloud)"
+    else:
+        # Pega do container ou instancia direito
+        container = get_container()
+        repo = container.conta_repository()
+        title = "Contas SQLite (Local)"
+
+    try:
+        contas = repo.listar_contas()
+    except Exception as e:
+        console.print(f"[bold red]❌ Erro ao acessar banco: {e}[/bold red]")
+        return
+
+    if not contas:
+        console.print(f"[yellow]Nenhuma conta encontrada em {source}.[/yellow]")
+        return
+
+    table = Table(title=title, show_header=True, header_style="bold magenta")
     table.add_column("Email")
     table.add_column("ID do Perfil")
     table.add_column("Proxy")
@@ -211,12 +249,21 @@ def list_db_accounts() -> None:
     table.add_column("Última Farm")
 
     for conta in contas:
+        # Adapter para lidar com dict ou objeto dependendo da implementação
+        # listar_contas retorna lista de dicts no sqlite, mas vamos garantir
+        if hasattr(conta, "to_dict"):
+             dados = conta.to_dict()
+        elif isinstance(conta, dict):
+             dados = conta
+        else:
+             continue
+
         table.add_row(
-            str(conta.get("email", "-")),
-            str(conta.get("id_perfil", conta.get("perfil", "-"))),
-            str(conta.get("proxy", "-")),
-            str(conta.get("pontos", "-")),
-            str(conta.get("ultima_farm", "-")),
+            str(dados.get("email", "-")),
+            str(dados.get("id_perfil", dados.get("perfil", "-"))),
+            str(dados.get("proxy", "-")),
+            str(dados.get("pontos", "-")),
+            str(dados.get("ultima_farm", "-")),
         )
     console.print(table)
 

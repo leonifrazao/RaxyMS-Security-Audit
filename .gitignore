@@ -23,6 +23,7 @@ profiles.json
 # Arquivos locais de configuracao/credenciais
 users.txt
 dados.db
+raxy.db
 acli
 config.yaml
 
