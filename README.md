@@ -233,6 +233,23 @@ Contributions are what make the open source community such an amazing place to l
 
 
 
+<!-- LEGAL DISCLAIMER -->
+## Legal Disclaimer
+
+> [!IMPORTANT]
+> **This project is for educational and research purposes only.**
+
+By using this software, you agree to the following terms:
+
+1.  **No Liability**: The author(s) of this project are **not responsible** for any consequences resulting from the use of this tool. You accept full responsibility for your actions and any impact on your accounts.
+2.  **Educational Use**: This project was created solely to study automation techniques and software security. It is **not intended for profit** or to facilitate the violation of any Terms of Service.
+3.  **Microsoft Cooperation**: If you represent Microsoft and wish for this repository to be removed, please contact the author immediately. The project will be taken down upon request.
+4.  **Security Research**: Microsoft and other security teams are encouraged to use this codebase to understand current automation vectors, identifying vulnerabilities, and improving their detection systems to combat abuse. The author is available to assist in patching these loopholes.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+
 <!-- LICENSE -->
 ## License
 
