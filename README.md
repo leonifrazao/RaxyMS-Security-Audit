@@ -7,8 +7,6 @@
 [![Issues][issues-shield]][issues-url]
 [![Unlicense License][license-shield]][license-url]
 
-
-
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
@@ -18,7 +16,7 @@
   <p align="center">
     A powerful CLI automation tool for Microsoft Rewards farming, built with Python and designed for scalability.
     <br />
-    <a href="https://github.com/leonifrazao/MSRewardsFarm"><strong>Explore the docs »</strong></a>
+    <a href="docs/index.md"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <a href="https://github.com/leonifrazao/MSRewardsFarm">View Demo</a>
@@ -93,6 +91,19 @@ Unlike browser-extension based solutions, RaxyMS runs logically in the backend, 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+<!-- LEGAL DISCLAIMER -->
+## Legal Disclaimer
+
+> [!IMPORTANT]
+> **This project is for educational and research purposes only.**
+
+By using this software, you agree to the following terms:
+
+1.  **No Liability**: The author(s) of this project are **not responsible** for any consequences resulting from the use of this tool. You accept full responsibility for your actions and any impact on your accounts.
+2.  **Educational Use**: This project was created solely to study automation techniques and software security. It is **not intended for profit** or to facilitate the violation of any Terms of Service.
+3.  **Microsoft Cooperation**: If you represent Microsoft and wish for this repository to be removed, please contact the author immediately. The project will be taken down upon request.
+4.  **Security Research**: Microsoft and other security teams are encouraged to use this codebase to understand current automation vectors, identifying vulnerabilities, and improving their detection systems to combat abuse. The author is available to assist in patching these loopholes.
+
 
 
 <!-- GETTING STARTED -->
@@ -147,6 +158,8 @@ Inside the shell, you are ready to run the CLI.
     SUPABASE_URL=your_project_url
     SUPABASE_KEY=your_anon_key
     ```
+    
+    > **Note**: For detailed installation and configuration instructions, including advanced settings, please refer to the **[Installation Guide](docs/installation.md)** and **[Configuration Guide](docs/configuration.md)**.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -196,6 +209,8 @@ For a full list of commands and options, run:
 python cli.py --help
 ```
 
+> **Note**: For comprehensive usage examples, command details, and advanced strategies, see the **[Usage Guide](docs/usage.md)**.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
@@ -229,24 +244,13 @@ Contributions are what make the open source community such an amazing place to l
 4.  Push to the Branch (`git push origin feature/AmazingFeature`)
 5.  Open a Pull Request
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- LEGAL DISCLAIMER -->
-## Legal Disclaimer
-
-> [!IMPORTANT]
-> **This project is for educational and research purposes only.**
-
-By using this software, you agree to the following terms:
-
-1.  **No Liability**: The author(s) of this project are **not responsible** for any consequences resulting from the use of this tool. You accept full responsibility for your actions and any impact on your accounts.
-2.  **Educational Use**: This project was created solely to study automation techniques and software security. It is **not intended for profit** or to facilitate the violation of any Terms of Service.
-3.  **Microsoft Cooperation**: If you represent Microsoft and wish for this repository to be removed, please contact the author immediately. The project will be taken down upon request.
-4.  **Security Research**: Microsoft and other security teams are encouraged to use this codebase to understand current automation vectors, identifying vulnerabilities, and improving their detection systems to combat abuse. The author is available to assist in patching these loopholes.
+> **Note**: Developers should read the **[Development Guide](docs/development.md)** for architecture details and contribution standards.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+
+
 
 
 
