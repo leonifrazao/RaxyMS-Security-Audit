@@ -230,16 +230,47 @@ The project simulates a **realistic bot attack** against Microsoft Rewards to as
 
 ```mermaid
 flowchart TD
-    A[CLI: python cli.py run] --> B{Account Source}
-    B -->|Local| C[SQLite Database]
-    B -->|Cloud| D[Supabase]
-    C & D --> E[Executor Service]
-    E --> F[Proxy Service]
-    F --> G[Xray/V2Ray Bridge]
-    G --> H[Botasaurus Browser]
-    H --> I[Login -> Rewards -> Bing -> Flyout]
-    I --> J[Dashboard: Real-time Metrics]
-    J -->|Next Account| E
+    %% Top Level
+    CLI([CLI: python cli.py run]) --> SRC{Account Source}
+
+    %% Row 1: Data Layer
+    subgraph DATA [DATA PERSISTENCE]
+        direction LR
+        SQL[(SQLite Local)] 
+        SUP[(Supabase Cloud)]
+    end
+    
+    SRC -->|Local| SQL
+    SRC -->|Cloud| SUP
+
+    %% Row 2: Core Logic & Network
+    SQL & SUP --> EXE[[Executor Service]]
+
+    subgraph INFRA [INFRASTRUCTURE & NETWORKING]
+        direction LR
+        PRX[Proxy Service] --> BRG[Xray/V2Ray Bridge]
+    end
+
+    EXE --> INFRA
+
+    %% Row 3: Execution & Output
+    subgraph EXEC [AUTOMATION ENGINE]
+        direction LR
+        BOT[Botasaurus Browser] --> FLOW[Login & Task Flow]
+    end
+
+    INFRA --> EXEC
+    EXEC --> DSH{{Live Dashboard}}
+
+    %% Feedback Loop
+    DSH -.->|Loop Next Account| EXE
+
+    %% Styling for "Premium" look
+    style EXE fill:#6200ee,color:#fff,stroke-width:3px
+    style DATA fill:#e3f2fd,stroke:#1565c0,stroke-dasharray: 5 5
+    style INFRA fill:#f3e5f5,stroke:#7b1fa2
+    style EXEC fill:#fff9c4,stroke:#fbc02d
+    style DSH fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
 ```
 
 ### What Happens Per Account
