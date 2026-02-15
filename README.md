@@ -1,70 +1,10 @@
-
 <a id="readme-top"></a>
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-[![Unlicense License][license-shield]][license-url]
-[![Security Research][research-shield]][research-url]
-
-<!-- LEGAL DISCLAIMER -->
-## Legal Notice — Security Research Only
-
-
-> [!IMPORTANT]
-> **This project is a SECURITY RESEARCH tool. It is NOT intended for fraud, profit, or unauthorized access.**
-
-This project was developed to **test and demonstrate the effectiveness of Microsoft Rewards' bot detection systems**. The core finding is that **Microsoft's security works — bot activity is detected and fraudulent point redemptions are blocked.**
-
-By accessing or using this software, you acknowledge and agree:
-
-## THIS DONT WORK FOR REAL PROFIT! You will get banned:
-
-![Account suspended](docs/ban.png)
-
-### What This Project Proves
-
-- **Bot detection works**: Microsoft identifies automated activity patterns.
-- **Redemption blocking works**: Fraudulently accumulated points **cannot** be redeemed.
-- **Zero real gain**: The researcher was **unable to profit** from automation.
-- **Robust system**: No successful exploitation was possible.
-
-### Prohibited Uses
-
-- Real-world farming or automation of Microsoft Rewards points.
-- Commercial exploitation of any kind.
-- Any unauthorized access to Microsoft services.
-- Circumventing Microsoft's Terms of Service.
-
-### Permitted Uses (Educational)
-
-- Academic and security research.
-- Understanding bot detection mechanisms.
-- Security analysis and anti-bot pattern study.
-- Learning software architecture and design patterns.
-
-> [!WARNING]
-> This project did **NOT** result in any illicit gain. Microsoft detects and blocks the activity. All accumulated points are automatically blocked from redemption, **proving that the security system works effectively**.
-
-> **Microsoft Security Team**: If you are reviewing this project for internal security purposes, please reach out. This project was developed with constructive intent to demonstrate the robustness of your detection systems. The repository will be taken down immediately upon request, and the author is available to assist in strengthening defenses.
-
-### Visual Evidence of Detection
-
-**1. The Security Checkpoint**
-The accumulated points act as "ghost currency." When a redemption event is triggered (converting points to value), the security system analyzes the account's historical behavioral patterns (mouse movement, timing, proxy usage) and issues a suspension.
-
-![Account Suspended](docs/ban.png)
-
-**2. Activity Simulation (The "Honeypot" Effect)**
-The automation tool successfully logged in and performed activity simulation. As seen below, the system allowed the account to accumulate **4,759 points**, giving the appearance of success.
-
-![Points Accumulated](docs/antesdoban.png)
-
-**3. SMS verification**
-Even if an automated account manages to accumulate points, Microsoft imposes a mandatory Identity Verification Gate at the exact moment of redemption. This mechanism requires a unique, valid phone number for SMS verification.
-
-![SMS Verification](docs/sms.png)
+[![GPL-3.0 License][license-shield]][license-url]
 
 <!-- PROJECT LOGO -->
 <br />
@@ -73,7 +13,7 @@ Even if an automated account manages to accumulate points, Microsoft imposes a m
   <h3 align="center">RaxyMS</h3>
 
   <p align="center">
-    A security research tool for testing Microsoft Rewards bot detection systems. Built with Python and Clean Architecture.
+    A distributed automation framework built with Python, Clean Architecture, and professional-grade design patterns — born from a childhood project reimagined with real engineering.
     <br />
     <a href="docs/index.md"><strong>Explore the docs »</strong></a>
     <br />
@@ -93,9 +33,12 @@ Even if an automated account manages to accumulate points, Microsoft imposes a m
   <summary>Table of Contents</summary>
   <ol>
     <li>
+      <a href="#the-story">The Story</a>
+    </li>
+    <li>
       <a href="#about-the-project">About The Project</a>
       <ul>
-        <li><a href="#key-findings">Key Findings</a></li>
+        <li><a href="#what-i-learned">What I Learned</a></li>
       </ul>
     </li>
     <li><a href="#technical-stack">Technical Stack</a></li>
@@ -106,8 +49,12 @@ Even if an automated account manages to accumulate points, Microsoft imposes a m
       </ul>
     </li>
     <li><a href="#features">Features</a></li>
-    <li><a href="#how-it-works">How It Works</a></li>
-    <li><a href="#research-methodology">Research Methodology</a></li>
+    <li>
+      <a href="#how-it-works">How It Works</a>
+      <ul>
+        <li><a href="#execution-pipeline">Execution Pipeline</a></li>
+      </ul>
+    </li>
     <li>
       <a href="#installation">Installation</a>
       <ul>
@@ -116,7 +63,7 @@ Even if an automated account manages to accumulate points, Microsoft imposes a m
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
-    <li><a href="#findings--conclusions">Findings & Conclusions</a></li>
+    <li><a href="#why-it-doesnt-work">Why It Doesn't Work</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
@@ -126,26 +73,54 @@ Even if an automated account manages to accumulate points, Microsoft imposes a m
 
 
 
-<!-- ABOUT THE PROJECT -->
-## About The Project
+<!-- THE STORY -->
+## The Story
 
-**RaxyMS** is a security research project designed to evaluate the robustness of Microsoft Rewards' anti-bot detection mechanisms. It simulates a full-scale automation attempt — including login, activity simulation, proxy rotation, and multi-account management — to determine whether Microsoft can detect and neutralize such behavior.
+When I was 12, I built a janky bot to farm Robux on Roblox. It barely worked, the code was terrible, and I learned more from that broken script than from any tutorial.
 
-**This research follows responsible disclosure practices and serves the security community by validating anti-fraud infrastructure.**
+Years later, I revisited the same concept, automated interaction with a rewards platform. But this time the goal was completely different. I wasn't trying to exploit anything. I already knew modern anti-bot systems had evolved far beyond what a simple script could bypass. **I wanted to see if I could build the same idea with real software engineering.**
 
-**The conclusion is clear: Microsoft's systems are effective.** Bot activity is identified, flagged, and fraudulent points are blocked before redemption. This project serves as proof of that effectiveness.
+The result is RaxyMS: a distributed automation framework built with Clean Architecture, Dependency Injection, Domain-Driven Design, and an async pipeline. The domain happens to be Microsoft Rewards automation, but the project exists as an **exercise in software architecture and systems design**.
+
+> **Does it work for farming points?** No. Microsoft detects and blocks automated activity. Accounts get suspended, points can't be redeemed. The anti-bot systems win — as expected.
+>
+> **Does it work as an engineering portfolio piece?** That's the point.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-### Key Findings
 
-| Area | Result | Details |
-| :--- | :---: | :--- |
-| **Bot Detection** | Works | Activity patterns are identified and flagged. |
-| **Redemption Blocking** | Works | Fraudulent points cannot be redeemed. |
-| **Financial Gain** | Zero | Researcher was unable to profit. |
-| **System Robustness** | Strong | No successful exploitation was possible. |
+<!-- ABOUT THE PROJECT -->
+## About The Project
+
+**RaxyMS** is a Python automation framework that implements a full pipeline: account management, proxy rotation, headless browser orchestration, batch processing, and real-time monitoring — all structured with professional-grade architecture.
+
+The project was built to practice and demonstrate:
+
+- **Clean Architecture** with strict layer separation
+- **Dependency Injection** with a centralized container
+- **Domain-Driven Design** with isolated business entities
+- **Async distributed processing** with batch orchestration
+- **Infrastructure abstraction** with swappable adapters (SQLite ↔ Supabase)
+- **Professional CLI** with Typer and Rich dashboard
+
+The application domain (rewards automation) was chosen because it's a problem space I've understood since childhood — which let me focus entirely on architecture and engineering quality rather than learning a new domain.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+### What I Learned
+
+Building this project taught me more about real-world software engineering than any course:
+
+| Area | Lesson |
+| :--- | :--- |
+| **Architecture** | How Clean Architecture and DDD work in practice, not just theory |
+| **Dependency Injection** | Why DI containers matter when a system grows beyond a few files |
+| **Async Programming** | Managing concurrent browser sessions with shared state |
+| **Infrastructure** | Proxy lifecycle management, network tunneling, dual storage sync |
+| **Anti-Bot Systems** | How behavioral analysis, fingerprinting, and multi-layer detection actually work |
+| **DevOps** | Reproducible environments with Nix, cross-platform packaging |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -159,11 +134,11 @@ Even if an automated account manages to accumulate points, Microsoft imposes a m
 | [![Python][Python.org]][Python-url] **Python 3.10** | Core language |
 | [Botasaurus](https://github.com/omkarcloud/botasaurus) | Headless browser automation |
 | [Typer](https://typer.tiangolo.com/) | CLI framework |
-| [Rich](https://rich.readthedocs.io/en/stable/) | Terminal UI & dashboard |
+| [Rich](https://rich.readthedocs.io/en/stable/) | Terminal UI & real-time dashboard |
 | [Xray / V2Ray](https://github.com/XTLS/Xray-core) | Proxy tunnel system |
 | [SQLite](https://www.sqlite.org/index.html) | Local data storage |
 | [Supabase](https://supabase.com/) | Cloud data sync |
-| [Mail.tm](https://mail.tm/) | Temporary email for 2FA |
+| [Mail.tm](https://mail.tm/) | Email verification handling |
 | [dependency-injector](https://python-dependency-injector.ets-labs.org/) | Dependency Injection container |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -173,16 +148,16 @@ Even if an automated account manages to accumulate points, Microsoft imposes a m
 <!-- ARCHITECTURE -->
 ## Architecture & Design Patterns
 
-RaxyMS follows **Clean Architecture** principles with well-defined layers and professional-grade design patterns:
+This is where the real value of the project lives. RaxyMS follows **Clean Architecture** principles with well-defined layers and professional-grade design patterns:
 
 | Pattern | Application |
 | :--- | :--- |
-| **Dependency Injection** | Centralized DI container (`container.py`) for all services. |
-| **Adapter Pattern** | `BotasaurusDriver` adapts the browser automation library to a clean interface. |
-| **Strategy Pattern** | Abstract service interfaces allow swapping implementations (e.g., SQLite ↔ Supabase). |
-| **Domain-Driven Design** | Business entities (`Conta`, `Proxy`) are isolated from infrastructure. |
-| **Domain Events** | Audit trail and observability through event dispatching. |
-| **Clean Architecture** | Strict separation: Domain → Interfaces → Services → Infrastructure. |
+| **Dependency Injection** | Centralized DI container (`container.py`) for all services |
+| **Adapter Pattern** | `BotasaurusDriver` adapts the browser automation library to a clean interface |
+| **Strategy Pattern** | Abstract service interfaces allow swapping implementations (e.g., SQLite ↔ Supabase) |
+| **Domain-Driven Design** | Business entities (`Conta`, `Proxy`) are isolated from infrastructure |
+| **Domain Events** | Audit trail and observability through event dispatching |
+| **Clean Architecture** | Strict separation: Domain → Interfaces → Services → Infrastructure |
 
 ### Code Structure
 
@@ -218,16 +193,16 @@ raxy_project/
 <!-- FEATURES -->
 ## Features
 
-RaxyMS implements a comprehensive automation pipeline to thoroughly test detection systems:
+RaxyMS implements a complete automation pipeline with the following capabilities:
 
-*   **Automated Login**: Simulates Microsoft account sign-in with session management and retry logic.
-*   **Activity Simulation**: Performs searches, clicks, and navigates with randomized delays to mimic human behavior.
-*   **Batch Processing**: Executes tasks across multiple accounts in parallel with configurable worker threads.
-*   **Proxy System**: Full proxy lifecycle via Xray/V2Ray — auto-testing, rotation, country filtering, and bridge management.
-*   **Real-time Dashboard**: Terminal-based live metrics and status updates using Rich.
-*   **Session Management**: Automatic retry on failure with configurable attempts and timeouts.
-*   **Temporary Email (2FA)**: Integrates Mail.tm for handling two-factor authentication challenges.
-*   **Dual Storage**: Accounts stored locally (SQLite) or synced to the cloud (Supabase).
+*   **Automated Login** — Session management with retry logic and error recovery
+*   **Activity Simulation** — Searches, clicks, and navigation with randomized human-like delays
+*   **Batch Processing** — Parallel execution across multiple accounts with configurable worker threads
+*   **Proxy System** — Full proxy lifecycle: auto-testing, rotation, country filtering, bridge management via Xray/V2Ray
+*   **Real-time Dashboard** — Terminal-based live metrics and status updates using Rich
+*   **Session Management** — Automatic retry on failure with configurable attempts and timeouts
+*   **Email Verification** — Mail.tm integration for handling 2FA challenges on existing accounts
+*   **Dual Storage** — Local persistence (SQLite) or cloud sync (Supabase) with swappable adapters
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -236,24 +211,20 @@ RaxyMS implements a comprehensive automation pipeline to thoroughly test detecti
 <!-- HOW IT WORKS -->
 ## How It Works
 
-### The Research Process
+The system follows a straightforward pipeline:
 
-The project simulates a **realistic bot attack** against Microsoft Rewards to assess detection effectiveness:
-
-1.  **Setup**: Accounts and proxies are initialized from local or cloud storage.
-2.  **Simulation**: Automated activity is performed (searches, clicks, navigation with randomized delays).
-3.  **Detection**: Microsoft identifies bot patterns in the simulated activity.
-4.  **Blocking**: Fraudulent points are blocked from redemption.
-5.  **Analysis**: Results are documented and detection mechanisms are studied.
+1.  **Load** — Accounts and proxies are initialized from local or cloud storage
+2.  **Connect** — Proxy bridges are established and tested
+3.  **Execute** — Automated browser sessions perform login and activity simulation
+4.  **Monitor** — Real-time dashboard tracks progress, errors, and session status
+5.  **Loop** — System moves to next account in the batch
 
 ### Execution Pipeline
 
 ```mermaid
 flowchart TD
-    %% Top Level
     CLI([CLI: python cli.py run]) --> SRC{Account Source}
 
-    %% Row 1: Data Layer
     subgraph DATA [DATA PERSISTENCE]
         direction LR
         SQL[(SQLite Local)] 
@@ -263,7 +234,6 @@ flowchart TD
     SRC -->|Local| SQL
     SRC -->|Cloud| SUP
 
-    %% Row 2: Core Logic & Network
     SQL & SUP --> EXE[[Executor Service]]
 
     subgraph INFRA [INFRASTRUCTURE & NETWORKING]
@@ -273,7 +243,6 @@ flowchart TD
 
     EXE --> INFRA
 
-    %% Row 3: Execution & Output
     subgraph EXEC [AUTOMATION ENGINE]
         direction LR
         BOT[Botasaurus Browser] --> FLOW[Login & Task Flow]
@@ -282,51 +251,14 @@ flowchart TD
     INFRA --> EXEC
     EXEC --> DSH{{Live Dashboard}}
 
-    %% Feedback Loop
     DSH -.->|Loop Next Account| EXE
 
-    %% Styling for "Premium" look
     style EXE fill:#6200ee,color:#fff,stroke-width:3px
     style DATA fill:#e3f2fd,stroke:#1565c0,stroke-dasharray: 5 5
     style INFRA fill:#f3e5f5,stroke:#7b1fa2
     style EXEC fill:#fff9c4,stroke:#fbc02d
     style DSH fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
 ```
-
-### What Happens Per Account
-
-Each account encounters these stages during execution:
-
-| Stage | Outcome |
-| :--- | :--- |
-| **Login** | Successful — session established |
-| **Activity** | Simulated — searches, clicks, navigation |
-| **Detection** | Bot detected by Microsoft |
-| **Redemption** | Blocked — no exploitation possible |
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- RESEARCH METHODOLOGY -->
-## Research Methodology
-
-### Hypothesis
-
-Can Microsoft Rewards' bot detection be circumvented through sophisticated automation techniques (headless browsers, proxy rotation, randomized delays, multi-account management)?
-
-### Methodology
-
-1.  Develop a proof-of-concept automation tool with professional-grade architecture.
-2.  Implement best practices for evasion: rotating proxies, randomized human-like delays, browser fingerprint management.
-3.  Attempt to accumulate and redeem points across multiple accounts.
-4.  Document all detection and blocking mechanisms encountered.
-
-### Results
-
-**Hypothesis: Rejected.**
-
-Microsoft's systems successfully detected and blocked all exploitation attempts, proving the robustness of their defenses. The automation was identified regardless of proxy rotation, delay randomization, or browser fingerprint changes.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -341,7 +273,7 @@ If you have [Nix](https://nixos.org/download.html) installed, the included `shel
 
 ```sh
 git clone https://github.com/leonifrazao/RaxyMS-Security-Audit.git
-cd RaxyMS-Security-Audit
+cd RaxyMS
 nix-shell
 ```
 
@@ -351,7 +283,7 @@ This provisions Python 3.10, system libraries (`glib`, `zlib`, `stdenv`), `xray`
 
 ```sh
 git clone https://github.com/leonifrazao/RaxyMS-Security-Audit.git
-cd RaxyMS-Security-Audit/raxy_project
+cd RaxyMS/raxy_project
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -379,25 +311,21 @@ SUPABASE_KEY=your_anon_key
 ## Usage
 
 ```sh
-# Run automation for all configured accounts
+# Run automation pipeline
 python cli.py run
 
 # Run for a single account
 python cli.py run --email user@example.com --password yourpassword
 
-# Import accounts from file (email:password per line)
+# Account management
 python cli.py accounts import users.txt
-
-# List all stored accounts
 python cli.py accounts list
 
-# Test proxy connectivity
+# Proxy management
 python cli.py proxy test --threads 20 --country US
-
-# Start proxy bridges
 python cli.py proxy start
 
-# Full help
+# Help
 python cli.py --help
 ```
 
@@ -407,40 +335,34 @@ python cli.py --help
 
 
 
-<!-- FINDINGS & CONCLUSIONS -->
-## Findings & Conclusions
+<!-- WHY IT DOESN'T WORK -->
+## Why It Doesn't Work
 
-### Security Assessment Results
+To be clear: **this tool does not successfully farm Microsoft Rewards points.** Microsoft's anti-bot infrastructure detects and blocks automated activity effectively.
 
-After extensive testing, the research concludes that **Microsoft Rewards has a robust and effective anti-bot system**:
+Here's what happens when you run it:
 
-| Test Vector | Microsoft Response | Effectiveness |
-| :--- | :--- | :---: |
-| Automated searches | Pattern detected and flagged | High |
-| Multi-account batch processing | Accounts flagged for suspicious activity | High |
-| Proxy rotation (multiple IPs) | Detection persists despite IP changes | High |
-| Headless browser fingerprinting | Browser signatures identified | High |
-| Point redemption attempts | **Blocked before redemption** | Critical |
+| Stage | What Happens |
+| :--- | :--- |
+| **Login** | Works — session is established |
+| **Activity** | Works — searches and clicks are performed |
+| **Points** | Accumulate temporarily (appear in the dashboard) |
+| **Redemption** | **Blocked** — Microsoft flags the account and suspends it |
 
-### Conclusion
+![Account suspended](docs/ban.png)
 
-> Microsoft's bot detection infrastructure successfully identifies automated activity regardless of sophistication level. The system demonstrates multiple layers of defense — from behavioral analysis to redemption-stage verification — ensuring that fraudulent points have **zero monetary value**.
+Microsoft's detection covers multiple layers — behavioral analysis, browser fingerprinting, IP reputation, and redemption-stage identity verification (SMS). Even with proxy rotation and randomized delays, the system identifies automated patterns.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-### Top contributors:
-
-<a href="https://github.com/leonifrazao/RaxyMS-Security-Audit/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=leonifrazao/RaxyMS-Security-Audit" alt="contrib.rocks image" />
-</a>
+I knew this going in. The 12-year-old me would have been disappointed, but the point of this project was never to beat the system — it was to build something real with the tools I've learned since then.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
 
 <!-- CONTRIBUTING -->
 ## Contributing
 
-Contributions to improve the research methodology or codebase are welcome.
+Contributions to improve the architecture or codebase are welcome.
 
 1.  Fork the Project
 2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
@@ -448,7 +370,7 @@ Contributions to improve the research methodology or codebase are welcome.
 4.  Push to the Branch (`git push origin feature/AmazingFeature`)
 5.  Open a Pull Request
 
-> **Note**: Developers should read the **[Development Guide](docs/development.md)** for architecture details and contribution standards.
+> **Note**: See the **[Development Guide](docs/development.md)** for architecture details and contribution standards.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -466,7 +388,7 @@ Distributed under the GPL-3.0 license. See `LICENSE` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Leoni Frazão - leoni.frazao.oliveira@gmail.com
+Leoni Frazão — leoni.frazao.oliveira@gmail.com
 
 Project Link: [https://github.com/leonifrazao/RaxyMS-Security-Audit](https://github.com/leonifrazao/RaxyMS-Security-Audit)
 
@@ -497,8 +419,6 @@ Project Link: [https://github.com/leonifrazao/RaxyMS-Security-Audit](https://git
 [issues-shield]: https://img.shields.io/github/issues/leonifrazao/RaxyMS-Security-Audit.svg?style=for-the-badge
 [issues-url]: https://github.com/leonifrazao/RaxyMS-Security-Audit/issues
 [license-shield]: https://img.shields.io/github/license/leonifrazao/RaxyMS-Security-Audit.svg?style=for-the-badge
-[license-url]: https://github.com/leonifrazao/RaxyMS-Security-Audit/blob/master/LICENSE.txt
+[license-url]: https://github.com/leonifrazao/RaxyMS-Security-Audit-Security-Audit/blob/master/LICENSE
 [Python.org]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
 [Python-url]: https://python.org
-[research-shield]: https://img.shields.io/badge/Security%20Research-Yes-brightgreen?style=for-the-badge
-[research-url]: #legal-notice--security-research-only
