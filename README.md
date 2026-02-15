@@ -58,11 +58,11 @@ By accessing or using this software, you acknowledge and agree:
     <a href="docs/index.md"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/leonifrazao/MSRewardsFarm">Repository</a>
+    <a href="https://github.com/leonifrazao/RaxyMS-Security-Audit">Repository</a>
     &middot;
-    <a href="https://github.com/leonifrazao/MSRewardsFarm/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="https://github.com/leonifrazao/RaxyMS-Security-Audit/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     &middot;
-    <a href="https://github.com/leonifrazao/MSRewardsFarm/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/leonifrazao/RaxyMS-Security-Audit/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
 </div>
 
@@ -289,8 +289,8 @@ Microsoft's systems successfully detected and blocked all exploitation attempts,
 If you have [Nix](https://nixos.org/download.html) installed, the included `shell.nix` sets up everything automatically:
 
 ```sh
-git clone https://github.com/leonifrazao/MSRewardsFarm.git
-cd MSRewardsFarm
+git clone https://github.com/leonifrazao/RaxyMS-Security-Audit.git
+cd RaxyMS-Security-Audit
 nix-shell
 ```
 
@@ -299,8 +299,8 @@ This provisions Python 3.10, system libraries (`glib`, `zlib`, `stdenv`), `xray`
 ### Option 2: Manual Installation
 
 ```sh
-git clone https://github.com/leonifrazao/MSRewardsFarm.git
-cd MSRewardsFarm/raxy_project
+git clone https://github.com/leonifrazao/RaxyMS-Security-Audit.git
+cd RaxyMS-Security-Audit/raxy_project
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -380,8 +380,8 @@ After extensive testing, the research concludes that **Microsoft Rewards has a r
 
 ### Top contributors:
 
-<a href="https://github.com/leonifrazao/MSRewardsFarm/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=leonifrazao/MSRewardsFarm" alt="contrib.rocks image" />
+<a href="https://github.com/leonifrazao/RaxyMS-Security-Audit/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=leonifrazao/RaxyMS-Security-Audit" alt="contrib.rocks image" />
 </a>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -417,7 +417,7 @@ Distributed under the GPL-3.0 license. See `LICENSE` for more information.
 
 Leoni Frazão - leoni.frazao.oliveira@gmail.com
 
-Project Link: [https://github.com/leonifrazao/MSRewardsFarm](https://github.com/leonifrazao/MSRewardsFarm)
+Project Link: [https://github.com/leonifrazao/RaxyMS-Security-Audit](https://github.com/leonifrazao/RaxyMS-Security-Audit)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -437,16 +437,16 @@ Project Link: [https://github.com/leonifrazao/MSRewardsFarm](https://github.com/
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[contributors-shield]: https://img.shields.io/github/contributors/leonifrazao/MSRewardsFarm.svg?style=for-the-badge
-[contributors-url]: https://github.com/leonifrazao/MSRewardsFarm/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/leonifrazao/MSRewardsFarm.svg?style=for-the-badge
-[forks-url]: https://github.com/leonifrazao/MSRewardsFarm/network/members
-[stars-shield]: https://img.shields.io/github/stars/leonifrazao/MSRewardsFarm.svg?style=for-the-badge
-[stars-url]: https://github.com/leonifrazao/MSRewardsFarm/stargazers
-[issues-shield]: https://img.shields.io/github/issues/leonifrazao/MSRewardsFarm.svg?style=for-the-badge
-[issues-url]: https://github.com/leonifrazao/MSRewardsFarm/issues
-[license-shield]: https://img.shields.io/github/license/leonifrazao/MSRewardsFarm.svg?style=for-the-badge
-[license-url]: https://github.com/leonifrazao/MSRewardsFarm/blob/master/LICENSE.txt
+[contributors-shield]: https://img.shields.io/github/contributors/leonifrazao/RaxyMS-Security-Audit.svg?style=for-the-badge
+[contributors-url]: https://github.com/leonifrazao/RaxyMS-Security-Audit/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/leonifrazao/RaxyMS-Security-Audit.svg?style=for-the-badge
+[forks-url]: https://github.com/leonifrazao/RaxyMS-Security-Audit/network/members
+[stars-shield]: https://img.shields.io/github/stars/leonifrazao/RaxyMS-Security-Audit.svg?style=for-the-badge
+[stars-url]: https://github.com/leonifrazao/RaxyMS-Security-Audit/stargazers
+[issues-shield]: https://img.shields.io/github/issues/leonifrazao/RaxyMS-Security-Audit.svg?style=for-the-badge
+[issues-url]: https://github.com/leonifrazao/RaxyMS-Security-Audit/issues
+[license-shield]: https://img.shields.io/github/license/leonifrazao/RaxyMS-Security-Audit.svg?style=for-the-badge
+[license-url]: https://github.com/leonifrazao/RaxyMS-Security-Audit/blob/master/LICENSE.txt
 [Python.org]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
 [Python-url]: https://python.org
 [research-shield]: https://img.shields.io/badge/Security%20Research-Yes-brightgreen?style=for-the-badge
