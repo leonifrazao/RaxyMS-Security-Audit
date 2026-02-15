@@ -61,6 +61,11 @@ The automation tool successfully logged in and performed activity simulation. As
 
 ![Points Accumulated](docs/antesdoban.png)
 
+**3. SMS verification**
+Even if an automated account manages to accumulate points, Microsoft imposes a mandatory Identity Verification Gate at the exact moment of redemption. This mechanism requires a unique, valid phone number for SMS verification.
+
+![SMS Verification](docs/sms.png)
+
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
