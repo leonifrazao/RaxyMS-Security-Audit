@@ -8,8 +8,6 @@
 [![Unlicense License][license-shield]][license-url]
 [![Security Research][research-shield]][research-url]
 
-### Visual Evidence of Detection
-
 <!-- LEGAL DISCLAIMER -->
 ## Legal Notice — Security Research Only
 
@@ -51,6 +49,7 @@ By accessing or using this software, you acknowledge and agree:
 
 > **Microsoft Security Team**: If you are reviewing this project for internal security purposes, please reach out. This project was developed with constructive intent to demonstrate the robustness of your detection systems. The repository will be taken down immediately upon request, and the author is available to assist in strengthening defenses.
 
+### Visual Evidence of Detection
 
 **1. The Security Checkpoint**
 The accumulated points act as "ghost currency." When a redemption event is triggered (converting points to value), the security system analyzes the account's historical behavioral patterns (mouse movement, timing, proxy usage) and issues a suspension.
