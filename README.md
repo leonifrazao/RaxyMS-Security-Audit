@@ -8,8 +8,11 @@
 [![Unlicense License][license-shield]][license-url]
 [![Security Research][research-shield]][research-url]
 
+### Visual Evidence of Detection
+
 <!-- LEGAL DISCLAIMER -->
 ## Legal Notice — Security Research Only
+
 
 > [!IMPORTANT]
 > **This project is a SECURITY RESEARCH tool. It is NOT intended for fraud, profit, or unauthorized access.**
@@ -17,6 +20,10 @@
 This project was developed to **test and demonstrate the effectiveness of Microsoft Rewards' bot detection systems**. The core finding is that **Microsoft's security works — bot activity is detected and fraudulent point redemptions are blocked.**
 
 By accessing or using this software, you acknowledge and agree:
+
+## THIS DONT WORK FOR REAL PROFIT! You will get banned:
+
+![Account suspended](docs/ban.png)
 
 ### What This Project Proves
 
@@ -45,6 +52,15 @@ By accessing or using this software, you acknowledge and agree:
 > **Microsoft Security Team**: If you are reviewing this project for internal security purposes, please reach out. This project was developed with constructive intent to demonstrate the robustness of your detection systems. The repository will be taken down immediately upon request, and the author is available to assist in strengthening defenses.
 
 
+**1. The Security Checkpoint**
+The accumulated points act as "ghost currency." When a redemption event is triggered (converting points to value), the security system analyzes the account's historical behavioral patterns (mouse movement, timing, proxy usage) and issues a suspension.
+
+![Account Suspended](docs/ban.png)
+
+**2. Activity Simulation (The "Honeypot" Effect)**
+The automation tool successfully logged in and performed activity simulation. As seen below, the system allowed the account to accumulate **4,759 points**, giving the appearance of success.
+
+![Points Accumulated](docs/antesdoban.png)
 
 <!-- PROJECT LOGO -->
 <br />
